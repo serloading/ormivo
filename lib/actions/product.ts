@@ -9,6 +9,7 @@ export type ProductFormData = {
   description: string;
   price: number;
   comparePrice?: number;
+  costPrice?: number;
   categoryId?: string;
   stock: number;
   isActive: boolean;

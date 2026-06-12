@@ -14,6 +14,7 @@ export type OrderFormData = {
   customerId: string;
   items: OrderItem[];
   total: number;
+  shippingFee?: number | null;
   note?: string;
 };
 
@@ -27,7 +28,14 @@ export async function getOrders() {
 export async function createOrder(data: OrderFormData) {
   const orderNo = `ORV-${Date.now()}`;
   await prisma.order.create({
-    data: { orderNo, ...data, items: data.items as never },
+    data: {
+      orderNo,
+      customerId: data.customerId,
+      items: data.items as never,
+      total: data.total,
+      shippingFee: data.shippingFee ?? null,
+      note: data.note,
+    },
   });
   revalidatePath("/admin/siparisler");
   return { success: true };

@@ -28,6 +28,7 @@ model Product {
   description  String?
   price        Decimal   @db.Decimal(10, 2)
   comparePrice Decimal?  @db.Decimal(10, 2)
+  costPrice    Decimal?  @db.Decimal(10, 2)
   images       String[]
   categoryId   String?
   category     Category? @relation(fields: [categoryId], references: [id])
@@ -57,9 +58,10 @@ model Order {
   customerId String
   customer   Customer      @relation(fields: [customerId], references: [id])
   items      Json
-  total      Decimal       @db.Decimal(10, 2)
-  status     OrderStatus   @default(PENDING)
-  note       String?
+  total       Decimal       @db.Decimal(10, 2)
+  shippingFee Decimal?      @db.Decimal(10, 2)
+  status      OrderStatus   @default(PENDING)
+  note        String?
   cargo      CargoTracking?
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt

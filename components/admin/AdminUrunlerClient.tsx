@@ -8,8 +8,8 @@ import { toggleProductActive, deleteProduct } from "@/lib/actions/product";
 type Category = { id: string; name: string; slug: string };
 type Product = {
   id: string; name: string; slug: string; price: number | string;
-  comparePrice?: number | string | null; stock: number; isActive: boolean;
-  category?: Category | null;
+  comparePrice?: number | string | null; costPrice?: number | string | null;
+  stock: number; isActive: boolean; category?: Category | null;
 };
 
 export default function AdminUrunlerClient({
@@ -78,7 +78,7 @@ export default function AdminUrunlerClient({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[#e8ddd6] bg-[#faf8f6]">
-                {["Ürün", "Kategori", "Fiyat", "Stok", "Durum", ""].map((h) => (
+                {["Ürün", "Kategori", "Satış Fiyatı", "Geliş Fiyatı", "Stok", "Durum", ""].map((h) => (
                   <th key={h} className="text-left px-6 py-4 text-xs tracking-widest text-[#8b6f5e] uppercase font-medium">{h}</th>
                 ))}
               </tr>
@@ -92,8 +92,10 @@ export default function AdminUrunlerClient({
                   </td>
                   <td className="px-6 py-4 text-[#5c4033]">{product.category?.name ?? "—"}</td>
                   <td className="px-6 py-4">
-                    <span className="text-[#2c1810]">{Number(product.price).toLocaleString("tr-TR")} ₺</span>
-                    {product.comparePrice && <span className="text-xs text-[#b8a89e] line-through ml-2">{Number(product.comparePrice).toLocaleString("tr-TR")} ₺</span>}
+                    <span className="text-[#2c1810] font-medium">{Number(product.price).toLocaleString("tr-TR")} ₺</span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-[#8b6f5e] text-xs">{product.costPrice ? `${Number(product.costPrice).toLocaleString("tr-TR")} ₺` : "—"}</span>
                   </td>
                   <td className="px-6 py-4">
                     <span className={product.stock === 0 ? "text-red-600 font-medium" : product.stock < 5 ? "text-orange-500 font-medium" : "text-[#5c4033]"}>{product.stock}</span>
