@@ -10,7 +10,9 @@ export type ProductFormData = {
   price: number;
   comparePrice?: number;
   costPrice?: number;
+  costPriceUsd?: number;
   categoryId?: string;
+  brandId?: string;
   stock: number;
   isActive: boolean;
   images: string[];
@@ -19,7 +21,7 @@ export type ProductFormData = {
 export async function getProducts() {
   return prisma.product.findMany({
     where: { deletedAt: null },
-    include: { category: true },
+    include: { category: true, brand: true },
     orderBy: { createdAt: "desc" },
   });
 }
@@ -27,7 +29,7 @@ export async function getProducts() {
 export async function getProductBySlug(slug: string) {
   return prisma.product.findFirst({
     where: { slug, deletedAt: null, isActive: true },
-    include: { category: true },
+    include: { category: true, brand: true },
   });
 }
 

@@ -8,21 +8,23 @@ export const metadata = {
 export default async function UrunlerPage({
   searchParams,
 }: {
-  searchParams: Promise<{ kategori?: string }>;
+  searchParams: Promise<{ kategori?: string; marka?: string }>;
 }) {
-  const { kategori: aktifKategori = "tumu" } = await searchParams;
+  const { kategori: aktifKategori = "tumu", marka: aktifMarka = "" } = await searchParams;
 
-  const [products, categories] = await Promise.all([
+  const [products, categories, brands] = await Promise.all([
     prisma.product.findMany({
       where: {
         deletedAt: null,
         isActive: true,
         ...(aktifKategori !== "tumu" ? { category: { slug: aktifKategori } } : {}),
+        ...(aktifMarka ? { brand: { slug: aktifMarka } } : {}),
       },
-      include: { category: true },
+      include: { category: true, brand: true },
       orderBy: { createdAt: "desc" },
     }),
     prisma.category.findMany({ orderBy: { name: "asc" } }),
+    prisma.brand.findMany({ orderBy: { name: "asc" } }),
   ]);
 
   return (
@@ -33,18 +35,31 @@ export default async function UrunlerPage({
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-12">
-        <div className="flex flex-wrap gap-2 mb-10 justify-center">
+        {/* Kategori filtresi */}
+        <div className="flex flex-wrap gap-2 mb-4 justify-center">
           <a href="/urunler"
-            className={`px-5 py-2 text-xs tracking-widest uppercase border transition-colors ${aktifKategori === "tumu" ? "bg-[#2c1810] text-[#f5f0eb] border-[#2c1810]" : "border-[#d4c5ba] text-[#5c4033] hover:bg-[#f5f0eb]"}`}>
+            className={`px-5 py-2 text-xs tracking-widest uppercase border transition-colors ${aktifKategori === "tumu" && !aktifMarka ? "bg-[#2c1810] text-[#f5f0eb] border-[#2c1810]" : "border-[#d4c5ba] text-[#5c4033] hover:bg-[#f5f0eb]"}`}>
             Tümü
           </a>
           {categories.map((cat) => (
-            <a key={cat.slug} href={`/urunler?kategori=${cat.slug}`}
+            <a key={cat.slug} href={`/urunler?kategori=${cat.slug}${aktifMarka ? `&marka=${aktifMarka}` : ""}`}
               className={`px-5 py-2 text-xs tracking-widest uppercase border transition-colors ${aktifKategori === cat.slug ? "bg-[#2c1810] text-[#f5f0eb] border-[#2c1810]" : "border-[#d4c5ba] text-[#5c4033] hover:bg-[#f5f0eb]"}`}>
               {cat.name}
             </a>
           ))}
         </div>
+
+        {/* Marka filtresi */}
+        {brands.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-10 justify-center">
+            {brands.map((b) => (
+              <a key={b.slug} href={`/urunler?${aktifKategori !== "tumu" ? `kategori=${aktifKategori}&` : ""}marka=${b.slug}`}
+                className={`px-4 py-1.5 text-xs tracking-wide uppercase border rounded-full transition-colors ${aktifMarka === b.slug ? "bg-[#8b6f5e] text-[#f5f0eb] border-[#8b6f5e]" : "border-[#d4c5ba] text-[#8b6f5e] hover:bg-[#f5f0eb]"}`}>
+                {b.name}
+              </a>
+            ))}
+          </div>
+        )}
 
         <p className="text-xs text-[#b8a89e] text-center mb-8">{products.length} ürün</p>
 
@@ -56,7 +71,7 @@ export default async function UrunlerPage({
           </div>
         ) : (
           <div className="text-center py-20">
-            <p className="text-[#b8a89e] text-sm">Bu kategoride ürün bulunamadı.</p>
+            <p className="text-[#b8a89e] text-sm">Bu filtrede ürün bulunamadı.</p>
           </div>
         )}
       </div>

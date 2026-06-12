@@ -20,12 +20,14 @@ export async function POST(req: NextRequest) {
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
 
+  const folder = (formData.get("folder") as string | null) ?? "uploads";
+  const safefolder = folder === "logos" ? "logos" : "uploads";
   const ext = file.name.split(".").pop() ?? "jpg";
   const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-  const uploadDir = path.join(process.cwd(), "public", "uploads");
+  const uploadDir = path.join(process.cwd(), "public", safefolder);
 
   await mkdir(uploadDir, { recursive: true });
   await writeFile(path.join(uploadDir, filename), buffer);
 
-  return NextResponse.json({ url: `/uploads/${filename}` });
+  return NextResponse.json({ url: `/${safefolder}/${filename}` });
 }
