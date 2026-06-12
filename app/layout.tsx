@@ -19,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="tr" className={`${geist.variable} antialiased`}>
+    <html lang="tr" className={`${geist.variable} antialiased`} suppressHydrationWarning>
       <body className="min-h-screen">
         <SessionProvider>{children}</SessionProvider>
       </body>

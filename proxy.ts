@@ -13,10 +13,10 @@ export async function proxy(req: NextRequest) {
   });
 
   const isLoggedIn = !!token;
-  const isLoginPath = req.nextUrl.pathname === "/admin/login";
+  const isLoginPath = req.nextUrl.pathname === "/login";
 
   if (!isLoginPath && !isLoggedIn) {
-    return NextResponse.redirect(new URL("/admin/login", req.nextUrl));
+    return NextResponse.redirect(new URL("/login", req.nextUrl));
   }
 
   if (isLoginPath && isLoggedIn) {
