@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import SiteHeader from "@/components/site/SiteHeader";
 import SiteFooter from "@/components/site/SiteFooter";
+import WhatsAppFloat from "@/components/site/WhatsAppFloat";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://ormivo.com"),
   title: { default: "Ormivo — Lüks Parfüm", template: "%s | Ormivo" },
   description: "Özenle seçilmiş lüks parfümler. Her koku, bir hikaye. WhatsApp üzerinden sipariş verin.",
+  keywords: ["parfüm", "lüks parfüm", "Ormivo", "kadın parfümü", "erkek parfümü", "oud", "amber"],
   openGraph: {
     siteName: "Ormivo",
     locale: "tr_TR",
@@ -19,6 +21,7 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
       <SiteHeader />
       <main className="flex-1">{children}</main>
       <SiteFooter />
+      <WhatsAppFloat />
     </div>
   );
 }

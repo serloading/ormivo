@@ -4,39 +4,30 @@ import { useState } from "react";
 import Modal from "./Modal";
 import { Field, TextareaField, SubmitRow } from "./FormField";
 import { mockCategories, type MockCategory } from "@/lib/mock-data";
+import { useLocalStorage } from "@/lib/useLocalStorage";
 
-function toSlug(text: string) {
-  return text.toLowerCase().replace(/ğ/g, "g").replace(/ü/g, "u").replace(/ş/g, "s").replace(/ı/g, "i").replace(/ö/g, "o").replace(/ç/g, "c").replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").trim();
+function toSlug(t: string) {
+  return t.toLowerCase().replace(/ğ/g,"g").replace(/ü/g,"u").replace(/ş/g,"s").replace(/ı/g,"i").replace(/ö/g,"o").replace(/ç/g,"c").replace(/[^a-z0-9\s-]/g,"").replace(/\s+/g,"-").replace(/-+/g,"-").trim();
 }
 
-const empty = { name: "", slug: "", description: "" };
+const EMPTY = { name: "", slug: "", description: "" };
 
 export default function KategorilerClient() {
-  const [cats, setCats] = useState<MockCategory[]>(mockCategories);
+  const [cats, setCats, loaded] = useLocalStorage<MockCategory[]>("ormivo_cats", mockCategories);
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<MockCategory | null>(null);
-  const [form, setForm] = useState(empty);
+  const [form, setForm] = useState(EMPTY);
 
-  function openAdd() { setEditing(null); setForm(empty); setModal(true); }
+  if (!loaded) return <div className="h-64 flex items-center justify-center text-[#b8a89e] text-sm">Yükleniyor...</div>;
+
+  function openAdd() { setEditing(null); setForm(EMPTY); setModal(true); }
   function openEdit(c: MockCategory) { setEditing(c); setForm({ name: c.name, slug: c.slug, description: c.description }); setModal(true); }
-
-  function handleNameChange(name: string) {
-    setForm((p) => ({ ...p, name, slug: editing ? p.slug : toSlug(name) }));
-  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (editing) {
-      setCats((prev) => prev.map((c) => c.id === editing.id ? { ...c, ...form } : c));
-    } else {
-      setCats((prev) => [...prev, { id: Date.now().toString(), ...form }]);
-    }
+    if (editing) setCats((p) => p.map((c) => c.id === editing.id ? { ...c, ...form } : c));
+    else setCats((p) => [...p, { id: Date.now().toString(), ...form }]);
     setModal(false);
-  }
-
-  function handleDelete(id: string) {
-    if (confirm("Kategoriyi silmek istediğinize emin misiniz?"))
-      setCats((prev) => prev.filter((c) => c.id !== id));
   }
 
   return (
@@ -46,9 +37,7 @@ export default function KategorilerClient() {
           <h2 className="text-2xl font-light tracking-wide text-[#2c1810]">Kategoriler</h2>
           <p className="text-sm text-[#8b6f5e] mt-1">{cats.length} kategori</p>
         </div>
-        <button onClick={openAdd} className="bg-[#2c1810] text-[#f5f0eb] text-xs tracking-widest uppercase px-6 py-3 hover:bg-[#3d2418] transition-colors">
-          + Kategori Ekle
-        </button>
+        <button onClick={openAdd} className="bg-[#2c1810] text-[#f5f0eb] text-xs tracking-widest uppercase px-6 py-3 hover:bg-[#3d2418] transition-colors">+ Kategori Ekle</button>
       </div>
 
       <div className="bg-white border border-[#e8ddd6] rounded-sm overflow-hidden">
@@ -68,7 +57,7 @@ export default function KategorilerClient() {
                 <td className="px-6 py-4 text-[#5c4033]">{cat.description}</td>
                 <td className="px-6 py-4 text-right whitespace-nowrap">
                   <button onClick={() => openEdit(cat)} className="text-xs text-[#8b6f5e] hover:text-[#2c1810] mr-4">Düzenle</button>
-                  <button onClick={() => handleDelete(cat.id)} className="text-xs text-red-400 hover:text-red-600">Sil</button>
+                  <button onClick={() => { if (confirm("Kategoriyi silmek istiyor musunuz?")) setCats((p) => p.filter((c) => c.id !== cat.id)); }} className="text-xs text-red-400 hover:text-red-600">Sil</button>
                 </td>
               </tr>
             ))}
@@ -78,7 +67,7 @@ export default function KategorilerClient() {
 
       <Modal open={modal} onClose={() => setModal(false)} title={editing ? "Kategori Düzenle" : "Yeni Kategori"}>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Field label="Kategori Adı" required value={form.name} onChange={(e) => handleNameChange(e.target.value)} placeholder="Kadın" />
+          <Field label="Kategori Adı" required value={form.name} onChange={(e) => { const n = e.target.value; setForm((p) => ({ ...p, name: n, slug: editing ? p.slug : toSlug(n) })); }} placeholder="Kadın" />
           <div>
             <Field label="Slug" required value={form.slug} onChange={(e) => setForm((p) => ({ ...p, slug: e.target.value }))} placeholder="kadin" />
             <p className="text-xs text-[#b8a89e] mt-1">/urunler?kategori={form.slug || "slug"}</p>
