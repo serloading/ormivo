@@ -1,104 +1,74 @@
 import { notFound } from "next/navigation";
-import { getProductBySlug, mockProducts } from "@/lib/mock-data";
+import { prisma } from "@/lib/prisma";
 
 const WA_NUMBER = "905465402113";
 
 export async function generateStaticParams() {
-  return mockProducts.map((p) => ({ slug: p.slug }));
+  const products = await prisma.product.findMany({ where: { deletedAt: null }, select: { slug: true } });
+  return products.map((p) => ({ slug: p.slug }));
 }
 
-export function generateMetadata({ params }: { params: { slug: string } }) {
-  const product = getProductBySlug(params.slug);
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const product = await prisma.product.findFirst({ where: { slug, deletedAt: null } });
   if (!product) return {};
   return { title: `${product.name} — Ormivo` };
 }
 
-export default function UrunDetayPage({
-  params,
-}: {
-  params: { slug: string };
-}) {
-  const product = getProductBySlug(params.slug);
+export default async function UrunDetayPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const product = await prisma.product.findFirst({
+    where: { slug, deletedAt: null, isActive: true },
+    include: { category: true },
+  });
   if (!product) notFound();
 
-  const waMsg = encodeURIComponent(
-    `Merhaba, ${product.name} ürününü sipariş etmek istiyorum.`
-  );
+  const waMsg = encodeURIComponent(`Merhaba, ${product.name} ürününü sipariş etmek istiyorum.`);
   const waLink = `https://wa.me/${WA_NUMBER}?text=${waMsg}`;
 
   return (
     <div className="bg-[#faf8f6] min-h-screen">
       <div className="max-w-5xl mx-auto px-6 py-16">
-        {/* Breadcrumb */}
         <nav className="flex items-center gap-2 text-xs text-[#b8a89e] mb-10">
-          <a href="/" className="hover:text-[#5c4033] transition-colors">
-            Ana Sayfa
-          </a>
+          <a href="/" className="hover:text-[#5c4033] transition-colors">Ana Sayfa</a>
           <span>/</span>
-          <a
-            href="/urunler"
-            className="hover:text-[#5c4033] transition-colors"
-          >
-            Koleksiyon
-          </a>
+          <a href="/urunler" className="hover:text-[#5c4033] transition-colors">Koleksiyon</a>
           <span>/</span>
           <span className="text-[#5c4033]">{product.name}</span>
         </nav>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-14">
-          {/* Görsel */}
           <div className="aspect-square bg-[#f5f0eb] border border-[#e8ddd6] flex items-center justify-center">
             <span className="text-8xl text-[#d4c5ba]">◈</span>
           </div>
 
-          {/* Bilgi */}
           <div className="flex flex-col justify-center">
             <p className="text-xs tracking-[0.4em] text-[#8b6f5e] uppercase mb-3">
-              {product.category}
+              {product.category?.name ?? ""}
             </p>
-            <h1 className="text-4xl font-light tracking-wide text-[#2c1810] mb-6">
-              {product.name}
-            </h1>
+            <h1 className="text-4xl font-light tracking-wide text-[#2c1810] mb-6">{product.name}</h1>
 
             <div className="flex items-baseline gap-3 mb-6">
-              <span className="text-2xl text-[#2c1810]">
-                {product.price.toLocaleString("tr-TR")} ₺
-              </span>
+              <span className="text-2xl text-[#2c1810]">{Number(product.price).toLocaleString("tr-TR")} ₺</span>
               {product.comparePrice && (
-                <span className="text-sm text-[#b8a89e] line-through">
-                  {product.comparePrice.toLocaleString("tr-TR")} ₺
-                </span>
+                <span className="text-sm text-[#b8a89e] line-through">{Number(product.comparePrice).toLocaleString("tr-TR")} ₺</span>
               )}
             </div>
 
             <div className="w-12 border-t border-[#d4c5ba] mb-6" />
 
-            <p className="text-sm text-[#5c4033] leading-relaxed mb-8">
-              {product.description}
-            </p>
+            <p className="text-sm text-[#5c4033] leading-relaxed mb-8">{product.description}</p>
 
-            {/* Stok durumu */}
             <p className="text-xs tracking-wide text-[#8b6f5e] mb-6">
-              {product.stock > 0 ? (
-                <span className="text-green-700">Stokta mevcut</span>
-              ) : (
-                <span className="text-red-600">Stok tükendi</span>
-              )}
+              {product.stock > 0 ? <span className="text-green-700">Stokta mevcut</span> : <span className="text-red-600">Stok tükendi</span>}
             </p>
 
-            {/* WhatsApp butonu */}
-            <a
-              href={waLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block text-center bg-[#2c1810] text-[#f5f0eb] text-xs tracking-[0.3em] uppercase px-10 py-4 hover:bg-[#3d2418] transition-colors"
-            >
+            <a href={waLink} target="_blank" rel="noopener noreferrer"
+              className="inline-block text-center bg-[#2c1810] text-[#f5f0eb] text-xs tracking-[0.3em] uppercase px-10 py-4 hover:bg-[#3d2418] transition-colors">
               WhatsApp&apos;tan Sipariş Ver
             </a>
 
-            <p className="text-xs text-[#b8a89e] mt-4">
-              +90 546 540 2113 numarasına yönlendirileceksiniz.
-            </p>
+            <p className="text-xs text-[#b8a89e] mt-4">+90 546 540 2113 numarasına yönlendirileceksiniz.</p>
           </div>
         </div>
       </div>

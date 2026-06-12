@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-// import { prisma } from "@/lib/prisma"; // Supabase bağlanınca açılacak
+import { prisma } from "@/lib/prisma";
 
 export type ProductFormData = {
   name: string;
@@ -15,40 +15,54 @@ export type ProductFormData = {
   images: string[];
 };
 
-export async function createProduct(data: ProductFormData) {
-  // Supabase bağlanınca aktif olacak:
-  // await prisma.product.create({ data });
-  // revalidatePath("/admin/urunler");
-  // revalidatePath("/urunler");
+export async function getProducts() {
+  return prisma.product.findMany({
+    where: { deletedAt: null },
+    include: { category: true },
+    orderBy: { createdAt: "desc" },
+  });
+}
 
-  console.log("createProduct (mock):", data);
+export async function getProductBySlug(slug: string) {
+  return prisma.product.findFirst({
+    where: { slug, deletedAt: null, isActive: true },
+    include: { category: true },
+  });
+}
+
+export async function createProduct(data: ProductFormData) {
+  await prisma.product.create({ data });
+  revalidatePath("/admin/urunler");
+  revalidatePath("/urunler");
   return { success: true };
 }
 
 export async function updateProduct(id: string, data: Partial<ProductFormData>) {
-  // await prisma.product.update({ where: { id }, data });
-  // revalidatePath("/admin/urunler");
-
-  console.log("updateProduct (mock):", id, data);
+  await prisma.product.update({ where: { id }, data });
+  revalidatePath("/admin/urunler");
+  revalidatePath("/urunler");
   return { success: true };
 }
 
 export async function deleteProduct(id: string) {
-  // Soft delete
-  // await prisma.product.update({
-  //   where: { id },
-  //   data: { deletedAt: new Date(), isActive: false },
-  // });
-  // revalidatePath("/admin/urunler");
-
-  console.log("deleteProduct (mock):", id);
+  await prisma.product.update({
+    where: { id },
+    data: { deletedAt: new Date(), isActive: false },
+  });
+  revalidatePath("/admin/urunler");
+  revalidatePath("/urunler");
   return { success: true };
 }
 
 export async function toggleProductActive(id: string, isActive: boolean) {
-  // await prisma.product.update({ where: { id }, data: { isActive } });
-  // revalidatePath("/admin/urunler");
+  await prisma.product.update({ where: { id }, data: { isActive } });
+  revalidatePath("/admin/urunler");
+  return { success: true };
+}
 
-  console.log("toggleProductActive (mock):", id, isActive);
+export async function updateProductStock(id: string, stock: number) {
+  await prisma.product.update({ where: { id }, data: { stock } });
+  revalidatePath("/admin/stok");
+  revalidatePath("/admin/urunler");
   return { success: true };
 }

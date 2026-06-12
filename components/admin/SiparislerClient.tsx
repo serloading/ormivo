@@ -1,13 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Modal from "./Modal";
-import { Field, TextareaField, SelectField, SubmitRow } from "./FormField";
-import { mockProducts } from "@/lib/mock-data";
-import { useLocalStorage } from "@/lib/useLocalStorage";
+import { Field, TextareaField, SubmitRow } from "./FormField";
+import { createOrder, updateOrderStatus, deleteOrder } from "@/lib/actions/order";
 
 type OrderItem = { productName: string; price: number; quantity: number };
-type Order = { id: string; orderNo: string; customer: string; phone: string; items: OrderItem[]; total: number; status: string; note: string; createdAt: string };
+type Customer = { id: string; name: string; phone: string | null };
+type Product = { id: string; name: string; price: number | string; isActive: boolean };
+type Order = {
+  id: string; orderNo: string; total: number | string; status: string;
+  note: string | null; createdAt: Date | string;
+  customer: Customer;
+  items: unknown;
+};
 
 const STATUS: Record<string, { label: string; color: string }> = {
   PENDING: { label: "Bekliyor", color: "bg-yellow-100 text-yellow-700" },
@@ -17,38 +24,35 @@ const STATUS: Record<string, { label: string; color: string }> = {
   CANCELLED: { label: "İptal", color: "bg-red-100 text-red-600" },
 };
 
-const INITIAL: Order[] = [
-  { id: "1", orderNo: "ORV-001", customer: "Ayşe Kaya", phone: "05321112233", items: [{ productName: "Ambra Noir", price: 890, quantity: 1 }], total: 890, status: "DELIVERED", note: "", createdAt: "2024-01-20" },
-  { id: "2", orderNo: "ORV-002", customer: "Mehmet Demir", phone: "05454445566", items: [{ productName: "Cedar Oud", price: 1050, quantity: 1 }, { productName: "Rose Eternel", price: 790, quantity: 1 }], total: 1840, status: "SHIPPED", note: "Hediye paketi", createdAt: "2024-02-22" },
-];
-
-function nextNo(orders: Order[]) {
-  const max = orders.reduce((m, o) => Math.max(m, parseInt(o.orderNo.split("-")[1] || "0")), 0);
-  return `ORV-${String(max + 1).padStart(3, "0")}`;
-}
-
-export default function SiparislerClient() {
-  const [orders, setOrders, loaded] = useLocalStorage<Order[]>("ormivo_orders", INITIAL);
+export default function SiparislerClient({
+  orders,
+  customers,
+  products,
+}: {
+  orders: Order[];
+  customers: Customer[];
+  products: Product[];
+}) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
   const [modal, setModal] = useState(false);
   const [detail, setDetail] = useState<Order | null>(null);
-  const [customer, setCustomer] = useState("");
-  const [phone, setPhone] = useState("");
+  const [customerId, setCustomerId] = useState("");
   const [note, setNote] = useState("");
   const [selProduct, setSelProduct] = useState("");
   const [qty, setQty] = useState(1);
   const [items, setItems] = useState<OrderItem[]>([]);
 
-  if (!loaded) return <div className="h-64 flex items-center justify-center text-[#b8a89e] text-sm">Yükleniyor...</div>;
-
-  function reset() { setCustomer(""); setPhone(""); setNote(""); setSelProduct(""); setQty(1); setItems([]); }
+  function reset() { setCustomerId(""); setNote(""); setSelProduct(""); setQty(1); setItems([]); }
 
   function addItem() {
-    const p = mockProducts.find((p) => p.id === selProduct);
+    const p = products.find((p) => p.id === selProduct);
     if (!p) return;
+    const price = Number(p.price);
     setItems((prev) => {
       const ex = prev.find((i) => i.productName === p.name);
       if (ex) return prev.map((i) => i.productName === p.name ? { ...i, quantity: i.quantity + qty } : i);
-      return [...prev, { productName: p.name, price: p.price, quantity: qty }];
+      return [...prev, { productName: p.name, price, quantity: qty }];
     });
   }
 
@@ -57,12 +61,28 @@ export default function SiparislerClient() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!items.length) { alert("En az bir ürün ekleyin."); return; }
-    setOrders((p) => [{ id: Date.now().toString(), orderNo: nextNo(p), customer, phone, items, total, status: "PENDING", note, createdAt: new Date().toLocaleDateString("tr-TR") }, ...p]);
-    reset(); setModal(false);
+    if (!customerId) { alert("Müşteri seçin."); return; }
+    startTransition(async () => {
+      await createOrder({ customerId, items, total, note: note || undefined });
+      router.refresh();
+      reset(); setModal(false);
+    });
   }
 
-  function updateStatus(id: string, status: string) {
-    setOrders((p) => p.map((o) => o.id === id ? { ...o, status } : o));
+  function handleStatusChange(id: string, status: string) {
+    startTransition(async () => {
+      await updateOrderStatus(id, status as never);
+      router.refresh();
+    });
+  }
+
+  function handleDelete(id: string) {
+    if (confirm("Siparişi silmek istediğinize emin misiniz?")) {
+      startTransition(async () => {
+        await deleteOrder(id);
+        router.refresh();
+      });
+    }
   }
 
   return (
@@ -85,28 +105,33 @@ export default function SiparislerClient() {
             </tr>
           </thead>
           <tbody>
+            {orders.length === 0 && (
+              <tr><td colSpan={7} className="px-6 py-12 text-center text-sm text-[#b8a89e]">Henüz sipariş yok.</td></tr>
+            )}
             {orders.map((o, i) => {
-              const s = STATUS[o.status];
+              const parsed = (o.items as OrderItem[]) ?? [];
+              const s = STATUS[o.status] ?? STATUS.PENDING;
               return (
                 <tr key={o.id} className={`border-b border-[#f0ebe6] hover:bg-[#faf8f6] ${i === orders.length - 1 ? "border-b-0" : ""}`}>
                   <td className="px-6 py-4 font-medium text-[#2c1810]">{o.orderNo}</td>
                   <td className="px-6 py-4">
-                    <p className="text-[#2c1810]">{o.customer}</p>
-                    {o.phone && <a href={`https://wa.me/9${o.phone.replace(/\D/g,"")}`} target="_blank" rel="noopener noreferrer" className="text-xs text-[#8b6f5e] hover:text-green-600">{o.phone}</a>}
+                    <p className="text-[#2c1810]">{o.customer.name}</p>
+                    {o.customer.phone && <a href={`https://wa.me/9${o.customer.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="text-xs text-[#8b6f5e] hover:text-green-600">{o.customer.phone}</a>}
                   </td>
                   <td className="px-6 py-4 text-[#5c4033] max-w-[180px]">
-                    <p className="truncate">{o.items.map((i) => `${i.productName} ×${i.quantity}`).join(", ")}</p>
+                    <p className="truncate">{parsed.map((i) => `${i.productName} ×${i.quantity}`).join(", ")}</p>
                   </td>
-                  <td className="px-6 py-4 font-medium text-[#2c1810]">{o.total.toLocaleString("tr-TR")} ₺</td>
+                  <td className="px-6 py-4 font-medium text-[#2c1810]">{Number(o.total).toLocaleString("tr-TR")} ₺</td>
                   <td className="px-6 py-4">
-                    <select value={o.status} onChange={(e) => updateStatus(o.id, e.target.value)}
+                    <select value={o.status} onChange={(e) => handleStatusChange(o.id, e.target.value)}
                       className={`text-xs px-2 py-1 rounded-full border-0 cursor-pointer ${s.color}`}>
                       {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                     </select>
                   </td>
-                  <td className="px-6 py-4 text-[#8b6f5e]">{o.createdAt}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 text-[#8b6f5e]">{new Date(o.createdAt).toLocaleDateString("tr-TR")}</td>
+                  <td className="px-6 py-4 flex gap-3">
                     <button onClick={() => setDetail(o)} className="text-xs text-[#8b6f5e] hover:text-[#2c1810]">Detay</button>
+                    <button onClick={() => handleDelete(o.id)} className="text-xs text-red-400 hover:text-red-600">Sil</button>
                   </td>
                 </tr>
               );
@@ -117,9 +142,13 @@ export default function SiparislerClient() {
 
       <Modal open={modal} onClose={() => { setModal(false); reset(); }} title="Yeni Sipariş Gir" width="max-w-2xl">
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Müşteri Adı" required value={customer} onChange={(e) => setCustomer(e.target.value)} placeholder="Ayşe Kaya" />
-            <Field label="Telefon" required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="05321112233" />
+          <div>
+            <label className="block text-xs tracking-widest text-[#5c4033] uppercase mb-1.5">Müşteri</label>
+            <select required value={customerId} onChange={(e) => setCustomerId(e.target.value)}
+              className="w-full border border-[#d4c5ba] rounded-sm px-3 py-2.5 text-sm text-[#2c1810] focus:outline-none focus:border-[#8b6f5e] bg-[#faf8f6]">
+              <option value="">Müşteri seçin...</option>
+              {customers.map((c) => <option key={c.id} value={c.id}>{c.name}{c.phone ? ` — ${c.phone}` : ""}</option>)}
+            </select>
           </div>
           <div className="border border-[#e8ddd6] rounded-sm p-4">
             <p className="text-xs tracking-widest text-[#5c4033] uppercase mb-3">Ürün Ekle</p>
@@ -127,8 +156,8 @@ export default function SiparislerClient() {
               <select value={selProduct} onChange={(e) => setSelProduct(e.target.value)}
                 className="flex-1 border border-[#d4c5ba] rounded-sm px-3 py-2.5 text-sm text-[#2c1810] focus:outline-none focus:border-[#8b6f5e] bg-[#faf8f6]">
                 <option value="">Ürün seçin...</option>
-                {mockProducts.filter((p) => p.isActive).map((p) => (
-                  <option key={p.id} value={p.id}>{p.name} — {p.price.toLocaleString("tr-TR")} ₺</option>
+                {products.filter((p) => p.isActive).map((p) => (
+                  <option key={p.id} value={p.id}>{p.name} — {Number(p.price).toLocaleString("tr-TR")} ₺</option>
                 ))}
               </select>
               <input type="number" min={1} value={qty} onChange={(e) => setQty(Number(e.target.value))}
@@ -163,7 +192,11 @@ export default function SiparislerClient() {
         {detail && (
           <div className="space-y-4">
             <div className="space-y-2.5">
-              {[["Müşteri", detail.customer], ["Telefon", detail.phone], ["Tarih", detail.createdAt]].map(([k, v]) => (
+              {[
+                ["Müşteri", detail.customer.name],
+                ["Telefon", detail.customer.phone || "—"],
+                ["Tarih", new Date(detail.createdAt).toLocaleDateString("tr-TR")],
+              ].map(([k, v]) => (
                 <div key={k} className="flex justify-between text-sm border-b border-[#f0ebe6] pb-2">
                   <span className="text-[#8b6f5e]">{k}</span><span className="text-[#2c1810] font-medium">{v}</span>
                 </div>
@@ -171,14 +204,14 @@ export default function SiparislerClient() {
             </div>
             <div>
               <p className="text-xs tracking-widest text-[#5c4033] uppercase mb-2">Ürünler</p>
-              {detail.items.map((item) => (
+              {((detail.items as OrderItem[]) ?? []).map((item) => (
                 <div key={item.productName} className="flex justify-between text-sm py-1.5">
                   <span>{item.productName} × {item.quantity}</span>
                   <span className="text-[#5c4033]">{(item.price * item.quantity).toLocaleString("tr-TR")} ₺</span>
                 </div>
               ))}
               <div className="flex justify-between font-medium text-sm border-t border-[#e8ddd6] pt-2 mt-1">
-                <span>Toplam</span><span>{detail.total.toLocaleString("tr-TR")} ₺</span>
+                <span>Toplam</span><span>{Number(detail.total).toLocaleString("tr-TR")} ₺</span>
               </div>
             </div>
             {detail.note && <div className="bg-[#faf8f6] rounded-sm p-3 text-sm text-[#5c4033]"><span className="text-xs text-[#8b6f5e] uppercase tracking-widest block mb-1">Not</span>{detail.note}</div>}

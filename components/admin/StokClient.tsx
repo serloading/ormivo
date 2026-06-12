@@ -1,29 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Modal from "./Modal";
 import { Field, SubmitRow } from "./FormField";
-import { mockProducts } from "@/lib/mock-data";
-import { useLocalStorage } from "@/lib/useLocalStorage";
+import { updateProductStock } from "@/lib/actions/product";
 
-type StokItem = { id: string; name: string; category: string; stock: number };
+type StokItem = { id: string; name: string; category?: { name: string } | null; stock: number };
 
-const INITIAL: StokItem[] = mockProducts.map((p) => ({ id: p.id, name: p.name, category: p.category, stock: p.stock }));
-
-export default function StokClient() {
-  const [items, setItems, loaded] = useLocalStorage<StokItem[]>("ormivo_stok", INITIAL);
+export default function StokClient({ products }: { products: StokItem[] }) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
   const [editing, setEditing] = useState<StokItem | null>(null);
   const [newStock, setNewStock] = useState("");
 
-  if (!loaded) return <div className="h-64 flex items-center justify-center text-[#b8a89e] text-sm">Yükleniyor...</div>;
-
-  const low = items.filter((p) => p.stock < 5).length;
+  const sorted = [...products].sort((a, b) => a.stock - b.stock);
+  const low = products.filter((p) => p.stock < 5).length;
 
   function handleUpdate(e: React.FormEvent) {
     e.preventDefault();
     if (!editing) return;
-    setItems((p) => p.map((x) => x.id === editing.id ? { ...x, stock: Number(newStock) } : x));
-    setEditing(null);
+    startTransition(async () => {
+      await updateProductStock(editing.id, Number(newStock));
+      router.refresh();
+      setEditing(null);
+    });
   }
 
   return (
@@ -49,10 +50,10 @@ export default function StokClient() {
             </tr>
           </thead>
           <tbody>
-            {[...items].sort((a, b) => a.stock - b.stock).map((p, i, arr) => (
-              <tr key={p.id} className={`border-b border-[#f0ebe6] hover:bg-[#faf8f6] ${i === arr.length - 1 ? "border-b-0" : ""}`}>
+            {sorted.map((p, i) => (
+              <tr key={p.id} className={`border-b border-[#f0ebe6] hover:bg-[#faf8f6] ${i === sorted.length - 1 ? "border-b-0" : ""}`}>
                 <td className="px-6 py-4 font-medium text-[#2c1810]">{p.name}</td>
-                <td className="px-6 py-4 text-[#5c4033]">{p.category}</td>
+                <td className="px-6 py-4 text-[#5c4033]">{p.category?.name ?? "—"}</td>
                 <td className="px-6 py-4">
                   <span className={`font-medium ${p.stock === 0 ? "text-red-600" : p.stock < 5 ? "text-orange-500" : "text-[#2c1810]"}`}>{p.stock} adet</span>
                 </td>

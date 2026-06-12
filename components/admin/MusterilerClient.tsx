@@ -1,47 +1,55 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Modal from "./Modal";
 import { Field, TextareaField, SubmitRow } from "./FormField";
-import { useLocalStorage } from "@/lib/useLocalStorage";
+import { createCustomer, updateCustomer, deleteCustomer } from "@/lib/actions/customer";
 
-type Customer = { id: string; name: string; phone: string; email: string; city: string; note: string; orders: number; createdAt: string };
-
-const INITIAL: Customer[] = [
-  { id: "1", name: "Ayşe Kaya", phone: "0532 111 2233", email: "", city: "İstanbul", note: "", orders: 3, createdAt: "2024-01-15" },
-  { id: "2", name: "Mehmet Demir", phone: "0545 444 5566", email: "mehmet@email.com", city: "Ankara", note: "VIP müşteri", orders: 1, createdAt: "2024-02-20" },
-];
+type Customer = {
+  id: string; name: string; phone: string | null; email: string | null;
+  city: string | null; note: string | null;
+  _count?: { orders: number };
+  createdAt: Date | string;
+};
 
 const EMPTY = { name: "", phone: "", email: "", city: "", note: "" };
 
-export default function MusterilerClient() {
-  const [customers, setCustomers, loaded] = useLocalStorage<Customer[]>("ormivo_customers", INITIAL);
+export default function MusterilerClient({ customers }: { customers: Customer[] }) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
   const [form, setForm] = useState(EMPTY);
   const [detail, setDetail] = useState<Customer | null>(null);
 
-  if (!loaded) return <div className="h-64 flex items-center justify-center text-[#b8a89e] text-sm">Yükleniyor...</div>;
-
-  const filtered = customers.filter((c) => !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.phone.includes(search));
+  const filtered = customers.filter((c) => !search || c.name.toLowerCase().includes(search.toLowerCase()) || (c.phone ?? "").includes(search));
 
   function openAdd() { setEditing(null); setForm(EMPTY); setModal(true); }
-  function openEdit(c: Customer) { setEditing(c); setForm({ name: c.name, phone: c.phone, email: c.email, city: c.city, note: c.note }); setModal(true); }
+  function openEdit(c: Customer) {
+    setEditing(c);
+    setForm({ name: c.name, phone: c.phone ?? "", email: c.email ?? "", city: c.city ?? "", note: c.note ?? "" });
+    setModal(true);
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (editing) {
-      setCustomers((p) => p.map((c) => c.id === editing.id ? { ...c, ...form } : c));
-    } else {
-      setCustomers((p) => [...p, { id: Date.now().toString(), ...form, orders: 0, createdAt: new Date().toLocaleDateString("tr-TR") }]);
-    }
-    setModal(false);
+    startTransition(async () => {
+      if (editing) await updateCustomer(editing.id, form);
+      else await createCustomer(form);
+      router.refresh();
+      setModal(false);
+    });
   }
 
   function handleDelete(id: string) {
-    if (confirm("Müşteriyi silmek istediğinize emin misiniz?"))
-      setCustomers((p) => p.filter((c) => c.id !== id));
+    if (confirm("Müşteriyi silmek istediğinize emin misiniz?")) {
+      startTransition(async () => {
+        await deleteCustomer(id);
+        router.refresh();
+      });
+    }
   }
 
   return (
@@ -79,8 +87,8 @@ export default function MusterilerClient() {
                 </td>
                 <td className="px-6 py-4 text-[#5c4033]">{c.phone || "—"}</td>
                 <td className="px-6 py-4 text-[#5c4033]">{c.city || "—"}</td>
-                <td className="px-6 py-4 text-[#5c4033]">{c.orders}</td>
-                <td className="px-6 py-4 text-[#8b6f5e]">{c.createdAt}</td>
+                <td className="px-6 py-4 text-[#5c4033]">{c._count?.orders ?? 0}</td>
+                <td className="px-6 py-4 text-[#8b6f5e]">{new Date(c.createdAt).toLocaleDateString("tr-TR")}</td>
                 <td className="px-6 py-4 text-right whitespace-nowrap">
                   <button onClick={() => openEdit(c)} className="text-xs text-[#8b6f5e] hover:text-[#2c1810] mr-4">Düzenle</button>
                   <button onClick={() => handleDelete(c.id)} className="text-xs text-red-400 hover:text-red-600">Sil</button>
@@ -105,7 +113,15 @@ export default function MusterilerClient() {
       <Modal open={!!detail} onClose={() => setDetail(null)} title="Müşteri Detayı">
         {detail && (
           <div className="space-y-3">
-            {[["Ad Soyad", detail.name], ["Telefon", detail.phone || "—"], ["E-posta", detail.email || "—"], ["Şehir", detail.city || "—"], ["Sipariş Sayısı", `${detail.orders} sipariş`], ["Kayıt", detail.createdAt], ["Not", detail.note || "—"]].map(([k, v]) => (
+            {[
+              ["Ad Soyad", detail.name],
+              ["Telefon", detail.phone || "—"],
+              ["E-posta", detail.email || "—"],
+              ["Şehir", detail.city || "—"],
+              ["Sipariş Sayısı", `${detail._count?.orders ?? 0} sipariş`],
+              ["Kayıt", new Date(detail.createdAt).toLocaleDateString("tr-TR")],
+              ["Not", detail.note || "—"],
+            ].map(([k, v]) => (
               <div key={k} className="flex justify-between text-sm border-b border-[#f0ebe6] pb-2.5">
                 <span className="text-[#8b6f5e]">{k}</span>
                 <span className="text-[#2c1810] font-medium">{v}</span>

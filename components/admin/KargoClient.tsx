@@ -1,11 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Modal from "./Modal";
 import { Field, SelectField, TextareaField, SubmitRow } from "./FormField";
-import { useLocalStorage } from "@/lib/useLocalStorage";
+import { updateCargo, deleteCargo } from "@/lib/actions/cargo";
 
-type Cargo = { id: string; orderNo: string; customer: string; company: string; trackingNo: string; status: string; notes: string; updatedAt: string };
+type Order = { id: string; orderNo: string; customerId: string };
+type Customer = { id: string; name: string };
+type Cargo = {
+  id: string; company: string | null; trackingNo: string | null;
+  status: string; notes: string | null; updatedAt: Date | string;
+  order: Order; customer: Customer;
+};
 
 const STATUS = {
   PREPARING: { label: "Hazırlanıyor", color: "bg-yellow-100 text-yellow-700" },
@@ -17,83 +24,95 @@ const STATUS = {
 
 const COMPANIES = ["Yurtiçi Kargo", "MNG Kargo", "Aras Kargo", "PTT Kargo", "Sürat Kargo", "DHL"];
 
-const INITIAL: Cargo[] = [
-  { id: "1", orderNo: "ORV-001", customer: "Ayşe Kaya", company: "Yurtiçi Kargo", trackingNo: "YK123456789", status: "DELIVERED", notes: "", updatedAt: "2024-01-22" },
-  { id: "2", orderNo: "ORV-002", customer: "Mehmet Demir", company: "MNG Kargo", trackingNo: "MNG987654321", status: "IN_TRANSIT", notes: "Müşteri telefon etsin", updatedAt: "2024-02-24" },
-];
-
-const EMPTY = { orderNo: "", customer: "", company: "", trackingNo: "", status: "PREPARING", notes: "" };
-
-export default function KargoClient() {
-  const [cargos, setCargos, loaded] = useLocalStorage<Cargo[]>("ormivo_cargos", INITIAL);
-  const [modal, setModal] = useState(false);
+export default function KargoClient({ cargos }: { cargos: Cargo[] }) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
   const [editing, setEditing] = useState<Cargo | null>(null);
-  const [form, setForm] = useState(EMPTY);
+  const [form, setForm] = useState({ company: "", trackingNo: "", status: "PREPARING", notes: "" });
 
-  if (!loaded) return <div className="h-64 flex items-center justify-center text-[#b8a89e] text-sm">Yükleniyor...</div>;
-
-  function openAdd() { setEditing(null); setForm(EMPTY); setModal(true); }
-  function openEdit(c: Cargo) { setEditing(c); setForm({ orderNo: c.orderNo, customer: c.customer, company: c.company, trackingNo: c.trackingNo, status: c.status, notes: c.notes }); setModal(true); }
+  function openEdit(c: Cargo) {
+    setEditing(c);
+    setForm({ company: c.company ?? "", trackingNo: c.trackingNo ?? "", status: c.status, notes: c.notes ?? "" });
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const now = new Date().toLocaleDateString("tr-TR");
-    if (editing) {
-      setCargos((p) => p.map((c) => c.id === editing.id ? { ...c, ...form, updatedAt: now } : c));
-    } else {
-      setCargos((p) => [{ id: Date.now().toString(), ...form, updatedAt: now }, ...p]);
+    if (!editing) return;
+    startTransition(async () => {
+      await updateCargo(editing.id, { company: form.company || undefined, trackingNo: form.trackingNo || undefined, status: form.status as never, notes: form.notes || undefined });
+      router.refresh();
+      setEditing(null);
+    });
+  }
+
+  function handleStatusChange(id: string, status: string) {
+    startTransition(async () => {
+      await updateCargo(id, { status: status as never });
+      router.refresh();
+    });
+  }
+
+  function handleDelete(id: string) {
+    if (confirm("Kargo kaydını silmek istiyor musunuz?")) {
+      startTransition(async () => {
+        await deleteCargo(id);
+        router.refresh();
+      });
     }
-    setModal(false);
   }
 
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
         <h2 className="text-2xl font-light tracking-wide text-[#2c1810]">Kargo Takibi</h2>
-        <button onClick={openAdd} className="bg-[#2c1810] text-[#f5f0eb] text-xs tracking-widest uppercase px-6 py-3 hover:bg-[#3d2418] transition-colors">+ Kargo Ekle</button>
       </div>
 
-      <div className="bg-white border border-[#e8ddd6] rounded-sm overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-[#e8ddd6] bg-[#faf8f6]">
-              {["Sipariş", "Müşteri", "Firma", "Takip No", "Durum", "Güncelleme", ""].map((h) => (
-                <th key={h} className="text-left px-6 py-4 text-xs tracking-widest text-[#8b6f5e] uppercase font-medium">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {cargos.map((c, i) => {
-              const s = STATUS[c.status as keyof typeof STATUS];
-              return (
-                <tr key={c.id} className={`border-b border-[#f0ebe6] hover:bg-[#faf8f6] ${i === cargos.length - 1 ? "border-b-0" : ""}`}>
-                  <td className="px-6 py-4 font-medium text-[#2c1810]">{c.orderNo}</td>
-                  <td className="px-6 py-4 text-[#5c4033]">{c.customer}</td>
-                  <td className="px-6 py-4 text-[#5c4033]">{c.company || "—"}</td>
-                  <td className="px-6 py-4"><code className="text-xs bg-[#f5f0eb] px-2 py-1 rounded">{c.trackingNo || "—"}</code></td>
-                  <td className="px-6 py-4">
-                    <select value={c.status} onChange={(e) => setCargos((p) => p.map((x) => x.id === c.id ? { ...x, status: e.target.value, updatedAt: new Date().toLocaleDateString("tr-TR") } : x))}
-                      className={`text-xs px-2 py-1 rounded-full border-0 cursor-pointer ${s.color}`}>
-                      {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                    </select>
-                  </td>
-                  <td className="px-6 py-4 text-[#8b6f5e]">{c.updatedAt}</td>
-                  <td className="px-6 py-4 text-right">
-                    <button onClick={() => openEdit(c)} className="text-xs text-[#8b6f5e] hover:text-[#2c1810]">Düzenle</button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      {cargos.length === 0 && (
+        <div className="bg-[#faf8f6] border border-[#e8ddd6] rounded-sm p-8 text-center text-sm text-[#b8a89e]">
+          Henüz kargo kaydı yok. Sipariş oluşturulduğunda burada görünecek.
+        </div>
+      )}
 
-      <Modal open={modal} onClose={() => setModal(false)} title={editing ? "Kargo Güncelle" : "Yeni Kargo"}>
+      {cargos.length > 0 && (
+        <div className="bg-white border border-[#e8ddd6] rounded-sm overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[#e8ddd6] bg-[#faf8f6]">
+                {["Sipariş", "Müşteri", "Firma", "Takip No", "Durum", "Güncelleme", ""].map((h) => (
+                  <th key={h} className="text-left px-6 py-4 text-xs tracking-widest text-[#8b6f5e] uppercase font-medium">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {cargos.map((c, i) => {
+                const s = STATUS[c.status as keyof typeof STATUS] ?? STATUS.PREPARING;
+                return (
+                  <tr key={c.id} className={`border-b border-[#f0ebe6] hover:bg-[#faf8f6] ${i === cargos.length - 1 ? "border-b-0" : ""}`}>
+                    <td className="px-6 py-4 font-medium text-[#2c1810]">{c.order.orderNo}</td>
+                    <td className="px-6 py-4 text-[#5c4033]">{c.customer.name}</td>
+                    <td className="px-6 py-4 text-[#5c4033]">{c.company || "—"}</td>
+                    <td className="px-6 py-4"><code className="text-xs bg-[#f5f0eb] px-2 py-1 rounded">{c.trackingNo || "—"}</code></td>
+                    <td className="px-6 py-4">
+                      <select value={c.status} onChange={(e) => handleStatusChange(c.id, e.target.value)}
+                        className={`text-xs px-2 py-1 rounded-full border-0 cursor-pointer ${s.color}`}>
+                        {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                      </select>
+                    </td>
+                    <td className="px-6 py-4 text-[#8b6f5e]">{new Date(c.updatedAt).toLocaleDateString("tr-TR")}</td>
+                    <td className="px-6 py-4 text-right flex gap-3 justify-end">
+                      <button onClick={() => openEdit(c)} className="text-xs text-[#8b6f5e] hover:text-[#2c1810]">Düzenle</button>
+                      <button onClick={() => handleDelete(c.id)} className="text-xs text-red-400 hover:text-red-600">Sil</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <Modal open={!!editing} onClose={() => setEditing(null)} title={`Kargo Güncelle — ${editing?.order.orderNo}`}>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Sipariş No" required value={form.orderNo} onChange={(e) => setForm((p) => ({ ...p, orderNo: e.target.value }))} placeholder="ORV-003" />
-            <Field label="Müşteri" required value={form.customer} onChange={(e) => setForm((p) => ({ ...p, customer: e.target.value }))} placeholder="Ad Soyad" />
-          </div>
           <SelectField label="Kargo Firması" value={form.company} onChange={(e) => setForm((p) => ({ ...p, company: e.target.value }))}>
             <option value="">Firma seçin</option>
             {COMPANIES.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -103,7 +122,7 @@ export default function KargoClient() {
             {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </SelectField>
           <TextareaField label="Not" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Müşteriye bilgi verildi..." />
-          <SubmitRow onCancel={() => setModal(false)} label={editing ? "Güncelle" : "Kaydet"} />
+          <SubmitRow onCancel={() => setEditing(null)} label="Güncelle" />
         </form>
       </Modal>
     </div>

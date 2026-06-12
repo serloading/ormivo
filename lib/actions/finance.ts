@@ -1,7 +1,7 @@
 "use server";
 
-// import { prisma } from "@/lib/prisma";
-// import { revalidatePath } from "next/cache";
+import { revalidatePath } from "next/cache";
+import { prisma } from "@/lib/prisma";
 
 export type FinanceFormData = {
   type: "INCOME" | "EXPENSE";
@@ -11,10 +11,18 @@ export type FinanceFormData = {
   date?: Date;
 };
 
-export async function createFinanceRecord(data: FinanceFormData) {
-  // await prisma.finance.create({ data });
-  // revalidatePath("/admin/finans");
+export async function getFinanceRecords() {
+  return prisma.finance.findMany({ orderBy: { date: "desc" } });
+}
 
-  console.log("createFinanceRecord (mock):", data);
+export async function createFinanceRecord(data: FinanceFormData) {
+  await prisma.finance.create({ data });
+  revalidatePath("/admin/finans");
+  return { success: true };
+}
+
+export async function deleteFinanceRecord(id: string) {
+  await prisma.finance.delete({ where: { id } });
+  revalidatePath("/admin/finans");
   return { success: true };
 }

@@ -1,18 +1,17 @@
 import Link from "next/link";
 import AdminUrunlerClient from "@/components/admin/AdminUrunlerClient";
-import { mockProducts } from "@/lib/mock-data";
+import { getProducts } from "@/lib/actions/product";
+import { getCategories } from "@/lib/actions/category";
 
-export default function AdminUrunlerPage() {
+export default async function AdminUrunlerPage() {
+  const [products, categories] = await Promise.all([getProducts(), getCategories()]);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h2 className="text-2xl font-light tracking-wide text-[#2c1810]">
-            Ürünler
-          </h2>
-          <p className="text-sm text-[#8b6f5e] mt-1">
-            {mockProducts.length} ürün
-          </p>
+          <h2 className="text-2xl font-light tracking-wide text-[#2c1810]">Ürünler</h2>
+          <p className="text-sm text-[#8b6f5e] mt-1">{products.length} ürün</p>
         </div>
         <Link
           href="/admin/urunler/yeni"
@@ -21,7 +20,7 @@ export default function AdminUrunlerPage() {
           + Ürün Ekle
         </Link>
       </div>
-      <AdminUrunlerClient products={mockProducts} />
+      <AdminUrunlerClient products={products as never} categories={categories} />
     </div>
   );
 }

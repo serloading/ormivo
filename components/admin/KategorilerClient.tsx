@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Modal from "./Modal";
 import { Field, TextareaField, SubmitRow } from "./FormField";
-import { mockCategories, type MockCategory } from "@/lib/mock-data";
-import { useLocalStorage } from "@/lib/useLocalStorage";
+import { createCategory, updateCategory, deleteCategory } from "@/lib/actions/category";
+
+type Category = { id: string; name: string; slug: string; description: string | null };
 
 function toSlug(t: string) {
   return t.toLowerCase().replace(/ğ/g,"g").replace(/ü/g,"u").replace(/ş/g,"s").replace(/ı/g,"i").replace(/ö/g,"o").replace(/ç/g,"c").replace(/[^a-z0-9\s-]/g,"").replace(/\s+/g,"-").replace(/-+/g,"-").trim();
@@ -12,22 +14,33 @@ function toSlug(t: string) {
 
 const EMPTY = { name: "", slug: "", description: "" };
 
-export default function KategorilerClient() {
-  const [cats, setCats, loaded] = useLocalStorage<MockCategory[]>("ormivo_cats", mockCategories);
+export default function KategorilerClient({ categories }: { categories: Category[] }) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
   const [modal, setModal] = useState(false);
-  const [editing, setEditing] = useState<MockCategory | null>(null);
+  const [editing, setEditing] = useState<Category | null>(null);
   const [form, setForm] = useState(EMPTY);
 
-  if (!loaded) return <div className="h-64 flex items-center justify-center text-[#b8a89e] text-sm">Yükleniyor...</div>;
-
   function openAdd() { setEditing(null); setForm(EMPTY); setModal(true); }
-  function openEdit(c: MockCategory) { setEditing(c); setForm({ name: c.name, slug: c.slug, description: c.description }); setModal(true); }
+  function openEdit(c: Category) { setEditing(c); setForm({ name: c.name, slug: c.slug, description: c.description ?? "" }); setModal(true); }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (editing) setCats((p) => p.map((c) => c.id === editing.id ? { ...c, ...form } : c));
-    else setCats((p) => [...p, { id: Date.now().toString(), ...form }]);
-    setModal(false);
+    startTransition(async () => {
+      if (editing) await updateCategory(editing.id, form);
+      else await createCategory(form);
+      router.refresh();
+      setModal(false);
+    });
+  }
+
+  function handleDelete(id: string) {
+    if (confirm("Kategoriyi silmek istiyor musunuz?")) {
+      startTransition(async () => {
+        await deleteCategory(id);
+        router.refresh();
+      });
+    }
   }
 
   return (
@@ -35,7 +48,7 @@ export default function KategorilerClient() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h2 className="text-2xl font-light tracking-wide text-[#2c1810]">Kategoriler</h2>
-          <p className="text-sm text-[#8b6f5e] mt-1">{cats.length} kategori</p>
+          <p className="text-sm text-[#8b6f5e] mt-1">{categories.length} kategori</p>
         </div>
         <button onClick={openAdd} className="bg-[#2c1810] text-[#f5f0eb] text-xs tracking-widest uppercase px-6 py-3 hover:bg-[#3d2418] transition-colors">+ Kategori Ekle</button>
       </div>
@@ -50,14 +63,14 @@ export default function KategorilerClient() {
             </tr>
           </thead>
           <tbody>
-            {cats.map((cat, i) => (
-              <tr key={cat.id} className={`border-b border-[#f0ebe6] hover:bg-[#faf8f6] ${i === cats.length - 1 ? "border-b-0" : ""}`}>
+            {categories.map((cat, i) => (
+              <tr key={cat.id} className={`border-b border-[#f0ebe6] hover:bg-[#faf8f6] ${i === categories.length - 1 ? "border-b-0" : ""}`}>
                 <td className="px-6 py-4 font-medium text-[#2c1810]">{cat.name}</td>
                 <td className="px-6 py-4 text-[#8b6f5e]">/{cat.slug}</td>
-                <td className="px-6 py-4 text-[#5c4033]">{cat.description}</td>
+                <td className="px-6 py-4 text-[#5c4033]">{cat.description || "—"}</td>
                 <td className="px-6 py-4 text-right whitespace-nowrap">
                   <button onClick={() => openEdit(cat)} className="text-xs text-[#8b6f5e] hover:text-[#2c1810] mr-4">Düzenle</button>
-                  <button onClick={() => { if (confirm("Kategoriyi silmek istiyor musunuz?")) setCats((p) => p.filter((c) => c.id !== cat.id)); }} className="text-xs text-red-400 hover:text-red-600">Sil</button>
+                  <button onClick={() => handleDelete(cat.id)} className="text-xs text-red-400 hover:text-red-600">Sil</button>
                 </td>
               </tr>
             ))}

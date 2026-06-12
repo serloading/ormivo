@@ -1,6 +1,5 @@
 import Link from "next/link";
 import Image from "next/image";
-import type { MockProduct } from "@/lib/mock-data";
 
 const WA_NUMBER = "905465402113";
 
@@ -8,7 +7,14 @@ function whatsappLink(name: string) {
   return `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(`Merhaba, ${name} ürününü sipariş etmek istiyorum.`)}`;
 }
 
-export default function ProductCard({ product }: { product: MockProduct }) {
+type Product = {
+  id: string; name: string; slug: string;
+  price: number | string; comparePrice?: number | string | null;
+  description?: string | null; images: string[];
+  category?: { name: string } | null;
+};
+
+export default function ProductCard({ product }: { product: Product }) {
   return (
     <div className="bg-white border border-[#e8ddd6] group flex flex-col">
       <Link href={`/urunler/${product.slug}`}>
@@ -27,7 +33,7 @@ export default function ProductCard({ product }: { product: MockProduct }) {
       </Link>
 
       <div className="p-5 flex flex-col flex-1">
-        <p className="text-xs tracking-widest text-[#8b6f5e] uppercase mb-1">{product.category}</p>
+        <p className="text-xs tracking-widest text-[#8b6f5e] uppercase mb-1">{product.category?.name ?? ""}</p>
         <Link href={`/urunler/${product.slug}`}>
           <h3 className="text-sm font-medium text-[#2c1810] tracking-wide mb-2 hover:opacity-70 transition-opacity">{product.name}</h3>
         </Link>
@@ -35,9 +41,9 @@ export default function ProductCard({ product }: { product: MockProduct }) {
 
         <div className="mt-auto">
           <div className="flex items-baseline gap-2 mb-4">
-            <span className="text-base font-medium text-[#2c1810]">{product.price.toLocaleString("tr-TR")} ₺</span>
+            <span className="text-base font-medium text-[#2c1810]">{Number(product.price).toLocaleString("tr-TR")} ₺</span>
             {product.comparePrice && (
-              <span className="text-xs text-[#b8a89e] line-through">{product.comparePrice.toLocaleString("tr-TR")} ₺</span>
+              <span className="text-xs text-[#b8a89e] line-through">{Number(product.comparePrice).toLocaleString("tr-TR")} ₺</span>
             )}
           </div>
           <a href={whatsappLink(product.name)} target="_blank" rel="noopener noreferrer"

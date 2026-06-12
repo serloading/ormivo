@@ -1,11 +1,16 @@
 import Link from "next/link";
 import ProductCard from "@/components/site/ProductCard";
-import { mockProducts } from "@/lib/mock-data";
+import { prisma } from "@/lib/prisma";
 
 const WA_NUMBER = "905465402113";
 
-export default function HomePage() {
-  const featured = mockProducts.filter((p) => p.isActive).slice(0, 4);
+export default async function HomePage() {
+  const featured = await prisma.product.findMany({
+    where: { isActive: true, deletedAt: null },
+    include: { category: true },
+    orderBy: { createdAt: "desc" },
+    take: 4,
+  });
 
   return (
     <div className="bg-[#faf8f6]">
@@ -43,7 +48,7 @@ export default function HomePage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {featured.map((product) => (
-            <ProductCard key={product.id} product={product} />
+            <ProductCard key={product.id} product={product as never} />
           ))}
         </div>
 

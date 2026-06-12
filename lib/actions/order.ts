@@ -1,10 +1,10 @@
 "use server";
 
-// import { prisma } from "@/lib/prisma";
-// import { revalidatePath } from "next/cache";
+import { revalidatePath } from "next/cache";
+import { prisma } from "@/lib/prisma";
 
 export type OrderItem = {
-  productId: string;
+  productId?: string;
   productName: string;
   price: number;
   quantity: number;
@@ -17,14 +17,19 @@ export type OrderFormData = {
   note?: string;
 };
 
-export async function createOrder(data: OrderFormData) {
-  // const orderNo = `ORV-${Date.now()}`;
-  // await prisma.order.create({
-  //   data: { orderNo, ...data, items: data.items as any },
-  // });
-  // revalidatePath("/admin/siparisler");
+export async function getOrders() {
+  return prisma.order.findMany({
+    include: { customer: true },
+    orderBy: { createdAt: "desc" },
+  });
+}
 
-  console.log("createOrder (mock):", data);
+export async function createOrder(data: OrderFormData) {
+  const orderNo = `ORV-${Date.now()}`;
+  await prisma.order.create({
+    data: { orderNo, ...data, items: data.items as never },
+  });
+  revalidatePath("/admin/siparisler");
   return { success: true };
 }
 
@@ -32,9 +37,13 @@ export async function updateOrderStatus(
   id: string,
   status: "PENDING" | "CONFIRMED" | "SHIPPED" | "DELIVERED" | "CANCELLED"
 ) {
-  // await prisma.order.update({ where: { id }, data: { status } });
-  // revalidatePath("/admin/siparisler");
+  await prisma.order.update({ where: { id }, data: { status } });
+  revalidatePath("/admin/siparisler");
+  return { success: true };
+}
 
-  console.log("updateOrderStatus (mock):", id, status);
+export async function deleteOrder(id: string) {
+  await prisma.order.delete({ where: { id } });
+  revalidatePath("/admin/siparisler");
   return { success: true };
 }
