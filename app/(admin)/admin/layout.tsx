@@ -1,12 +1,9 @@
-import { auth } from "@/lib/auth";
-import { redirect } from "next/navigation";
+export const dynamic = "force-dynamic";
+
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import Breadcrumb from "@/components/admin/Breadcrumb";
 
-export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth();
-  if (!session) redirect("/admin/login");
-
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen bg-[#faf8f6]">
       <AdminSidebar />
