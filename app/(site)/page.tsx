@@ -1,50 +1,12 @@
 import Link from "next/link";
-
-const mockProducts = [
-  {
-    id: "1",
-    name: "Ambra Noir",
-    slug: "ambra-noir",
-    price: 890,
-    category: "Kadın",
-    image: null,
-  },
-  {
-    id: "2",
-    name: "Cedar Oud",
-    slug: "cedar-oud",
-    price: 1050,
-    category: "Erkek",
-    image: null,
-  },
-  {
-    id: "3",
-    name: "Rose Eternel",
-    slug: "rose-eternel",
-    price: 790,
-    category: "Unisex",
-    image: null,
-  },
-  {
-    id: "4",
-    name: "Santal Blanc",
-    slug: "santal-blanc",
-    price: 950,
-    category: "Unisex",
-    image: null,
-  },
-];
+import ProductCard from "@/components/site/ProductCard";
+import { mockProducts } from "@/lib/mock-data";
 
 const WA_NUMBER = "905465402113";
 
-function whatsappLink(productName: string) {
-  const msg = encodeURIComponent(
-    `Merhaba, ${productName} ürününü sipariş etmek istiyorum.`
-  );
-  return `https://wa.me/${WA_NUMBER}?text=${msg}`;
-}
-
 export default function HomePage() {
+  const featured = mockProducts.filter((p) => p.isActive).slice(0, 4);
+
   return (
     <div className="bg-[#faf8f6]">
       {/* Hero */}
@@ -80,38 +42,8 @@ export default function HomePage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {mockProducts.map((product) => (
-            <div
-              key={product.id}
-              className="bg-white border border-[#e8ddd6] group"
-            >
-              {/* Görsel alanı */}
-              <div className="aspect-square bg-[#f5f0eb] flex items-center justify-center">
-                <span className="text-4xl text-[#d4c5ba]">◈</span>
-              </div>
-
-              {/* Bilgi */}
-              <div className="p-5">
-                <p className="text-xs tracking-widest text-[#8b6f5e] uppercase mb-1">
-                  {product.category}
-                </p>
-                <h3 className="text-sm font-medium text-[#2c1810] tracking-wide mb-2">
-                  {product.name}
-                </h3>
-                <p className="text-base text-[#5c4033] mb-4">
-                  {product.price.toLocaleString("tr-TR")} ₺
-                </p>
-
-                <a
-                  href={whatsappLink(product.name)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block w-full text-center bg-[#2c1810] text-[#f5f0eb] text-xs tracking-widest uppercase py-3 hover:bg-[#3d2418] transition-colors"
-                >
-                  WhatsApp&apos;tan Sipariş Ver
-                </a>
-              </div>
-            </div>
+          {featured.map((product) => (
+            <ProductCard key={product.id} product={product} />
           ))}
         </div>
 
