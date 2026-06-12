@@ -1,7 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  images: {
+    remotePatterns: [
+      // Cloudinary — Supabase sonrası eklenecek
+      // { protocol: "https", hostname: "res.cloudinary.com" },
+    ],
+  },
+  // Supabase bağlanana kadar static export devre dışı
 };
 
 export default nextConfig;
