@@ -13,7 +13,7 @@ type Customer = {
   createdAt: Date | string;
 };
 
-const EMPTY = { name: "", phone: "", email: "", city: "", note: "" };
+const EMPTY = { name: "", phone: "", email: "", city: "", note: "" }; // city field = adres
 
 export default function MusterilerClient({ customers }: { customers: Customer[] }) {
   const router = useRouter();
@@ -71,7 +71,7 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[#e8ddd6] bg-[#faf8f6]">
-              {["Ad Soyad", "Telefon", "Şehir", "Sipariş", "Kayıt", ""].map((h) => (
+              {["Ad Soyad", "Telefon", "Adres", "Sipariş", "Kayıt", ""].map((h) => (
                 <th key={h} className="text-left px-6 py-4 text-xs tracking-widest text-[#8b6f5e] uppercase font-medium">{h}</th>
               ))}
             </tr>
@@ -104,7 +104,7 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
           <Field label="Ad Soyad" required value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="Ayşe Kaya" />
           <Field label="Telefon" type="tel" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} placeholder="0532 000 0000" />
           <Field label="E-posta" type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} placeholder="ayse@email.com" />
-          <Field label="Şehir" value={form.city} onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))} placeholder="İstanbul" />
+          <Field label="Adres" value={form.city} onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))} placeholder="Kadıköy, İstanbul" />
           <TextareaField label="Not" value={form.note} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))} placeholder="Özel not..." />
           <SubmitRow onCancel={() => setModal(false)} label={editing ? "Güncelle" : "Kaydet"} />
         </form>
@@ -117,7 +117,7 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
               ["Ad Soyad", detail.name],
               ["Telefon", detail.phone || "—"],
               ["E-posta", detail.email || "—"],
-              ["Şehir", detail.city || "—"],
+              ["Adres", detail.city || "—"],
               ["Sipariş Sayısı", `${detail._count?.orders ?? 0} sipariş`],
               ["Kayıt", new Date(detail.createdAt).toLocaleDateString("tr-TR")],
               ["Not", detail.note || "—"],
