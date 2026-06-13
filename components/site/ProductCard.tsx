@@ -26,7 +26,7 @@ export default function ProductCard({ product }: { product: Product }) {
       {/* Görsel */}
       <Link href={`/urunler/${product.slug}`} className="relative aspect-[3/4] bg-[#f5f0eb] overflow-hidden block">
         {image ? (
-          <Image src={image} alt={product.name} fill className="object-cover group-hover:scale-[1.03] transition-transform duration-700 ease-out" />
+          <Image src={image} alt={product.name} fill className="object-contain group-hover:scale-[1.03] transition-transform duration-700 ease-out" />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
             <span className="text-5xl text-[#d4c5ba]">◈</span>

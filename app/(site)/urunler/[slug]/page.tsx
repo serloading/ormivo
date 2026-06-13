@@ -70,7 +70,7 @@ export default async function UrunDetayPage({ params }: { params: Promise<{ slug
           <div>
             <div className="aspect-square bg-[#f0ebe4] border border-[#e8ddd6] relative overflow-hidden">
               {product.images?.[0] ? (
-                <Image src={product.images[0]} alt={product.name} fill className="object-cover" priority />
+                <Image src={product.images[0]} alt={product.name} fill className="object-contain" priority />
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="text-8xl text-[#d4c5ba]">◈</span>
@@ -81,7 +81,7 @@ export default async function UrunDetayPage({ params }: { params: Promise<{ slug
               <div className="grid grid-cols-4 gap-2 mt-2">
                 {product.images.slice(1, 5).map((img, i) => (
                   <div key={i} className="aspect-square bg-[#f0ebe4] border border-[#e8ddd6] relative overflow-hidden">
-                    <Image src={img} alt={`${product.name} ${i + 2}`} fill className="object-cover" />
+                    <Image src={img} alt={`${product.name} ${i + 2}`} fill className="object-contain" />
                   </div>
                 ))}
               </div>
