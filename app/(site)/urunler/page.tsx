@@ -1,24 +1,21 @@
 import ProductCard from "@/components/site/ProductCard";
 import { prisma } from "@/lib/prisma";
 
-export const metadata = {
-  title: "Koleksiyon — Ormivo",
-};
+export const metadata = { title: "Koleksiyon — Ormivo" };
 
 export default async function UrunlerPage({
   searchParams,
 }: {
   searchParams: Promise<{ kategori?: string; marka?: string }>;
 }) {
-  const { kategori: aktifKategori = "tumu", marka: aktifMarka = "" } = await searchParams;
+  const { kategori = "tumu", marka = "" } = await searchParams;
 
   const [products, categories, brands] = await Promise.all([
     prisma.product.findMany({
       where: {
-        deletedAt: null,
-        isActive: true,
-        ...(aktifKategori !== "tumu" ? { category: { slug: aktifKategori } } : {}),
-        ...(aktifMarka ? { brand: { slug: aktifMarka } } : {}),
+        deletedAt: null, isActive: true,
+        ...(kategori !== "tumu" ? { category: { slug: kategori } } : {}),
+        ...(marka ? { brand: { slug: marka } } : {}),
       },
       include: { category: true, brand: true },
       orderBy: { createdAt: "desc" },
@@ -27,23 +24,47 @@ export default async function UrunlerPage({
     prisma.brand.findMany({ orderBy: { name: "asc" } }),
   ]);
 
+  const activeLabel =
+    kategori !== "tumu"
+      ? categories.find((c) => c.slug === kategori)?.name
+      : marka
+        ? brands.find((b) => b.slug === marka)?.name
+        : null;
+
   return (
-    <div className="bg-[#faf8f6] min-h-screen">
-      <div className="border-b border-[#e8ddd6] bg-[#f5f0eb] py-16 text-center">
-        <p className="text-xs tracking-[0.5em] text-[#8b6f5e] uppercase mb-3">Ormivo</p>
-        <h1 className="text-3xl font-light tracking-[0.2em] text-[#2c1810] uppercase">Koleksiyon</h1>
+    <div className="bg-[#FAFAF7] min-h-screen">
+      {/* Page header */}
+      <div className="bg-[#F5F0EA] border-b border-[#E8E4DE] py-16 text-center">
+        <p className="font-sans text-[10px] tracking-[0.5em] text-[#C4A882] uppercase mb-4">Ormivo</p>
+        <h1 className="font-serif text-5xl font-light text-[#1A1A1A] mb-3">Koleksiyon</h1>
+        {activeLabel && (
+          <p className="font-serif italic text-[#8B6F4E] text-lg">{activeLabel}</p>
+        )}
       </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-12">
+      <div className="max-w-7xl mx-auto px-6 py-12">
         {/* Kategori filtresi */}
-        <div className="flex flex-wrap gap-2 mb-4 justify-center">
-          <a href="/urunler"
-            className={`px-5 py-2 text-xs tracking-widest uppercase border transition-colors ${aktifKategori === "tumu" && !aktifMarka ? "bg-[#2c1810] text-[#f5f0eb] border-[#2c1810]" : "border-[#d4c5ba] text-[#5c4033] hover:bg-[#f5f0eb]"}`}>
+        <div className="flex flex-wrap gap-2 justify-center mb-4">
+          <a
+            href="/urunler"
+            className={`font-sans text-[10px] tracking-[0.2em] uppercase px-5 py-2.5 border transition-colors duration-200 ${
+              kategori === "tumu" && !marka
+                ? "bg-[#1A1A1A] text-white border-[#1A1A1A]"
+                : "border-[#E8E4DE] text-[#6B6B6B] hover:border-[#1A1A1A] hover:text-[#1A1A1A]"
+            }`}
+          >
             Tümü
           </a>
           {categories.map((cat) => (
-            <a key={cat.slug} href={`/urunler?kategori=${cat.slug}${aktifMarka ? `&marka=${aktifMarka}` : ""}`}
-              className={`px-5 py-2 text-xs tracking-widest uppercase border transition-colors ${aktifKategori === cat.slug ? "bg-[#2c1810] text-[#f5f0eb] border-[#2c1810]" : "border-[#d4c5ba] text-[#5c4033] hover:bg-[#f5f0eb]"}`}>
+            <a
+              key={cat.slug}
+              href={`/urunler?kategori=${cat.slug}${marka ? `&marka=${marka}` : ""}`}
+              className={`font-sans text-[10px] tracking-[0.2em] uppercase px-5 py-2.5 border transition-colors duration-200 ${
+                kategori === cat.slug
+                  ? "bg-[#1A1A1A] text-white border-[#1A1A1A]"
+                  : "border-[#E8E4DE] text-[#6B6B6B] hover:border-[#1A1A1A] hover:text-[#1A1A1A]"
+              }`}
+            >
               {cat.name}
             </a>
           ))}
@@ -51,27 +72,37 @@ export default async function UrunlerPage({
 
         {/* Marka filtresi */}
         {brands.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-10 justify-center">
+          <div className="flex flex-wrap gap-2 justify-center mb-10">
             {brands.map((b) => (
-              <a key={b.slug} href={`/urunler?${aktifKategori !== "tumu" ? `kategori=${aktifKategori}&` : ""}marka=${b.slug}`}
-                className={`px-4 py-1.5 text-xs tracking-wide uppercase border rounded-full transition-colors ${aktifMarka === b.slug ? "bg-[#8b6f5e] text-[#f5f0eb] border-[#8b6f5e]" : "border-[#d4c5ba] text-[#8b6f5e] hover:bg-[#f5f0eb]"}`}>
+              <a
+                key={b.slug}
+                href={`/urunler?${kategori !== "tumu" ? `kategori=${kategori}&` : ""}marka=${b.slug}`}
+                className={`font-sans text-[9px] tracking-[0.15em] uppercase px-4 py-2 border rounded-full transition-colors duration-200 ${
+                  marka === b.slug
+                    ? "bg-[#C4A882] text-white border-[#C4A882]"
+                    : "border-[#E8E4DE] text-[#9A9A9A] hover:border-[#C4A882] hover:text-[#8B6F4E]"
+                }`}
+              >
                 {b.name}
               </a>
             ))}
           </div>
         )}
 
-        <p className="text-xs text-[#b8a89e] text-center mb-8">{products.length} ürün</p>
+        <p className="font-sans text-xs text-[#9A9A9A] text-center mb-10 tracking-wide">
+          {products.length} ürün
+        </p>
 
         {products.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {products.map((product) => (
-              <ProductCard key={product.id} product={product as never} />
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-5">
+            {products.map((p) => (
+              <ProductCard key={p.id} product={p as never} />
             ))}
           </div>
         ) : (
-          <div className="text-center py-20">
-            <p className="text-[#b8a89e] text-sm">Bu filtrede ürün bulunamadı.</p>
+          <div className="text-center py-24">
+            <p className="font-serif italic text-[#C4A882] text-xl mb-3">Koku bulunamadı</p>
+            <p className="font-sans text-sm text-[#9A9A9A]">Bu filtrede henüz ürün yok.</p>
           </div>
         )}
       </div>
