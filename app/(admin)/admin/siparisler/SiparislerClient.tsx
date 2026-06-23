@@ -8,6 +8,8 @@ import {
   updateManuelOrderPayment, updateManuelOrderTotal,
 } from "@/lib/actions/site-order-admin";
 import { createOrder } from "@/lib/actions/order";
+import { createCustomer } from "@/lib/actions/customer";
+import { createProduct } from "@/lib/actions/product";
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING:   "Beklemede",
@@ -342,7 +344,7 @@ function ProductInput({
   }
 
   return (
-    <div ref={wrapRef} className="relative flex-1">
+    <div ref={wrapRef} className="relative w-full">
       <input
         value={query}
         onChange={(e) => { setQuery(e.target.value); setShowSug(true); onChange(idx, "name", e.target.value); onChange(idx, "productId", null); }}
@@ -374,11 +376,13 @@ function ProductInput({
 
 // ---- New Manuel Order Modal ----
 
-function NewOrderModal({ customers, products, onClose }: {
+function NewOrderModal({ customers: initCustomers, products: initProducts, onClose }: {
   customers: Customer[];
   products: ProductOption[];
   onClose: () => void;
 }) {
+  const [customers, setCustomers] = useState(initCustomers);
+  const [products, setProducts] = useState(initProducts);
   const [customerId, setCustomerId] = useState("");
   const [note, setNote] = useState("");
   const [status, setStatus] = useState("PENDING");
@@ -389,8 +393,49 @@ function NewOrderModal({ customers, products, onClose }: {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
 
+  // Inline new customer
+  const [showNewCustomer, setShowNewCustomer] = useState(false);
+  const [newCust, setNewCust] = useState({ name: "", phone: "" });
+  const [custSaving, startCustT] = useTransition();
+
+  // Inline new product
+  const [newProductIdx, setNewProductIdx] = useState<number | null>(null);
+  const [newProd, setNewProd] = useState({ name: "", price: "" });
+  const [prodSaving, startProdT] = useTransition();
+
   function changeItem(idx: number, field: keyof ItemForm, val: string | number | null) {
     setItems((prev) => prev.map((it, i) => i === idx ? { ...it, [field]: val } : it));
+  }
+
+  function saveNewCustomer() {
+    if (!newCust.name.trim()) return;
+    startCustT(async () => {
+      await createCustomer({ name: newCust.name.trim(), phone: newCust.phone.trim() || undefined });
+      // Reload customers via optimistic update
+      const newId = `temp-${Date.now()}`;
+      const newCustomer: Customer = { id: newId, name: newCust.name.trim(), phone: newCust.phone.trim() || null };
+      setCustomers((prev) => [...prev, newCustomer].sort((a, b) => a.name.localeCompare(b.name)));
+      setCustomerId(newId);
+      setNewCust({ name: "", phone: "" });
+      setShowNewCustomer(false);
+    });
+  }
+
+  function saveNewProduct(idx: number) {
+    if (!newProd.name.trim() || !newProd.price) return;
+    startProdT(async () => {
+      const slug = newProd.name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+      await createProduct({
+        name: newProd.name.trim(), slug: `${slug}-${Date.now()}`,
+        description: "", price: Number(newProd.price), stock: 0, isActive: true, images: [],
+      });
+      const newP: ProductOption = { id: `temp-${Date.now()}`, name: newProd.name.trim(), price: Number(newProd.price), stock: 0 };
+      setProducts((prev) => [...prev, newP]);
+      changeItem(idx, "name", newP.name);
+      changeItem(idx, "price", newP.price);
+      setNewProd({ name: "", price: "" });
+      setNewProductIdx(null);
+    });
   }
 
   const autoTotal = items.reduce((s, i) => s + i.qty * i.price, 0);
@@ -430,13 +475,38 @@ function NewOrderModal({ customers, products, onClose }: {
             {/* Müşteri */}
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Müşteri *</label>
-              <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} required
-                className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
-                <option value="">Müşteri seçin...</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}{c.phone ? ` — ${c.phone}` : ""}</option>
-                ))}
-              </select>
+              {showNewCustomer ? (
+                <div className="border border-indigo-200 rounded p-3 bg-indigo-50 space-y-2">
+                  <p className="text-xs font-medium text-indigo-700">Yeni Müşteri</p>
+                  <input value={newCust.name} onChange={(e) => setNewCust((p) => ({ ...p, name: e.target.value }))}
+                    placeholder="İsim *" autoFocus
+                    className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-indigo-400" />
+                  <input value={newCust.phone} onChange={(e) => setNewCust((p) => ({ ...p, phone: e.target.value }))}
+                    placeholder="Telefon (opsiyonel)"
+                    className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-indigo-400" />
+                  <div className="flex gap-2">
+                    <button type="button" onClick={saveNewCustomer} disabled={!newCust.name.trim() || custSaving}
+                      className="flex-1 bg-indigo-600 text-white text-xs py-1.5 rounded disabled:opacity-60">
+                      {custSaving ? "Kaydediliyor..." : "Kaydet"}
+                    </button>
+                    <button type="button" onClick={() => setShowNewCustomer(false)} className="text-xs text-gray-400 px-2">İptal</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <select value={customerId} onChange={(e) => setCustomerId(e.target.value)}
+                    className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                    <option value="">Müşteri seçin...</option>
+                    {customers.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}{c.phone ? ` — ${c.phone}` : ""}</option>
+                    ))}
+                  </select>
+                  <button type="button" onClick={() => setShowNewCustomer(true)}
+                    className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
+                    + Yeni müşteri ekle
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Sipariş Durumu */}
@@ -455,7 +525,13 @@ function NewOrderModal({ customers, products, onClose }: {
             <div className="space-y-2">
               {items.map((item, idx) => (
                 <div key={idx} className="flex gap-2 items-start">
-                  <ProductInput item={item} idx={idx} products={products} onChange={changeItem} />
+                  <div className="flex-1 space-y-0.5">
+                    <ProductInput item={item} idx={idx} products={products} onChange={changeItem} />
+                    <button type="button" onClick={() => { setNewProductIdx(idx); setNewProd({ name: item.name, price: String(item.price || "") }); }}
+                      className="text-[10px] text-green-600 hover:text-green-800">
+                      + Listede yoksa yeni ürün ekle
+                    </button>
+                  </div>
                   <div className="flex flex-col gap-0.5">
                     <label className="text-[10px] text-gray-400">Adet</label>
                     <input type="number" min="1" value={item.qty}
@@ -480,10 +556,33 @@ function NewOrderModal({ customers, products, onClose }: {
                 </div>
               ))}
             </div>
-            <button type="button" onClick={() => setItems((p) => [...p, { productId: null, name: "", qty: 1, price: 0 }])}
-              className="mt-2 text-xs text-indigo-600 hover:text-indigo-800 font-medium">
-              + Ürün Ekle
-            </button>
+            <div className="flex gap-4 mt-2">
+              <button type="button" onClick={() => setItems((p) => [...p, { productId: null, name: "", qty: 1, price: 0 }])}
+                className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
+                + Ürün Satırı Ekle
+              </button>
+            </div>
+            {/* Inline new product form (per-row) */}
+            {newProductIdx !== null && (
+              <div className="border border-green-200 rounded p-3 bg-green-50 space-y-2 mt-2">
+                <p className="text-xs font-medium text-green-700">Yeni Ürün Ekle</p>
+                <div className="flex gap-2">
+                  <input value={newProd.name} onChange={(e) => setNewProd((p) => ({ ...p, name: e.target.value }))}
+                    placeholder="Ürün adı *" autoFocus
+                    className="flex-1 border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-green-400" />
+                  <input type="number" value={newProd.price} onChange={(e) => setNewProd((p) => ({ ...p, price: e.target.value }))}
+                    placeholder="Fiyat ₺"
+                    className="w-24 border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-green-400" />
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => saveNewProduct(newProductIdx)} disabled={!newProd.name.trim() || !newProd.price || prodSaving}
+                    className="flex-1 bg-green-600 text-white text-xs py-1.5 rounded disabled:opacity-60">
+                    {prodSaving ? "Kaydediliyor..." : "Ürünü Kaydet ve Seç"}
+                  </button>
+                  <button type="button" onClick={() => setNewProductIdx(null)} className="text-xs text-gray-400 px-2">İptal</button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Tutar + İskonto */}

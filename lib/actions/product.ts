@@ -45,6 +45,13 @@ export async function updateProduct(id: string, data: Partial<ProductFormData>) 
   await prisma.product.update({ where: { id }, data });
   revalidatePath("/admin/urunler");
   revalidatePath("/urunler");
+
+  // If costPrice changed, rebuild Finance cost records for this product
+  if (data.costPrice !== undefined) {
+    const { rebuildCostExpensesForProduct } = await import("./site-order-admin");
+    await rebuildCostExpensesForProduct(id);
+  }
+
   return { success: true };
 }
 
