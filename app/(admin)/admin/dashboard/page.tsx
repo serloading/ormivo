@@ -29,7 +29,7 @@ export default async function DashboardPage() {
   const stats = [
     { label: "Aktif Ürün",      value: totalProducts,                          sub: "yayında",        href: "/admin/urunler" },
     { label: "Kayıtlı Müşteri", value: totalCustomers,                         sub: "toplam müşteri", href: "/admin/musteriler" },
-    { label: "Bekleyen Sipariş",value: pendingOrders,                          sub: "işlem bekliyor", href: "/admin/site-siparisler" },
+    { label: "Bekleyen Sipariş",value: pendingOrders,                          sub: "işlem bekliyor", href: "/admin/siparisler" },
     { label: "Bu Ay Gelir",     value: `${income.toLocaleString("tr-TR")} ₺`,  sub: "net gelir",      href: "/admin/finans" },
   ];
 
