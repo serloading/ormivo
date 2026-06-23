@@ -66,7 +66,13 @@ export default function LoggedInCart({
       if (!newAddr.phone.trim())         { setFormError("Telefon gerekli.");   setSubmitting(false); return; }
       if (!newAddr.addressLine.trim())   { setFormError("Adres gerekli.");     setSubmitting(false); return; }
       if (!newAddr.city.trim())          { setFormError("Şehir gerekli.");     setSubmitting(false); return; }
-      delivery = { ...newAddr };
+      delivery = {
+        recipientName:  newAddr.recipientName,
+        recipientPhone: newAddr.phone,
+        addressLine:    newAddr.addressLine,
+        city:           newAddr.city,
+        district:       newAddr.district,
+      };
     }
 
     const result = await placeOrder({
