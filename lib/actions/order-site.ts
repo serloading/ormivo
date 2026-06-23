@@ -34,13 +34,14 @@ export async function placeOrder(input: PlaceOrderInput) {
     const dbItems = cart?.items ?? [];
     if (dbItems.length === 0) return { error: "Sepetiniz boş." };
 
-    orderItems = dbItems.map((i) => ({
+    type CartItem = { quantity: number; product: { id: string; name: string; price: unknown } };
+    orderItems = (dbItems as CartItem[]).map((i) => ({
       productId: i.product.id,
       name:      i.product.name,
       price:     Number(i.product.price),
       qty:       i.quantity,
     }));
-    total = orderItems.reduce((s, i) => s + i.price * i.qty, 0);
+    total = orderItems.reduce((s: number, i) => s + i.price * i.qty, 0);
   } else {
     if (!guestItems || guestItems.length === 0) return { error: "Sepetiniz boş." };
 
@@ -49,8 +50,9 @@ export async function placeOrder(input: PlaceOrderInput) {
       select: { id: true, name: true, price: true },
     });
 
+    type ProductRow = { id: string; name: string; price: unknown };
     orderItems = guestItems.map((gi) => {
-      const p   = products.find((p) => p.id === gi.productId);
+      const p   = (products as ProductRow[]).find((p) => p.id === gi.productId);
       const qty = Math.max(1, Math.min(999, Math.floor(Number(gi.qty) || 1)));
       if (!p) return null;
       return { productId: p.id, name: p.name, price: Number(p.price), qty };
