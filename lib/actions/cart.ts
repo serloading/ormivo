@@ -31,7 +31,7 @@ export async function getCartCount(): Promise<number> {
     where:   { userId: session.userId },
     include: { items: true },
   });
-  return cart?.items.reduce((sum, i) => sum + i.quantity, 0) ?? 0;
+  return cart?.items.reduce((sum: number, i: { quantity: number }) => sum + i.quantity, 0) ?? 0;
 }
 
 export async function addToCart(productId: string) {
