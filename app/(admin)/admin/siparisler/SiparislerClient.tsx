@@ -51,6 +51,7 @@ interface OrderRow {
 }
 interface Customer { id: string; name: string; phone: string | null }
 interface ProductOption { id: string; name: string; price: number; stock: number }
+interface CatBrand { id: string; name: string }
 
 // ---- Portal Dropdown ----
 // Renders the menu via portal so it floats above the table without z-index clipping
@@ -379,9 +380,11 @@ function ProductInput({
 
 // ---- New Manuel Order Modal ----
 
-function NewOrderModal({ customers: initCustomers, products: initProducts, onClose }: {
+function NewOrderModal({ customers: initCustomers, products: initProducts, categories, brands, onClose }: {
   customers: Customer[];
   products: ProductOption[];
+  categories: CatBrand[];
+  brands: CatBrand[];
   onClose: () => void;
 }) {
   const [customers, setCustomers] = useState(initCustomers);
@@ -404,7 +407,7 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, onClo
 
   // Inline new product
   const [newProductIdx, setNewProductIdx] = useState<number | null>(null);
-  const [newProd, setNewProd] = useState({ name: "", price: "" });
+  const [newProd, setNewProd] = useState({ name: "", price: "", costPrice: "", categoryId: "", brandId: "" });
   const [prodSaving, startProdT] = useTransition();
 
   function changeItem(idx: number, field: keyof ItemForm, val: string | number | null) {
@@ -430,14 +433,22 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, onClo
     startProdT(async () => {
       const slug = newProd.name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
       await createProduct({
-        name: newProd.name.trim(), slug: `${slug}-${Date.now()}`,
-        description: "", price: Number(newProd.price), stock: 0, isActive: true, images: [],
+        name: newProd.name.trim(),
+        slug: `${slug}-${Date.now()}`,
+        description: "",
+        price: Number(newProd.price),
+        costPrice: newProd.costPrice ? Number(newProd.costPrice) : undefined,
+        categoryId: newProd.categoryId || undefined,
+        brandId: newProd.brandId || undefined,
+        stock: 0,
+        isActive: true,
+        images: [],
       });
       const newP: ProductOption = { id: `temp-${Date.now()}`, name: newProd.name.trim(), price: Number(newProd.price), stock: 0 };
       setProducts((prev) => [...prev, newP]);
       changeItem(idx, "name", newP.name);
       changeItem(idx, "price", newP.price);
-      setNewProd({ name: "", price: "" });
+      setNewProd({ name: "", price: "", costPrice: "", categoryId: "", brandId: "" });
       setNewProductIdx(null);
     });
   }
@@ -545,7 +556,7 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, onClo
                 <div key={idx} className="flex gap-2 items-start">
                   <div className="flex-1 space-y-0.5">
                     <ProductInput item={item} idx={idx} products={products} onChange={changeItem} />
-                    <button type="button" onClick={() => { setNewProductIdx(idx); setNewProd({ name: item.name, price: String(item.price || "") }); }}
+                    <button type="button" onClick={() => { setNewProductIdx(idx); setNewProd({ name: item.name, price: String(item.price || ""), costPrice: "", categoryId: "", brandId: "" }); }}
                       className="text-[10px] text-green-600 hover:text-green-800">
                       + Listede yoksa yeni ürün ekle
                     </button>
@@ -584,13 +595,26 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, onClo
             {newProductIdx !== null && (
               <div className="border border-green-200 rounded p-3 bg-green-50 space-y-2 mt-2">
                 <p className="text-xs font-medium text-green-700">Yeni Ürün Ekle</p>
-                <div className="flex gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <input value={newProd.name} onChange={(e) => setNewProd((p) => ({ ...p, name: e.target.value }))}
                     placeholder="Ürün adı *" autoFocus
-                    className="flex-1 border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-green-400" />
+                    className="col-span-2 border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-green-400" />
                   <input type="number" value={newProd.price} onChange={(e) => setNewProd((p) => ({ ...p, price: e.target.value }))}
-                    placeholder="Fiyat ₺"
-                    className="w-24 border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-green-400" />
+                    placeholder="Satış fiyatı ₺ *"
+                    className="border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-green-400" />
+                  <input type="number" value={newProd.costPrice} onChange={(e) => setNewProd((p) => ({ ...p, costPrice: e.target.value }))}
+                    placeholder="Alış fiyatı ₺ (maliyet)"
+                    className="border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-green-400" />
+                  <select value={newProd.categoryId} onChange={(e) => setNewProd((p) => ({ ...p, categoryId: e.target.value }))}
+                    className="border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-green-400">
+                    <option value="">Kategori seç</option>
+                    {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                  <select value={newProd.brandId} onChange={(e) => setNewProd((p) => ({ ...p, brandId: e.target.value }))}
+                    className="border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-green-400">
+                    <option value="">Marka seç</option>
+                    {brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  </select>
                 </div>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => saveNewProduct(newProductIdx)} disabled={!newProd.name.trim() || !newProd.price || prodSaving}
@@ -666,11 +690,13 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, onClo
 // ---- Main Component ----
 
 export default function SiparislerClient({
-  orders, customers, products,
+  orders, customers, products, categories, brands,
 }: {
   orders: OrderRow[];
   customers: Customer[];
   products: ProductOption[];
+  categories: CatBrand[];
+  brands: CatBrand[];
 }) {
   const [filter, setFilter] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
@@ -781,7 +807,7 @@ export default function SiparislerClient({
       </div>
 
       {showNewOrder && (
-        <NewOrderModal customers={customers} products={products} onClose={() => setShowNewOrder(false)} />
+        <NewOrderModal customers={customers} products={products} categories={categories} brands={brands} onClose={() => setShowNewOrder(false)} />
       )}
     </div>
   );
