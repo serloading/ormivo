@@ -42,6 +42,4 @@ next-env.d.ts
 
 /app/generated/prisma
 
-# uploaded product images (local dev only)
-/public/uploads/*
-!/public/uploads/.gitkeep
+# public/uploads is tracked in git
