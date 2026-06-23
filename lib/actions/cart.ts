@@ -34,21 +34,22 @@ export async function getCartCount(): Promise<number> {
   return cart?.items.reduce((sum: number, i: { quantity: number }) => sum + i.quantity, 0) ?? 0;
 }
 
-export async function addToCart(productId: string) {
+export async function addToCart(productId: string, quantity = 1) {
   const session = await getSession();
   if (!session) return { error: "Giriş yapmanız gerekiyor." };
 
+  const qty = Math.max(1, Math.min(10, quantity));
   const cart = await getUserCart(session.userId);
 
   const existing = (cart.items as Array<{ id: string; productId: string; quantity: number }>).find((i) => i.productId === productId);
   if (existing) {
     await prisma.cartItem.update({
       where: { id: existing.id },
-      data:  { quantity: existing.quantity + 1 },
+      data:  { quantity: existing.quantity + qty },
     });
   } else {
     await prisma.cartItem.create({
-      data: { cartId: cart.id, productId, quantity: 1 },
+      data: { cartId: cart.id, productId, quantity: qty },
     });
   }
 

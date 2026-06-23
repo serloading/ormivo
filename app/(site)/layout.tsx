@@ -6,7 +6,6 @@ import { getSession } from "@/lib/session";
 import { getCartCount } from "@/lib/actions/cart";
 import SiteHeader from "@/components/site/SiteHeader";
 import SiteFooter from "@/components/site/SiteFooter";
-import WhatsAppFloat from "@/components/site/WhatsAppFloat";
 import BottomNav from "@/components/site/BottomNav";
 
 export const metadata: Metadata = {
@@ -33,7 +32,6 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       />
       <main className="flex-1 pb-16">{children}</main>
       <SiteFooter />
-      <WhatsAppFloat />
       <BottomNav cartCount={cartCount} loggedIn={!!session} />
     </div>
   );

@@ -35,8 +35,7 @@ const SECTIONS = [
     content: [
       "Ürünler orijinal mi? Evet, tüm ürünler resmi distribütörlerden orijinallik sertifikasıyla temin edilir.",
       "Kargo ne kadar sürer? Sipariş onayından sonra 1–3 iş günü içinde teslim edilir.",
-      "Sipariş nasıl verilir? WhatsApp üzerinden ürün adını bildirmeniz yeterlidir.",
-      "İade mümkün mü? Ambalajı açılmamış ürünler için 14 gün içinde iade talebinde bulunabilirsiniz.",
+"İade mümkün mü? Ambalajı açılmamış ürünler için 14 gün içinde iade talebinde bulunabilirsiniz.",
     ],
   },
 ];

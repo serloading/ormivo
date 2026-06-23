@@ -8,21 +8,22 @@ interface Props {
   productId: string;
   loggedIn:  boolean;
   large?:    boolean;
+  quantity?: number;
 }
 
-function addToGuestCart(productId: string) {
+function addToGuestCart(productId: string, qty: number) {
   try {
     const raw  = localStorage.getItem("guest_cart") ?? "[]";
     const cart: { productId: string; qty: number }[] = JSON.parse(raw);
     const idx  = cart.findIndex((i) => i.productId === productId);
-    if (idx >= 0) cart[idx].qty += 1;
-    else cart.push({ productId, qty: 1 });
+    if (idx >= 0) cart[idx].qty += qty;
+    else cart.push({ productId, qty });
     localStorage.setItem("guest_cart", JSON.stringify(cart));
     window.dispatchEvent(new Event("guest-cart-updated"));
   } catch {}
 }
 
-export default function AddToCartButton({ productId, loggedIn, large = false }: Props) {
+export default function AddToCartButton({ productId, loggedIn, large = false, quantity = 1 }: Props) {
   const [pending, startTransition] = useTransition();
   const [added, setAdded]          = useState(false);
   const router = useRouter();
@@ -32,14 +33,14 @@ export default function AddToCartButton({ productId, loggedIn, large = false }: 
     e.stopPropagation();
 
     if (!loggedIn) {
-      addToGuestCart(productId);
+      addToGuestCart(productId, quantity);
       setAdded(true);
       setTimeout(() => setAdded(false), 1500);
       return;
     }
 
     startTransition(async () => {
-      const result = await addToCart(productId);
+      const result = await addToCart(productId, quantity);
       if (result?.success) {
         setAdded(true);
         setTimeout(() => setAdded(false), 1500);
