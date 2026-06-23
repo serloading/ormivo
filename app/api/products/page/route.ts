@@ -55,7 +55,8 @@ export async function GET(req: NextRequest) {
   const page    = products.slice(offset, offset + limit);
   const hasMore = offset + limit < products.length;
 
-  const items = page.map((p) => ({
+  type PageProduct = { id: string; slug: string; name: string; price: unknown; comparePrice: unknown; images: unknown; stock: number; brand: { name: string } | null };
+  const items = (page as PageProduct[]).map((p) => ({
     id:           p.id,
     slug:         p.slug,
     name:         p.name,
