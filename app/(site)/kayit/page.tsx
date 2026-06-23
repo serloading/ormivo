@@ -5,8 +5,8 @@ import Link from "next/link";
 import { register } from "@/lib/actions/auth";
 
 export default function KayitPage() {
-  const [error, setError]           = useState("");
-  const [pending, startTransition]  = useTransition();
+  const [error, setError]          = useState("");
+  const [pending, startTransition] = useTransition();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -37,26 +37,14 @@ export default function KayitPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block font-sans text-[11px] tracking-[0.15em] uppercase text-[#6B6B6B] mb-1.5">
-                Ad Soyad
+                Telefon Numarası
               </label>
               <input
-                name="name"
-                type="text"
+                name="phone"
+                type="tel"
                 required
-                autoComplete="name"
-                className="w-full border border-[#E8E4DE] px-3 py-2.5 font-sans text-sm outline-none focus:border-[#C4A882] transition-colors"
-              />
-            </div>
-
-            <div>
-              <label className="block font-sans text-[11px] tracking-[0.15em] uppercase text-[#6B6B6B] mb-1.5">
-                E-posta
-              </label>
-              <input
-                name="email"
-                type="email"
-                required
-                autoComplete="email"
+                placeholder="05XX XXX XX XX"
+                autoComplete="tel"
                 className="w-full border border-[#E8E4DE] px-3 py-2.5 font-sans text-sm outline-none focus:border-[#C4A882] transition-colors"
               />
             </div>

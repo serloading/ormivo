@@ -1,15 +1,14 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
-const SECRET = new TextEncoder().encode(
-  process.env.SESSION_SECRET ?? "ormivo-site-secret-key-change-in-prod-32chars"
-);
+if (!process.env.SESSION_SECRET) throw new Error("SESSION_SECRET env variable is required");
+const SECRET = new TextEncoder().encode(process.env.SESSION_SECRET);
 const COOKIE = "site_session";
 
 export interface SessionPayload {
   userId: string;
-  email:  string;
-  name:   string;
+  phone:  string;
+  name:   string | null;
 }
 
 export async function createSession(payload: SessionPayload) {

@@ -16,9 +16,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         if (!email || !password) return null;
 
-        // Mock auth — Supabase bağlandıktan sonra DB'den çekilecek
-        const mockEmail = process.env.ADMIN_EMAIL ?? "admin@ormivo.com";
-        const mockPassword = process.env.ADMIN_PASSWORD ?? "ormivo2024";
+        const mockEmail    = process.env.ADMIN_EMAIL;
+        const mockPassword = process.env.ADMIN_PASSWORD;
+
+        if (!mockEmail || !mockPassword) return null;
 
         if (email === mockEmail && password === mockPassword) {
           return {

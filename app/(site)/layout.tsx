@@ -25,7 +25,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
     <div className="flex flex-col min-h-screen">
       <SiteHeader
         brands={brands}
-        user={session ? { name: session.name, email: session.email } : null}
+        user={session ? { name: session.name ?? null, phone: session.phone } : null}
         cartCount={cartCount}
       />
       <main className="flex-1">{children}</main>

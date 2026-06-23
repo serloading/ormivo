@@ -5,7 +5,7 @@ import Link from "next/link";
 import { login } from "@/lib/actions/auth";
 
 export default function GirisPage() {
-  const [error, setError]       = useState("");
+  const [error, setError]          = useState("");
   const [pending, startTransition] = useTransition();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -27,20 +27,21 @@ export default function GirisPage() {
         <div className="bg-white border border-[#E8E4DE] p-8">
           <div className="text-center mb-8">
             <h1 className="font-serif text-2xl text-[#1A1A1A] mb-1">Giriş Yap</h1>
-            <p className="font-sans text-xs text-[#9A9A9A]">Hesabınıza erişin</p>
+            <p className="font-sans text-xs text-[#9A9A9A]">Hesabınıza giriş yapın</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block font-sans text-[11px] tracking-[0.15em] uppercase text-[#6B6B6B] mb-1.5">
-                E-posta
+                Telefon Numarası
               </label>
               <input
-                name="email"
-                type="email"
+                name="phone"
+                type="tel"
                 required
-                autoComplete="email"
-                className="w-full border border-[#E8E4DE] px-3 py-2.5 font-sans text-sm text-[#1A1A1A] outline-none focus:border-[#C4A882] transition-colors"
+                placeholder="05XX XXX XX XX"
+                autoComplete="tel"
+                className="w-full border border-[#E8E4DE] px-3 py-2.5 font-sans text-sm outline-none focus:border-[#C4A882] transition-colors"
               />
             </div>
 
@@ -53,7 +54,7 @@ export default function GirisPage() {
                 type="password"
                 required
                 autoComplete="current-password"
-                className="w-full border border-[#E8E4DE] px-3 py-2.5 font-sans text-sm text-[#1A1A1A] outline-none focus:border-[#C4A882] transition-colors"
+                className="w-full border border-[#E8E4DE] px-3 py-2.5 font-sans text-sm outline-none focus:border-[#C4A882] transition-colors"
               />
             </div>
 

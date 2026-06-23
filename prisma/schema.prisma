@@ -54,17 +54,18 @@ model Product {
 }
 
 model Customer {
-  id        String          @id @default(cuid())
-  name      String
-  phone     String?
-  email     String?
-  city      String?
-  note      String?
-  orders    Order[]
-  cargos    CargoTracking[]
-  debts     CustomerDebt[]
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
+  id         String          @id @default(cuid())
+  name       String
+  phone      String?
+  email      String?
+  city       String?
+  note       String?
+  orders     Order[]
+  siteOrders SiteOrder[]
+  cargos     CargoTracking[]
+  debts      CustomerDebt[]
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
 }
 
 model Order {
@@ -128,15 +129,55 @@ enum FinanceType {
   EXPENSE
 }
 
-// ── Site Kullanıcıları ─────────────────────────────────────
+// â”€â”€ Site KullanÄ±cÄ±larÄ± â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 model SiteUser {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String
+  id           String      @id @default(cuid())
+  phone        String      @unique
+  name         String?
   passwordHash String
-  createdAt    DateTime @default(now())
+  createdAt    DateTime    @default(now())
   cart         Cart?
+  addresses    Address[]
+  siteOrders   SiteOrder[]
+}
+
+model Address {
+  id            String      @id @default(cuid())
+  userId        String
+  user          SiteUser    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipientName String
+  phone         String
+  addressLine   String
+  city          String
+  district      String?
+  isDefault     Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  siteOrders    SiteOrder[]
+}
+
+model SiteOrder {
+  id             String      @id @default(cuid())
+  orderNo        String      @unique @default(cuid())
+  status         OrderStatus @default(PENDING)
+  userId         String?
+  user           SiteUser?   @relation(fields: [userId], references: [id])
+  addressId      String?
+  address        Address?    @relation(fields: [addressId], references: [id])
+  recipientName  String?
+  recipientPhone String?
+  addressLine    String?
+  city           String?
+  district       String?
+  items          Json
+  total          Decimal     @db.Decimal(10, 2)
+  customerId     String?
+  customer       Customer?   @relation(fields: [customerId], references: [id])
+  trackingNo     String?
+  cargoCompany   String?
+  note           String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 }
 
 model Cart {
@@ -167,7 +208,7 @@ model AdminUser {
   createdAt    DateTime @default(now())
 }
 
-// ── Borç / Alacak Takibi ──────────────────────────────────
+// â”€â”€ BorÃ§ / Alacak Takibi â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 model CustomerDebt {
   id          String        @id @default(cuid())

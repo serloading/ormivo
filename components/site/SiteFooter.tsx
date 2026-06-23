@@ -55,7 +55,7 @@ export default function SiteFooter() {
               Sipariş ve danışma için WhatsApp&apos;tan ulaşın.
             </p>
             <a
-              href="https://wa.me/905465402113?text=Merhaba,%20parfüm%20siparişi%20vermek%20istiyorum."
+              href={`https://wa.me/905465402113?text=${encodeURIComponent("Merhaba, parfüm siparişi vermek istiyorum.")}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-3 group"
