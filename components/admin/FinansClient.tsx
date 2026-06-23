@@ -19,8 +19,10 @@ export default function FinansClient({ records }: { records: Rec[] }) {
   const [filterType, setFilterType] = useState("");
 
   const filtered = records.filter((r) => !filterType || r.type === filterType);
-  const gelir = records.filter((r) => r.type === "INCOME").reduce((s, r) => s + Number(r.amount), 0);
-  const gider = records.filter((r) => r.type === "EXPENSE").reduce((s, r) => s + Number(r.amount), 0);
+  const gelir       = records.filter((r) => r.type === "INCOME").reduce((s, r) => s + Number(r.amount), 0);
+  const gider       = records.filter((r) => r.type === "EXPENSE").reduce((s, r) => s + Number(r.amount), 0);
+  const kargoGider  = records.filter((r) => r.type === "EXPENSE" && r.category === "Kargo Gideri").reduce((s, r) => s + Number(r.amount), 0);
+  const urunMaliyet = records.filter((r) => r.type === "EXPENSE" && r.category === "Ürün Maliyeti").reduce((s, r) => s + Number(r.amount), 0);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,11 +49,26 @@ export default function FinansClient({ records }: { records: Rec[] }) {
         <button onClick={() => setModal(true)} className="bg-[#2c1810] text-[#f5f0eb] text-xs tracking-widest uppercase px-6 py-3 hover:bg-[#3d2418] transition-colors">+ Kayıt Ekle</button>
       </div>
 
-      <div className="grid grid-cols-3 gap-6 mb-8">
-        {[{ label: "Toplam Gelir", value: gelir, color: "text-green-700" }, { label: "Toplam Gider", value: gider, color: "text-red-600" }, { label: "Net Kâr", value: gelir - gider, color: gelir - gider >= 0 ? "text-green-700" : "text-red-600" }].map((s) => (
-          <div key={s.label} className="bg-white border border-[#e8ddd6] rounded-sm p-6">
-            <p className="text-xs tracking-widest text-[#8b6f5e] uppercase mb-3">{s.label}</p>
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+        {[
+          { label: "Toplam Gelir",    value: gelir,       color: "text-green-700" },
+          { label: "Toplam Gider",    value: gider,       color: "text-red-600"   },
+          { label: "Net Kâr",         value: gelir-gider, color: (gelir-gider)>=0 ? "text-green-700" : "text-red-600" },
+        ].map((s) => (
+          <div key={s.label} className="bg-white border border-[#e8ddd6] rounded-sm p-5">
+            <p className="text-xs tracking-widest text-[#8b6f5e] uppercase mb-2">{s.label}</p>
             <p className={`text-2xl font-light ${s.color}`}>{s.value.toLocaleString("tr-TR")} ₺</p>
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-4 mb-8">
+        {[
+          { label: "Kargo Gideri",   value: kargoGider,  color: "text-orange-600" },
+          { label: "Ürün Maliyeti",  value: urunMaliyet, color: "text-orange-600" },
+        ].map((s) => (
+          <div key={s.label} className="bg-orange-50 border border-orange-200 rounded-sm p-4">
+            <p className="text-xs tracking-widest text-orange-500 uppercase mb-2">{s.label}</p>
+            <p className={`text-xl font-light ${s.color}`}>{s.value.toLocaleString("tr-TR")} ₺</p>
           </div>
         ))}
       </div>

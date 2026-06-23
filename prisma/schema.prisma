@@ -178,6 +178,7 @@ model SiteOrder {
   cargoCompany   String?
   note           String?
   paymentStatus  String      @default("PENDING")
+  deliveryMethod String      @default("CARGO")
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 }
