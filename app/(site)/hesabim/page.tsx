@@ -62,7 +62,7 @@ export default async function HesabimPage() {
                 <p className="font-sans text-xs text-[#9A9A9A]">Henüz adres eklenmemiş.</p>
               ) : (
                 <div className="space-y-3">
-                  {user.addresses.map((addr) => (
+                  {(user.addresses as Array<{ id: string; recipientName: string; phone: string; addressLine: string; city: string; district: string | null; isDefault: boolean }>).map((addr) => (
                     <div key={addr.id} className="border border-[#E8E4DE] p-3 text-xs font-sans">
                       <div className="flex items-start justify-between gap-2">
                         <div>
