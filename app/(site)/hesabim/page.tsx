@@ -7,6 +7,15 @@ import AddressActions    from "./AddressActions";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Hesabım — Ormivo" };
 
+interface UserAddress {
+  id: string; recipientName: string; phone: string;
+  addressLine: string; city: string; district: string | null; isDefault: boolean;
+}
+interface SiteOrderRow {
+  id: string; orderNo: string; createdAt: Date; status: string;
+  items: unknown; total: unknown; trackingNo: string | null; cargoCompany: string | null;
+}
+
 const STATUS_LABELS: Record<string, string> = {
   PENDING:   "Hazırlanıyor",
   CONFIRMED: "Onaylandı",
@@ -62,7 +71,7 @@ export default async function HesabimPage() {
                 <p className="font-sans text-xs text-[#9A9A9A]">Henüz adres eklenmemiş.</p>
               ) : (
                 <div className="space-y-3">
-                  {(user.addresses as Array<{ id: string; recipientName: string; phone: string; addressLine: string; city: string; district: string | null; isDefault: boolean }>).map((addr) => (
+                  {(user.addresses as UserAddress[]).map((addr) => (
                     <div key={addr.id} className="border border-[#E8E4DE] p-3 text-xs font-sans">
                       <div className="flex items-start justify-between gap-2">
                         <div>
@@ -91,7 +100,7 @@ export default async function HesabimPage() {
                 <p className="font-sans text-sm text-[#9A9A9A] py-8 text-center">Henüz siparişiniz bulunmuyor.</p>
               ) : (
                 <div className="space-y-4">
-                  {orders.map((order) => {
+                  {(orders as SiteOrderRow[]).map((order) => {
                     const itemsArr = order.items as { name: string; qty: number; price: number }[];
                     return (
                       <div key={order.id} className="border border-[#E8E4DE] p-4">

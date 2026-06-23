@@ -45,9 +45,13 @@ export default async function HomePage({
     prisma.brand.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, slug: true } }),
   ]);
 
-  const allProducts = (sirala === "fiyat-artan" || sirala === "fiyat-azalan")
+  type RawProduct = { id: string; slug: string; name: string; price: unknown; comparePrice: unknown; images: unknown; stock: number; brand: { name: string } | null };
+  type RawCategory = { id: string; name: string; slug: string };
+  type RawBrand = { id: string; name: string; slug: string };
+
+  const allProducts = ((sirala === "fiyat-artan" || sirala === "fiyat-azalan")
     ? rawProducts
-    : seededShuffle(rawProducts);
+    : seededShuffle(rawProducts)) as RawProduct[];
 
   const initialProducts = allProducts.slice(0, INITIAL_LIMIT).map((p) => ({
     id:           p.id,
@@ -65,12 +69,12 @@ export default async function HomePage({
 
   const categoryItems = [
     { href: href("kategori", ""), active: !kategori, label: "Tümü" },
-    ...categories.map((c) => ({ href: href("kategori", c.slug), active: kategori === c.slug, label: c.name })),
+    ...(categories as RawCategory[]).map((c) => ({ href: href("kategori", c.slug), active: kategori === c.slug, label: c.name })),
   ];
 
   const brandItems = [
     { href: href("marka", ""), active: !marka, label: "Tüm Markalar" },
-    ...brands.map((b) => ({ href: href("marka", b.slug), active: marka === b.slug, label: b.name })),
+    ...(brands as RawBrand[]).map((b) => ({ href: href("marka", b.slug), active: marka === b.slug, label: b.name })),
   ];
 
   const sortItems = [
