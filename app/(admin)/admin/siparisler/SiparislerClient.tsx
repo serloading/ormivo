@@ -10,15 +10,13 @@ import {
 import { createOrder } from "@/lib/actions/order";
 
 const STATUS_LABELS: Record<string, string> = {
-  PENDING:   "Hazırlanıyor",
-  CONFIRMED: "Onaylandı",
-  SHIPPED:   "Kargoda",
+  PENDING:   "Beklemede",
+  SHIPPED:   "Kargoya Verildi",
   DELIVERED: "Teslim Edildi",
   CANCELLED: "İptal Edildi",
 };
 const STATUS_COLORS: Record<string, string> = {
   PENDING:   "bg-yellow-50 text-yellow-700 border-yellow-200",
-  CONFIRMED: "bg-blue-50 text-blue-700 border-blue-200",
   SHIPPED:   "bg-indigo-50 text-indigo-700 border-indigo-200",
   DELIVERED: "bg-green-50 text-green-700 border-green-200",
   CANCELLED: "bg-red-50 text-red-600 border-red-200",
