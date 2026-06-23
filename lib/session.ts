@@ -1,9 +1,13 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
-if (!process.env.SESSION_SECRET) throw new Error("SESSION_SECRET env variable is required");
-const SECRET = new TextEncoder().encode(process.env.SESSION_SECRET);
 const COOKIE = "site_session";
+
+function getSecret(): Uint8Array {
+  const s = process.env.SESSION_SECRET;
+  if (!s) throw new Error("SESSION_SECRET env variable is required");
+  return new TextEncoder().encode(s);
+}
 
 export interface SessionPayload {
   userId: string;
@@ -16,7 +20,7 @@ export async function createSession(payload: SessionPayload) {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("30d")
-    .sign(SECRET);
+    .sign(getSecret());
 
   const jar = await cookies();
   jar.set(COOKIE, token, {
@@ -33,7 +37,7 @@ export async function getSession(): Promise<SessionPayload | null> {
     const jar   = await cookies();
     const token = jar.get(COOKIE)?.value;
     if (!token) return null;
-    const { payload } = await jwtVerify(token, SECRET);
+    const { payload } = await jwtVerify(token, getSecret());
     return payload as unknown as SessionPayload;
   } catch {
     return null;
