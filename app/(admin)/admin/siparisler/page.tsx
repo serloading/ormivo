@@ -17,7 +17,7 @@ export default async function SiparislerPage({
     ? ({ status: statusFilter } as never)
     : ({ status: { notIn: ["DELIVERED", "CANCELLED"] } } as never);
 
-  const [siteOrders, b2bOrders, customers] = await Promise.all([
+  const [siteOrders, b2bOrders, customers, products] = await Promise.all([
     prisma.siteOrder.findMany({
       where: activeFilter,
       orderBy: { createdAt: "desc" },
@@ -29,6 +29,7 @@ export default async function SiparislerPage({
       include: { customer: { select: { name: true, phone: true } } },
     }),
     prisma.customer.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, phone: true } }),
+    prisma.product.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true, price: true, stock: true } }),
   ]);
 
   // Normalize both into a single shape
@@ -79,5 +80,5 @@ export default async function SiparislerPage({
     })),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-  return <SiparislerClient orders={unified} customers={customers} />;
+  return <SiparislerClient orders={unified} customers={customers} products={products.map(p => ({ ...p, price: Number(p.price) }))} />;
 }
