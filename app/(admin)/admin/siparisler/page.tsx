@@ -12,17 +12,23 @@ export default async function SiparislerPage({
   const sp = await searchParams;
   const statusFilter = sp.status ?? null;
 
-  const [siteOrders, b2bOrders] = await Promise.all([
+  // Default (no status param) shows only active orders (excludes DELIVERED and CANCELLED)
+  const activeFilter = statusFilter
+    ? ({ status: statusFilter } as never)
+    : ({ status: { notIn: ["DELIVERED", "CANCELLED"] } } as never);
+
+  const [siteOrders, b2bOrders, customers] = await Promise.all([
     prisma.siteOrder.findMany({
-      where: statusFilter ? { status: statusFilter as never } : undefined,
+      where: activeFilter,
       orderBy: { createdAt: "desc" },
       include: { user: { select: { phone: true, name: true } } },
     }),
     prisma.order.findMany({
-      where: statusFilter ? { status: statusFilter as never } : undefined,
+      where: activeFilter,
       orderBy: { createdAt: "desc" },
       include: { customer: { select: { name: true, phone: true } } },
     }),
+    prisma.customer.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, phone: true } }),
   ]);
 
   // Normalize both into a single shape
@@ -40,6 +46,7 @@ export default async function SiparislerPage({
       district:      o.district,
       items:         o.items as { name: string; qty: number; price: number }[],
       total:         Number(o.total),
+      discount:      Number(o.discount ?? 0),
       note:          o.note,
       trackingNo:    o.trackingNo,
       cargoCompany:  o.cargoCompany,
@@ -61,15 +68,16 @@ export default async function SiparislerPage({
       district:      null,
       items:         o.items as { name: string; qty: number; price: number }[],
       total:         Number(o.total),
+      discount:      0,
       note:          o.note,
       trackingNo:    null,
       cargoCompany:  null,
-      paymentStatus:  "PENDING",
+      paymentStatus:  o.paymentStatus ?? "PENDING",
       deliveryMethod: "PICKUP",
       memberName:    null,
       memberPhone:   null,
     })),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-  return <SiparislerClient orders={unified} />;
+  return <SiparislerClient orders={unified} customers={customers} />;
 }

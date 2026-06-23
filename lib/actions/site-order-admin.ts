@@ -38,7 +38,6 @@ export async function updateDeliveryMethod(orderId: string, deliveryMethod: stri
   });
 
   if (deliveryMethod === "CARGO") {
-    // Kargo gideri yoksa oluştur
     const existing = await prisma.finance.findFirst({
       where: { siteOrderId: orderId, category: "Kargo Gideri" },
     });
@@ -54,7 +53,6 @@ export async function updateDeliveryMethod(orderId: string, deliveryMethod: stri
       });
     }
   } else {
-    // PICKUP seçildiyse kargo giderini sil
     await prisma.finance.deleteMany({
       where: { siteOrderId: orderId, category: "Kargo Gideri" },
     });
@@ -62,6 +60,31 @@ export async function updateDeliveryMethod(orderId: string, deliveryMethod: stri
 
   revalidatePath("/admin/siparisler");
   revalidatePath("/admin/finans");
+  return { success: true };
+}
+
+export async function updateSiteOrderDiscount(orderId: string, discount: number) {
+  const order = await prisma.siteOrder.update({
+    where: { id: orderId },
+    data:  { discount },
+  });
+
+  // If already PAID, update the income finance record amount
+  if (order.paymentStatus === "PAID") {
+    const netAmount = Math.max(0, Number(order.total) - discount);
+    const income = await prisma.finance.findFirst({
+      where: { siteOrderId: orderId, type: "INCOME" },
+    });
+    if (income) {
+      await prisma.finance.update({
+        where: { id: income.id },
+        data:  { amount: netAmount },
+      });
+    }
+    revalidatePath("/admin/finans");
+  }
+
+  revalidatePath("/admin/siparisler");
   return { success: true };
 }
 
@@ -103,16 +126,16 @@ export async function updatePaymentStatus(orderId: string, paymentStatus: string
   });
 
   if (paymentStatus === "PAID") {
-    // Satış geliri (aynı sipariş için yoksa oluştur)
     const existingIncome = await prisma.finance.findFirst({
       where: { siteOrderId: orderId, type: "INCOME" },
     });
     if (!existingIncome) {
+      const netAmount = Math.max(0, Number(order.total) - Number(order.discount ?? 0));
       await prisma.finance.create({
         data: {
           type:        "INCOME",
-          amount:      order.total,
-          description: `Sipariş #${order.orderNo}`,
+          amount:      netAmount,
+          description: `Sipariş #${order.orderNo}${Number(order.discount) > 0 ? ` (${Number(order.discount).toLocaleString("tr-TR")}₺ iskonto)` : ""}`,
           category:    "Satış",
           siteOrderId: orderId,
         },
@@ -123,12 +146,50 @@ export async function updatePaymentStatus(orderId: string, paymentStatus: string
   }
 
   if (paymentStatus === "FREE") {
-    // Gelir yok ama maliyet giderleri yine de oluşur
     await ensureCostExpenses(orderId, order);
     revalidatePath("/admin/finans");
   }
 
   revalidatePath("/admin/siparisler");
   revalidatePath("/admin/borc-alacak");
+  return { success: true };
+}
+
+// B2B (manuel) order payment: creates finance INCOME record
+export async function updateManuelOrderPayment(orderId: string, paymentStatus: string) {
+  await prisma.order.update({
+    where: { id: orderId },
+    data:  { paymentStatus },
+  });
+
+  if (paymentStatus === "PAID") {
+    const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId } });
+    const existing = await prisma.finance.findFirst({
+      where: { description: { contains: `Sipariş #${order.orderNo}` }, type: "INCOME" },
+    });
+    if (!existing) {
+      await prisma.finance.create({
+        data: {
+          type:        "INCOME",
+          amount:      order.total,
+          description: `Sipariş #${order.orderNo} (Manuel)`,
+          category:    "Satış",
+        },
+      });
+    }
+    revalidatePath("/admin/finans");
+  }
+
+  revalidatePath("/admin/siparisler");
+  return { success: true };
+}
+
+// Update B2B order total
+export async function updateManuelOrderTotal(orderId: string, total: number) {
+  await prisma.order.update({
+    where: { id: orderId },
+    data:  { total },
+  });
+  revalidatePath("/admin/siparisler");
   return { success: true };
 }
