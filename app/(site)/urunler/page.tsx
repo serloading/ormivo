@@ -64,13 +64,20 @@ export default async function UrunlerPage({
     prisma.brand.findMany({ orderBy: { name: "asc" } }),
   ]);
 
-  // Fiyat sıralaması seçilmediyse rastgele karıştır
-  const products = (sirala === "fiyat-artan" || sirala === "fiyat-azalan")
-    ? rawProducts
-    : [...rawProducts].sort(() => Math.random() - 0.5);
+  type UrunCat   = { id: string; name: string; slug: string };
+  type UrunBrand = { id: string; name: string; slug: string };
+  type UrunProduct = { id: string; slug: string; name: string; price: unknown; comparePrice: unknown; images: unknown[]; stock: number; brand?: { name: string } | null };
 
-  const activeCat   = categories.find((c) => c.slug === kategori);
-  const activeBrand = brands.find((b) => b.slug === marka);
+  const typedCats    = categories as UrunCat[];
+  const typedBrands  = brands     as UrunBrand[];
+
+  // Fiyat sıralaması seçilmediyse rastgele karıştır
+  const products = ((sirala === "fiyat-artan" || sirala === "fiyat-azalan")
+    ? rawProducts
+    : [...rawProducts].sort(() => Math.random() - 0.5)) as UrunProduct[];
+
+  const activeCat   = typedCats.find((c) => c.slug === kategori);
+  const activeBrand = typedBrands.find((b) => b.slug === marka);
   const heading = kategori
     ? (CAT_HEADINGS[kategori] ?? `${activeCat?.name ?? ""} Parfümleri`)
     : marka
@@ -142,7 +149,7 @@ export default async function UrunlerPage({
                   className={`flex items-center justify-between py-2 px-1 font-sans text-sm transition-colors ${!kategori ? "text-[#C4A882] font-semibold" : "text-[#6B6B6B] hover:text-[#1A1A1A]"}`}>
                   Tümü {!kategori && <span className="w-1.5 h-1.5 rounded-full bg-[#C4A882] shrink-0" />}
                 </a>
-                {categories.map((cat) => (
+                {typedCats.map((cat) => (
                   <a key={cat.slug} href={hrefOf("kategori", cat.slug)}
                     className={`flex items-center justify-between py-2 px-1 font-sans text-sm transition-colors ${kategori === cat.slug ? "text-[#C4A882] font-semibold" : "text-[#6B6B6B] hover:text-[#1A1A1A]"}`}>
                     {cat.name}
@@ -160,7 +167,7 @@ export default async function UrunlerPage({
                   className={`flex items-center justify-between py-2 px-1 font-sans text-sm transition-colors ${!marka ? "text-[#C4A882] font-semibold" : "text-[#6B6B6B] hover:text-[#1A1A1A]"}`}>
                   Tümü {!marka && <span className="w-1.5 h-1.5 rounded-full bg-[#C4A882] shrink-0" />}
                 </a>
-                {brands.map((b) => (
+                {typedBrands.map((b) => (
                   <a key={b.slug} href={hrefOf("marka", b.slug)}
                     className={`flex items-center justify-between py-2 px-1 font-sans text-sm transition-colors ${marka === b.slug ? "text-[#C4A882] font-semibold" : "text-[#6B6B6B] hover:text-[#1A1A1A]"}`}>
                     {b.name}
