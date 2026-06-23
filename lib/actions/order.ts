@@ -18,6 +18,7 @@ export type OrderFormData = {
   shippingFee?: number | null;
   note?: string;
   status?: string;
+  deliveryMethod?: string;
 };
 
 export async function getOrders() {
@@ -38,6 +39,7 @@ export async function createOrder(data: OrderFormData) {
       shippingFee: data.shippingFee ?? null,
       note: data.note,
       status: (data.status ?? "PENDING") as never,
+      deliveryMethod: data.deliveryMethod ?? "PICKUP",
     },
   });
 

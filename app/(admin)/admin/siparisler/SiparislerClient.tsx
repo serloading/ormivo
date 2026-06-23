@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import {
   updateSiteOrderStatus, updateTrackingNo, updatePaymentStatus,
   updateDeliveryMethod, updateSiteOrderDiscount,
-  updateManuelOrderPayment, updateManuelOrderTotal,
+  updateManuelOrderPayment, updateManuelOrderTotal, updateManuelOrderDelivery,
 } from "@/lib/actions/site-order-admin";
 import { createOrder } from "@/lib/actions/order";
 import { createCustomer } from "@/lib/actions/customer";
@@ -163,19 +163,22 @@ function DeliveryEditor({ order }: { order: OrderRow }) {
   const [pending, startTransition] = useTransition();
   const [cur, setCur] = useState(order.deliveryMethod);
 
-  if (order.source === "manuel") {
-    return <span className={`text-[10px] tracking-wide uppercase px-2 py-0.5 rounded border font-medium ${DELIVERY_COLORS["PICKUP"]}`}>Ofisten Teslim</span>;
-  }
-
   return (
     <PortalDropdown
       label={DELIVERY_LABELS[cur] ?? cur}
       colorCls={DELIVERY_COLORS[cur] ?? "bg-gray-100 text-gray-600 border-gray-200"}
       disabled={pending}
       current={cur}
-      options={Object.entries(DELIVERY_LABELS).map(([k, v]) => ({ key: k, label: v, extra: k === "CARGO" ? "+200₺ gider" : undefined }))}
+      options={Object.entries(DELIVERY_LABELS).map(([k, v]) => ({
+        key: k, label: v,
+        extra: k === "CARGO" && order.source === "web" ? "+200₺ gider" : undefined,
+      }))}
       onSelect={(key) => {
-        startTransition(async () => { await updateDeliveryMethod(order.id, key); setCur(key); });
+        startTransition(async () => {
+          if (order.source === "web") await updateDeliveryMethod(order.id, key);
+          else await updateManuelOrderDelivery(order.id, key);
+          setCur(key);
+        });
       }}
     />
   );
@@ -386,6 +389,7 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, onClo
   const [customerId, setCustomerId] = useState("");
   const [note, setNote] = useState("");
   const [status, setStatus] = useState("PENDING");
+  const [deliveryMethod, setDeliveryMethod] = useState("PICKUP");
   const [discount, setDiscount] = useState("");
   const [items, setItems] = useState<ItemForm[]>([{ productId: null, name: "", qty: 1, price: 0 }]);
   const [useManualTotal, setUseManualTotal] = useState(false);
@@ -457,6 +461,7 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, onClo
         discount: discountAmt,
         note: note.trim() || undefined,
         status,
+        deliveryMethod,
       });
       onClose();
     });
@@ -516,6 +521,19 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, onClo
                 className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
                 {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
+            </div>
+          </div>
+
+          {/* Teslimat Yöntemi */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-2">Teslimat Yöntemi</label>
+            <div className="flex gap-3">
+              {Object.entries(DELIVERY_LABELS).map(([k, v]) => (
+                <label key={k} className={`flex items-center gap-2 px-4 py-2.5 rounded border cursor-pointer transition-colors ${deliveryMethod === k ? DELIVERY_COLORS[k] + " border-current" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+                  <input type="radio" name="deliveryMethod" value={k} checked={deliveryMethod === k} onChange={() => setDeliveryMethod(k)} className="sr-only" />
+                  <span className="text-sm font-medium">{v}</span>
+                </label>
+              ))}
             </div>
           </div>
 

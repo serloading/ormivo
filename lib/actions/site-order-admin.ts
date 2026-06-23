@@ -141,6 +141,12 @@ export async function updateManuelOrderPayment(orderId: string, paymentStatus: s
   return { success: true };
 }
 
+export async function updateManuelOrderDelivery(orderId: string, deliveryMethod: string) {
+  await prisma.order.update({ where: { id: orderId }, data: { deliveryMethod } });
+  revalidatePath("/admin/siparisler");
+  return { success: true };
+}
+
 export async function updateManuelOrderTotal(orderId: string, total: number) {
   await prisma.order.update({ where: { id: orderId }, data: { total } });
   revalidatePath("/admin/siparisler");

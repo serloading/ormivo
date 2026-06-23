@@ -74,7 +74,7 @@ export default async function SiparislerPage({
       trackingNo:    null,
       cargoCompany:  null,
       paymentStatus:  o.paymentStatus ?? "PENDING",
-      deliveryMethod: "PICKUP",
+      deliveryMethod: o.deliveryMethod ?? "PICKUP",
       memberName:    null,
       memberPhone:   null,
     })),
