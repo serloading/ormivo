@@ -32,6 +32,14 @@ interface Stats {
   collectedMonth: number; overdue: number;
 }
 
+interface PendingSiteOrder {
+  id: string; orderNo: string; createdAt: Date;
+  recipientName: string | null; recipientPhone: string | null;
+  total: number; items: unknown;
+  deliveryMethod: string;
+  user: { name: string | null; phone: string } | null;
+}
+
 // ── Helpers ──────────────────────────────────────────────────
 const fmt = (n: number) => n.toLocaleString("tr-TR", { minimumFractionDigits: 2 });
 
@@ -112,6 +120,7 @@ export default function BorcAlacakClient({
   orders,
   supplierNames: initSN,
   stats,
+  pendingSiteOrders,
 }: {
   customerDebts: CDebt[];
   supplierDebts: SDebt[];
@@ -119,8 +128,9 @@ export default function BorcAlacakClient({
   orders: Order[];
   supplierNames: string[];
   stats: Stats;
+  pendingSiteOrders: PendingSiteOrder[];
 }) {
-  const [tab, setTab]       = useState<"musteri" | "tedarikci">("musteri");
+  const [tab, setTab] = useState<"musteri" | "tedarikci" | "web">("musteri");
   const [isPending, startT] = useTransition();
 
   // Modals
@@ -222,17 +232,21 @@ export default function BorcAlacakClient({
 
       {/* ── TABS ── */}
       <div className="border-b border-gray-200 flex gap-0">
-        {(["musteri", "tedarikci"] as const).map((t) => (
+        {([
+          { key: "musteri",   label: "Müşteri Alacakları" },
+          { key: "tedarikci", label: "Tedarikçi Borçları" },
+          { key: "web",       label: `Web Alacakları${pendingSiteOrders.length > 0 ? ` (${pendingSiteOrders.length})` : ""}` },
+        ] as const).map(({ key, label }) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
+            key={key}
+            onClick={() => setTab(key)}
             className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-              tab === t
+              tab === key
                 ? "border-[#2c1810] text-[#2c1810]"
                 : "border-transparent text-gray-400 hover:text-gray-700"
             }`}
           >
-            {t === "musteri" ? "Müşteri Alacakları" : "Tedarikçi Borçları"}
+            {label}
           </button>
         ))}
       </div>
@@ -403,6 +417,81 @@ export default function BorcAlacakClient({
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────── */}
+      {/* WEB SİPARİŞ ALACAKLARI */}
+      {/* ─────────────────────────────────────── */}
+      {tab === "web" && (
+        <div className="space-y-3">
+          {pendingSiteOrders.length === 0 ? (
+            <div className="py-16 text-center text-gray-400 text-sm">Ödeme bekleyen web siparişi yok.</div>
+          ) : (
+            <>
+              <p className="text-xs text-gray-400">
+                Aşağıdaki siparişler ödeme durumu <strong>Bekliyor</strong> olan web siparişleridir.
+                Siparişler sayfasından ödeme durumunu güncelleyebilirsiniz.
+              </p>
+              <div className="overflow-x-auto bg-white border border-gray-200 rounded">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 bg-gray-50 text-left">
+                      {["Sipariş No", "Müşteri", "Ürünler", "Teslimat", "Tutar", "Tarih"].map((h) => (
+                        <th key={h} className="px-4 py-3 text-[11px] uppercase tracking-wide text-gray-400 font-medium whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {pendingSiteOrders.map((o) => {
+                      const items = o.items as { name: string; qty: number }[];
+                      return (
+                        <tr key={o.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 font-mono text-xs font-semibold text-gray-700">
+                            #{o.orderNo.slice(-8)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <p className="font-medium text-[#2c1810]">{o.recipientName}</p>
+                            <p className="text-[11px] text-gray-400">{o.recipientPhone}</p>
+                            {o.user && <p className="text-[11px] text-gray-400">Üye: {o.user.name ?? o.user.phone}</p>}
+                          </td>
+                          <td className="px-4 py-3 max-w-[200px]">
+                            {items.map((item, i) => (
+                              <p key={i} className="text-xs text-gray-600 truncate">
+                                {item.name} ×{item.qty}
+                              </p>
+                            ))}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`text-[10px] px-2 py-0.5 rounded border font-medium ${
+                              o.deliveryMethod === "CARGO"
+                                ? "bg-blue-50 text-blue-700 border-blue-200"
+                                : "bg-teal-50 text-teal-700 border-teal-200"
+                            }`}>
+                              {o.deliveryMethod === "CARGO" ? "Kargo" : "Ofisten Teslim"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 font-semibold text-orange-600 whitespace-nowrap">
+                            {Number(o.total).toLocaleString("tr-TR")} ₺
+                          </td>
+                          <td className="px-4 py-3 text-[11px] text-gray-400 whitespace-nowrap">
+                            {new Date(o.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-gray-500">
+                  Toplam beklenen: <span className="font-semibold text-orange-600">
+                    {pendingSiteOrders.reduce((s, o) => s + Number(o.total), 0).toLocaleString("tr-TR")} ₺
+                  </span>
+                </p>
+              </div>
+            </>
+          )}
         </div>
       )}
 

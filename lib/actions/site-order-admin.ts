@@ -65,6 +65,37 @@ export async function updateDeliveryMethod(orderId: string, deliveryMethod: stri
   return { success: true };
 }
 
+async function ensureCostExpenses(orderId: string, order: { items: unknown; orderNo: string }) {
+  const existingCost = await prisma.finance.findFirst({
+    where: { siteOrderId: orderId, category: "Ürün Maliyeti" },
+  });
+  if (existingCost) return;
+
+  const items = order.items as { productId: string; qty: number }[];
+  const productIds = items.map((i) => i.productId).filter(Boolean);
+  if (productIds.length === 0) return;
+
+  const products = await prisma.product.findMany({
+    where:  { id: { in: productIds } },
+    select: { id: true, costPrice: true },
+  });
+  const totalCost = items.reduce((sum, item) => {
+    const p = products.find((p) => p.id === item.productId);
+    return sum + (p?.costPrice ? Number(p.costPrice) : 0) * item.qty;
+  }, 0);
+  if (totalCost > 0) {
+    await prisma.finance.create({
+      data: {
+        type:        "EXPENSE",
+        amount:      totalCost,
+        description: `Ürün maliyeti — Sipariş #${order.orderNo}`,
+        category:    "Ürün Maliyeti",
+        siteOrderId: orderId,
+      },
+    });
+  }
+}
+
 export async function updatePaymentStatus(orderId: string, paymentStatus: string) {
   const order = await prisma.siteOrder.update({
     where: { id: orderId },
@@ -87,41 +118,17 @@ export async function updatePaymentStatus(orderId: string, paymentStatus: string
         },
       });
     }
+    await ensureCostExpenses(orderId, order);
+    revalidatePath("/admin/finans");
+  }
 
-    // Ürün alış fiyatı gideri
-    const existingCost = await prisma.finance.findFirst({
-      where: { siteOrderId: orderId, category: "Ürün Maliyeti" },
-    });
-    if (!existingCost) {
-      const items = order.items as { productId: string; qty: number }[];
-      const productIds = items.map((i) => i.productId).filter(Boolean);
-      if (productIds.length > 0) {
-        const products = await prisma.product.findMany({
-          where:  { id: { in: productIds } },
-          select: { id: true, costPrice: true },
-        });
-        const totalCost = items.reduce((sum, item) => {
-          const p = products.find((p) => p.id === item.productId);
-          const cost = p?.costPrice ? Number(p.costPrice) : 0;
-          return sum + cost * item.qty;
-        }, 0);
-        if (totalCost > 0) {
-          await prisma.finance.create({
-            data: {
-              type:        "EXPENSE",
-              amount:      totalCost,
-              description: `Ürün maliyeti — Sipariş #${order.orderNo}`,
-              category:    "Ürün Maliyeti",
-              siteOrderId: orderId,
-            },
-          });
-        }
-      }
-    }
-
+  if (paymentStatus === "FREE") {
+    // Gelir yok ama maliyet giderleri yine de oluşur
+    await ensureCostExpenses(orderId, order);
     revalidatePath("/admin/finans");
   }
 
   revalidatePath("/admin/siparisler");
+  revalidatePath("/admin/borc-alacak");
   return { success: true };
 }
