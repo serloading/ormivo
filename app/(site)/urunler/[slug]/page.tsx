@@ -64,7 +64,9 @@ export default async function UrunDetayPage({
   });
   if (!product) notFound();
 
-  const related = await prisma.product.findMany({
+  type RelatedProduct = { id: string; slug: string; name: string; price: unknown; comparePrice: unknown; images: unknown[]; stock: number };
+
+  const related = (await prisma.product.findMany({
     where: {
       deletedAt: null,
       isActive: true,
@@ -77,7 +79,7 @@ export default async function UrunDetayPage({
     include: { category: true, brand: true },
     take: 4,
     orderBy: { createdAt: "desc" },
-  });
+  })) as RelatedProduct[];
 
   const price    = Number(product.price);
   const compare  = product.comparePrice ? Number(product.comparePrice) : null;
