@@ -64,7 +64,7 @@ export default async function UrunDetayPage({
   });
   if (!product) notFound();
 
-  type RelatedProduct = { id: string; slug: string; name: string; price: unknown; comparePrice: unknown; images: string[]; stock: number };
+  type RelatedProduct = { id: string; slug: string; name: string; price: unknown; comparePrice: unknown; images: string[]; stock: number; brand?: { name: string } | null };
 
   const related = (await prisma.product.findMany({
     where: {
