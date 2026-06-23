@@ -14,10 +14,11 @@ interface PlaceOrderInput {
   district?:      string;
   note?:          string;
   guestItems?:    GuestItem[];
+  saveAddress?:   boolean;
 }
 
 export async function placeOrder(input: PlaceOrderInput) {
-  const { recipientName, recipientPhone, addressLine, city, district, note, guestItems } = input;
+  const { recipientName, recipientPhone, addressLine, city, district, note, guestItems, saveAddress } = input;
 
   if (!recipientName?.trim())  return { error: "Ad Soyad gerekli." };
   if (!recipientPhone?.trim()) return { error: "Telefon gerekli." };
@@ -91,6 +92,26 @@ export async function placeOrder(input: PlaceOrderInput) {
     await prisma.cartItem.deleteMany({
       where: { cart: { userId: session.userId } },
     });
+
+    if (saveAddress) {
+      const exists = await prisma.address.findFirst({
+        where: { userId: session.userId, addressLine: addressLine.trim(), city: city.trim() },
+      });
+      if (!exists) {
+        const hasDefault = await prisma.address.count({ where: { userId: session.userId, isDefault: true } });
+        await prisma.address.create({
+          data: {
+            userId:        session.userId,
+            recipientName: recipientName.trim(),
+            phone:         recipientPhone.trim().replace(/\s/g, ""),
+            addressLine:   addressLine.trim(),
+            city:          city.trim(),
+            district:      district?.trim() || null,
+            isDefault:     hasDefault === 0,
+          },
+        });
+      }
+    }
   }
 
   return { success: true, orderNo: order.orderNo };

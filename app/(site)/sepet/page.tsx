@@ -1,5 +1,6 @@
 import { getSession } from "@/lib/session";
 import { getCart }    from "@/lib/actions/cart";
+import { prisma }     from "@/lib/prisma";
 import LoggedInCart   from "@/components/site/LoggedInCart";
 import GuestCart      from "@/components/site/GuestCart";
 
@@ -20,7 +21,14 @@ export default async function SepetPage() {
     );
   }
 
-  const cart  = await getCart();
+  const [cart, addresses] = await Promise.all([
+    getCart(),
+    prisma.address.findMany({
+      where:   { userId: session.userId },
+      orderBy: { isDefault: "desc" },
+    }),
+  ]);
+
   const items = cart?.items ?? [];
 
   return (
@@ -30,7 +38,7 @@ export default async function SepetPage() {
         <p className="font-sans text-sm text-[#9A9A9A] mb-8">
           {session.name ? `Merhaba ${session.name}` : session.phone}
         </p>
-        <LoggedInCart items={items} />
+        <LoggedInCart items={items} addresses={addresses} />
       </div>
     </div>
   );
