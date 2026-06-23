@@ -11,7 +11,7 @@ type Product = {
   id: string; name: string; slug: string; description?: string | null;
   price: number | string; comparePrice?: number | string | null;
   costPrice?: number | string | null; costPriceUsd?: number | string | null;
-  stock: number; isActive: boolean; images: string[];
+  stock: number; isActive: boolean; isOzelKoleksiyon?: boolean; images: string[];
   categoryId?: string | null; brandId?: string | null;
 };
 
@@ -44,6 +44,7 @@ export default function ProductForm({ product, categories, brands }: Props) {
     brandId: product?.brandId ?? "",
     stock: product?.stock?.toString() ?? "0",
     isActive: product?.isActive ?? true,
+    isOzelKoleksiyon: product?.isOzelKoleksiyon ?? false,
   });
 
   const [costCurrency, setCostCurrency] = useState<"TRY" | "USD">("TRY");
@@ -109,6 +110,7 @@ export default function ProductForm({ product, categories, brands }: Props) {
       brandId: form.brandId || undefined,
       stock: parseInt(form.stock) || 0,
       isActive: form.isActive,
+      isOzelKoleksiyon: form.isOzelKoleksiyon,
       images,
     };
     if (isEdit && product) {
@@ -177,10 +179,16 @@ export default function ProductForm({ product, categories, brands }: Props) {
         <div className="space-y-6">
           <div className="bg-white border border-[#e8ddd6] rounded-sm p-6">
             <h3 className="text-xs tracking-widest text-[#5c4033] uppercase mb-5">Durum</h3>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" checked={form.isActive} onChange={(e) => setForm((p) => ({ ...p, isActive: e.target.checked }))} className="w-4 h-4 accent-[#2c1810]" />
-              <span className="text-sm text-[#5c4033]">Aktif (yayinda)</span>
-            </label>
+            <div className="space-y-3">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={form.isActive} onChange={(e) => setForm((p) => ({ ...p, isActive: e.target.checked }))} className="w-4 h-4 accent-[#2c1810]" />
+                <span className="text-sm text-[#5c4033]">Aktif (yayinda)</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={form.isOzelKoleksiyon} onChange={(e) => setForm((p) => ({ ...p, isOzelKoleksiyon: e.target.checked }))} className="w-4 h-4 accent-[#2c1810]" />
+                <span className="text-sm text-[#5c4033]">Özel Koleksiyon</span>
+              </label>
+            </div>
           </div>
 
           <div className="bg-white border border-[#e8ddd6] rounded-sm p-6">

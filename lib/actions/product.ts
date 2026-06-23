@@ -15,6 +15,7 @@ export type ProductFormData = {
   brandId?: string;
   stock: number;
   isActive: boolean;
+  isOzelKoleksiyon?: boolean;
   images: string[];
 };
 
