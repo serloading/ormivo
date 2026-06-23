@@ -4,13 +4,22 @@ import SiparislerClient from "./SiparislerClient";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Siparişler — Admin" };
 
-export default async function SiparislerPage() {
+export default async function SiparislerPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>;
+}) {
+  const sp = await searchParams;
+  const statusFilter = sp.status ?? null;
+
   const [siteOrders, b2bOrders] = await Promise.all([
     prisma.siteOrder.findMany({
+      where: statusFilter ? { status: statusFilter as never } : undefined,
       orderBy: { createdAt: "desc" },
       include: { user: { select: { phone: true, name: true } } },
     }),
     prisma.order.findMany({
+      where: statusFilter ? { status: statusFilter as never } : undefined,
       orderBy: { createdAt: "desc" },
       include: { customer: { select: { name: true, phone: true } } },
     }),

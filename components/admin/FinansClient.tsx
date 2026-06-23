@@ -45,7 +45,7 @@ export default function FinansClient({ records }: { records: Rec[] }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
-        <h2 className="text-2xl font-light tracking-wide text-[#2c1810]">Finans</h2>
+        <h2 className="text-2xl font-light tracking-wide text-[#2c1810]">Gelir &amp; Gider</h2>
         <button onClick={() => setModal(true)} className="bg-[#2c1810] text-[#f5f0eb] text-xs tracking-widest uppercase px-6 py-3 hover:bg-[#3d2418] transition-colors">+ Kayıt Ekle</button>
       </div>
 

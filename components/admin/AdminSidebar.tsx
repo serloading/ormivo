@@ -5,25 +5,47 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useState } from "react";
 
-const navItems = [
-  { href: "/admin/dashboard",    label: "Dashboard",     icon: "◈" },
-  { href: "/admin/urunler",      label: "Ürünler",       icon: "◇" },
-  { href: "/admin/kategoriler",  label: "Kategoriler",   icon: "◻" },
-  { href: "/admin/markalar",     label: "Markalar",      icon: "◆" },
-  { href: "/admin/musteriler",   label: "Müşteriler",    icon: "◉" },
-  { href: "/admin/siparisler", label: "Siparişler", icon: "◎" },
-  { href: "/admin/kargo",        label: "Kargo",         icon: "▷" },
-  { href: "/admin/finans",       label: "Finans",        icon: "◈" },
-  { href: "/admin/borc-alacak",  label: "Borç/Alacak",  icon: "₺" },
+type NavGroup = { group: string; items: { href: string; label: string; icon: string }[] };
+
+const navGroups: NavGroup[] = [
+  {
+    group: "Ürün Yönetimi",
+    items: [
+      { href: "/admin/urunler",     label: "Ürünler",     icon: "◇" },
+      { href: "/admin/kategoriler", label: "Kategoriler", icon: "◻" },
+      { href: "/admin/markalar",    label: "Markalar",    icon: "◆" },
+    ],
+  },
+  {
+    group: "Sipariş Yönetimi",
+    items: [
+      { href: "/admin/siparisler",                        label: "Siparişler",           icon: "◎" },
+      { href: "/admin/siparisler?status=PENDING",         label: "Bekleyen Siparişler",  icon: "○" },
+      { href: "/admin/siparisler?status=DELIVERED",       label: "Teslim Edilenler",     icon: "●" },
+    ],
+  },
+  {
+    group: "Finans Yönetimi",
+    items: [
+      { href: "/admin/finans",      label: "Gelir & Gider", icon: "◈" },
+      { href: "/admin/borc-alacak", label: "Borç / Alacak", icon: "₺" },
+    ],
+  },
 ];
 
 function NavLink({ href, label, icon, pathname, onClick }: { href: string; label: string; icon: string; pathname: string; onClick?: () => void }) {
-  const active = pathname === href;
+  // Active: exact match or pathname starts with base href (ignoring query string)
+  const base = href.split("?")[0];
+  const active = pathname === base && !href.includes("?")
+    ? true
+    : href.includes("?") && pathname === base
+      ? false  // query-filtered links never auto-active; keep simple
+      : pathname === href;
   return (
     <Link
       href={href}
       onClick={onClick}
-      className={`flex items-center gap-3 px-4 py-2.5 rounded-sm text-sm tracking-wide transition-colors ${active ? "bg-[#3d2418] text-[#f5f0eb]" : "text-[#b8a89e] hover:bg-[#3d2418] hover:text-[#f5f0eb]"}`}
+      className={`flex items-center gap-3 px-4 py-2 rounded-sm text-sm tracking-wide transition-colors ${active ? "bg-[#3d2418] text-[#f5f0eb]" : "text-[#b8a89e] hover:bg-[#3d2418] hover:text-[#f5f0eb]"}`}
     >
       <span className="text-xs w-4">{icon}</span>
       {label}
@@ -37,9 +59,22 @@ export default function AdminSidebar() {
 
   const navContent = (
     <>
-      <nav className="flex-1 px-4 py-6 space-y-1">
-        {navItems.map((item) => (
-          <NavLink key={item.href} {...item} pathname={pathname} onClick={() => setMobileOpen(false)} />
+      <nav className="flex-1 px-4 py-6 space-y-5 overflow-y-auto">
+        {/* Dashboard */}
+        <NavLink href="/admin/dashboard" label="Dashboard" icon="◈" pathname={pathname} onClick={() => setMobileOpen(false)} />
+
+        {/* Grouped nav */}
+        {navGroups.map((group) => (
+          <div key={group.group}>
+            <p className="px-4 mb-1 text-[9px] tracking-[0.3em] uppercase text-[#5c4033] font-medium">
+              {group.group}
+            </p>
+            <div className="space-y-0.5">
+              {group.items.map((item) => (
+                <NavLink key={item.href} {...item} pathname={pathname} onClick={() => setMobileOpen(false)} />
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
       <div className="px-4 py-6 border-t border-[#3d2418]">
