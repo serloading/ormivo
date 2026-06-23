@@ -20,7 +20,7 @@ export default function AddToCartButton({ productId, loggedIn, large = false }: 
     e.stopPropagation();
 
     if (!loggedIn) {
-      router.push("/giris");
+      window.location.href = "/giris";
       return;
     }
 

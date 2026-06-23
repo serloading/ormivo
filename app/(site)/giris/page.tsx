@@ -2,11 +2,9 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { login } from "@/lib/actions/auth";
 
 export default function GirisPage() {
-  const router = useRouter();
   const [error, setError]       = useState("");
   const [pending, startTransition] = useTransition();
 
@@ -18,8 +16,7 @@ export default function GirisPage() {
       if (result.error) {
         setError(result.error);
       } else {
-        router.push("/");
-        router.refresh();
+        window.location.href = "/";
       }
     });
   }

@@ -2,11 +2,9 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { register } from "@/lib/actions/auth";
 
 export default function KayitPage() {
-  const router = useRouter();
   const [error, setError]           = useState("");
   const [pending, startTransition]  = useTransition();
 
@@ -22,8 +20,7 @@ export default function KayitPage() {
       if (result.error) {
         setError(result.error);
       } else {
-        router.push("/");
-        router.refresh();
+        window.location.href = "/";
       }
     });
   }
