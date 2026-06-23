@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateSiteOrderStatus, updateTrackingNo } from "@/lib/actions/site-order-admin";
+import { updateSiteOrderStatus, updateTrackingNo, updatePaymentStatus } from "@/lib/actions/site-order-admin";
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING:   "Hazırlanıyor",
@@ -19,11 +19,24 @@ const STATUS_COLORS: Record<string, string> = {
   CANCELLED: "bg-red-50 text-red-600 border-red-200",
 };
 
+const PAYMENT_LABELS: Record<string, string> = {
+  PENDING: "Ödeme Bekliyor",
+  PAID:    "Ödeme Alındı",
+  FREE:    "Ücretsiz",
+};
+
+const PAYMENT_COLORS: Record<string, string> = {
+  PENDING: "bg-yellow-50 text-yellow-700 border-yellow-200",
+  PAID:    "bg-green-50 text-green-700 border-green-200",
+  FREE:    "bg-purple-50 text-purple-700 border-purple-200",
+};
+
 interface OrderRow {
   id: string;
   source: "web" | "manuel";
   orderNo: string;
   status: string;
+  paymentStatus: string;
   createdAt: string;
   recipientName: string | null;
   recipientPhone: string | null;
@@ -76,6 +89,47 @@ function StatusEditor({ order }: { order: OrderRow }) {
               key={key}
               onClick={() => handleChange(key)}
               className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-50 transition-colors ${order.status === key ? "font-semibold text-indigo-600" : "text-gray-700"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PaymentEditor({ order }: { order: OrderRow }) {
+  const [open, setOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const [saved, setSaved] = useState(false);
+
+  if (order.source === "manuel") return null;
+
+  function handleChange(status: string) {
+    startTransition(async () => {
+      await updatePaymentStatus(order.id, status);
+      setSaved(true);
+      setTimeout(() => { setSaved(false); setOpen(false); }, 1000);
+    });
+  }
+
+  return (
+    <div className="relative inline-block">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        disabled={pending}
+        className={`text-[10px] tracking-wide uppercase px-2 py-0.5 rounded border font-medium transition-opacity ${PAYMENT_COLORS[order.paymentStatus] ?? "bg-gray-100 text-gray-600 border-gray-200"} ${pending ? "opacity-50" : "hover:opacity-80 cursor-pointer"}`}
+      >
+        {saved ? "✓ Kaydedildi" : (PAYMENT_LABELS[order.paymentStatus] ?? order.paymentStatus)} ▾
+      </button>
+      {open && (
+        <div className="absolute top-7 left-0 z-10 bg-white border border-gray-200 rounded shadow-lg min-w-[160px]">
+          {Object.entries(PAYMENT_LABELS).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => handleChange(key)}
+              className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-50 transition-colors ${order.paymentStatus === key ? "font-semibold text-indigo-600" : "text-gray-700"}`}
             >
               {label}
             </button>
@@ -200,6 +254,8 @@ export default function SiparislerClient({ orders }: { orders: OrderRow[] }) {
 
                   {/* Durum — tıklanabilir dropdown (sadece web siparişleri) */}
                   <StatusEditor order={order} />
+                  {/* Ödeme durumu */}
+                  <PaymentEditor order={order} />
 
                   <span className="text-xs text-gray-400">
                     {new Date(order.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}

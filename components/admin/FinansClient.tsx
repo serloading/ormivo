@@ -6,7 +6,7 @@ import Modal from "./Modal";
 import { Field, SelectField, SubmitRow } from "./FormField";
 import { createFinanceRecord, deleteFinanceRecord } from "@/lib/actions/finance";
 
-type Rec = { id: string; type: "INCOME" | "EXPENSE"; description: string; category: string | null; amount: number | string; date: Date | string };
+type Rec = { id: string; type: "INCOME" | "EXPENSE"; description: string; category: string | null; amount: number | string; date: Date | string; siteOrderId?: string | null };
 
 const CATS = { INCOME: ["Satış", "Kargo Geliri", "Diğer Gelir"], EXPENSE: ["Tedarik", "Lojistik", "Pazarlama", "Kira", "Diğer Gider"] };
 const EMPTY = { type: "INCOME" as "INCOME" | "EXPENSE", description: "", category: "", amount: "", date: new Date().toISOString().split("T")[0] };
@@ -81,7 +81,12 @@ export default function FinansClient({ records }: { records: Rec[] }) {
                 <td className="px-6 py-4">
                   <span className={`text-xs px-3 py-1 rounded-full ${r.type === "INCOME" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>{r.type === "INCOME" ? "Gelir" : "Gider"}</span>
                 </td>
-                <td className="px-6 py-4 text-[#2c1810]">{r.description}</td>
+                <td className="px-6 py-4 text-[#2c1810]">
+                  {r.description}
+                  {r.siteOrderId && (
+                    <span className="ml-2 text-[9px] tracking-widest uppercase bg-purple-50 text-purple-600 border border-purple-200 px-1.5 py-0.5 rounded">Web</span>
+                  )}
+                </td>
                 <td className="px-6 py-4 text-[#8b6f5e]">{r.category || "—"}</td>
                 <td className={`px-6 py-4 font-medium ${r.type === "INCOME" ? "text-green-700" : "text-red-600"}`}>{r.type === "INCOME" ? "+" : "−"}{Number(r.amount).toLocaleString("tr-TR")} ₺</td>
                 <td className="px-6 py-4 text-[#8b6f5e]">{new Date(r.date).toLocaleDateString("tr-TR")}</td>

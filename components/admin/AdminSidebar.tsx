@@ -12,7 +12,6 @@ const navItems = [
   { href: "/admin/markalar",     label: "Markalar",      icon: "◆" },
   { href: "/admin/musteriler",   label: "Müşteriler",    icon: "◉" },
   { href: "/admin/siparisler", label: "Siparişler", icon: "◎" },
-  { href: "/admin/stok",         label: "Stok",          icon: "▦" },
   { href: "/admin/kargo",        label: "Kargo",         icon: "▷" },
   { href: "/admin/finans",       label: "Finans",        icon: "◈" },
   { href: "/admin/borc-alacak",  label: "Borç/Alacak",  icon: "₺" },

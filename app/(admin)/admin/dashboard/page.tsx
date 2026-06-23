@@ -17,7 +17,7 @@ export default async function DashboardPage() {
       prisma.siteOrder.count({ where: { status: "PENDING" } }),
       prisma.finance.aggregate({ where: { createdAt: { gte: monthStart }, type: "INCOME" }, _sum: { amount: true } }),
       prisma.product.findMany({
-        where: { isActive: true, deletedAt: null, stock: { lt: 5 } },
+        where: { isActive: true, deletedAt: null, stock: { lt: 10 } },
         orderBy: { stock: "asc" },
         take: 4,
         select: { id: true, name: true, stock: true },
@@ -49,7 +49,7 @@ export default async function DashboardPage() {
           <p className="text-sm text-orange-700">
             ⚠ {lowStockProducts.length} ürün düşük stokta
           </p>
-          <Link href="/admin/stok" className="text-xs text-orange-700 underline">
+          <Link href="/admin/urunler" className="text-xs text-orange-700 underline">
             Stok sayfasına git
           </Link>
         </div>
@@ -104,7 +104,7 @@ export default async function DashboardPage() {
               ))}
             </div>
           )}
-          <Link href="/admin/stok" className="block mt-4 text-xs text-[#8b6f5e] hover:text-[#2c1810] transition-colors">
+          <Link href="/admin/urunler" className="block mt-4 text-xs text-[#8b6f5e] hover:text-[#2c1810] transition-colors">
             Tümünü gör →
           </Link>
         </div>
