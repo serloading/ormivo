@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Modal from "./Modal";
 import { Field, TextareaField, SubmitRow } from "./FormField";
-import { createCustomer, updateCustomer, deleteCustomer, SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/actions/customer";
+import { createCustomer, updateCustomer, deleteCustomer } from "@/lib/actions/customer";
+import { SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/customer-constants";
 
 type Customer = {
   id: string; name: string; phone: string | null; email: string | null;

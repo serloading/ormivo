@@ -2,10 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  updateCustomerSegment, updateCustomerTags, addCustomerNote, deleteCustomerNote,
-  SEGMENTS, SEGMENT_LABELS, SEGMENT_COLORS,
-} from "@/lib/actions/customer";
+import { updateCustomerSegment, updateCustomerTags, addCustomerNote, deleteCustomerNote } from "@/lib/actions/customer";
+import { SEGMENTS, SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/customer-constants";
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING:   "Beklemede",
