@@ -14,7 +14,7 @@ export default async function DashboardPage() {
     await Promise.all([
       prisma.product.count({ where: { isActive: true, deletedAt: null } }),
       prisma.customer.count(),
-      prisma.order.count({ where: { status: "PENDING" } }),
+      prisma.siteOrder.count({ where: { status: "PENDING" } }),
       prisma.finance.aggregate({ where: { createdAt: { gte: monthStart }, type: "INCOME" }, _sum: { amount: true } }),
       prisma.product.findMany({
         where: { isActive: true, deletedAt: null, stock: { lt: 5 } },
@@ -29,7 +29,7 @@ export default async function DashboardPage() {
   const stats = [
     { label: "Aktif Ürün",      value: totalProducts,                          sub: "yayında",        href: "/admin/urunler" },
     { label: "Kayıtlı Müşteri", value: totalCustomers,                         sub: "toplam müşteri", href: "/admin/musteriler" },
-    { label: "Bekleyen Sipariş",value: pendingOrders,                          sub: "işlem bekliyor", href: "/admin/siparisler" },
+    { label: "Bekleyen Sipariş",value: pendingOrders,                          sub: "işlem bekliyor", href: "/admin/site-siparisler" },
     { label: "Bu Ay Gelir",     value: `${income.toLocaleString("tr-TR")} ₺`,  sub: "net gelir",      href: "/admin/finans" },
   ];
 
