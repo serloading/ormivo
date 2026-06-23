@@ -20,7 +20,8 @@ export default async function BorcAlacakPage() {
   ]);
 
   // Geçmiş tedarikçi adları (autocomplete için)
-  const supplierNames: string[] = Array.from(new Set<string>(supplierDebts.map((d) => (d as { supplierName: string }).supplierName))).sort();
+  const rawNames = supplierDebts.map((d) => (d as { supplierName: string }).supplierName);
+  const supplierNames: string[] = Array.from(new Set<string>(rawNames)).sort();
 
   return (
     <BorcAlacakClient
