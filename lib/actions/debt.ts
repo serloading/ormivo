@@ -88,7 +88,7 @@ export async function getSupplierDebts() {
 
 export async function getSupplierNames() {
   const debts = await prisma.supplierDebt.findMany({ select: { supplierName: true }, distinct: ["supplierName"] });
-  return [...new Set(debts.map((d) => d.supplierName))].sort();
+  return [...new Set((debts as Array<{ supplierName: string }>).map((d) => d.supplierName))].sort();
 }
 
 export async function createSupplierDebt(data: {
@@ -160,12 +160,14 @@ export async function getDebtStats() {
     prisma.supplierPayment.findMany({ where: { paidAt: { gte: monthStart } } }),
   ]);
 
-  const totalReceivable = cDebts.reduce((s, d) => s + (d.totalAmount - d.paidAmount), 0);
-  const totalOwed       = sDebts.reduce((s, d) => s + (d.totalAmount - d.paidAmount), 0);
-  const collectedMonth  = cdPayments.reduce((s, p) => s + p.amount, 0)
-                        + sdPayments.reduce((s, p) => s + p.amount, 0);
-  const overdue = [...cDebts, ...sDebts].filter(
-    (d) => d.dueDate && new Date(d.dueDate) < now && d.status !== "ODENDI"
+  type DebtRow    = { totalAmount: number; paidAmount: number; dueDate: Date | null; status: string };
+  type PaymentRow = { amount: number };
+  const totalReceivable = (cDebts as DebtRow[]).reduce((s: number, d: DebtRow) => s + (d.totalAmount - d.paidAmount), 0);
+  const totalOwed       = (sDebts as DebtRow[]).reduce((s: number, d: DebtRow) => s + (d.totalAmount - d.paidAmount), 0);
+  const collectedMonth  = (cdPayments as PaymentRow[]).reduce((s: number, p: PaymentRow) => s + p.amount, 0)
+                        + (sdPayments as PaymentRow[]).reduce((s: number, p: PaymentRow) => s + p.amount, 0);
+  const overdue = [...(cDebts as DebtRow[]), ...(sDebts as DebtRow[])].filter(
+    (d: DebtRow) => d.dueDate && new Date(d.dueDate) < now && d.status !== "ODENDI"
   ).length;
 
   return { totalReceivable, totalOwed, collectedMonth, overdue };

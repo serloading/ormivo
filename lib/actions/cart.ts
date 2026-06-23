@@ -40,7 +40,7 @@ export async function addToCart(productId: string) {
 
   const cart = await getUserCart(session.userId);
 
-  const existing = cart.items.find((i) => i.productId === productId);
+  const existing = (cart.items as Array<{ id: string; productId: string; quantity: number }>).find((i) => i.productId === productId);
   if (existing) {
     await prisma.cartItem.update({
       where: { id: existing.id },
