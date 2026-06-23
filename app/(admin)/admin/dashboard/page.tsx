@@ -15,7 +15,7 @@ export default async function DashboardPage() {
       prisma.product.count({ where: { isActive: true, deletedAt: null } }),
       prisma.customer.count(),
       prisma.order.count({ where: { status: "PENDING" } }),
-      prisma.finance.aggregate({ where: { createdAt: { gte: monthStart }, type: "GELIR" }, _sum: { amount: true } }),
+      prisma.finance.aggregate({ where: { createdAt: { gte: monthStart }, type: "INCOME" }, _sum: { amount: true } }),
       prisma.product.findMany({
         where: { isActive: true, deletedAt: null, stock: { lt: 5 } },
         orderBy: { stock: "asc" },
