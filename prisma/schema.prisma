@@ -60,12 +60,24 @@ model Customer {
   email      String?
   city       String?
   note       String?
+  segment    String?
+  tags       String[]
   orders     Order[]
   siteOrders SiteOrder[]
   cargos     CargoTracking[]
   debts      CustomerDebt[]
+  notes      CustomerNote[]
   createdAt  DateTime        @default(now())
   updatedAt  DateTime        @updatedAt
+}
+
+model CustomerNote {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  content    String
+  createdBy  String
+  createdAt  DateTime @default(now())
 }
 
 model Order {
@@ -212,6 +224,16 @@ model AdminUser {
   passwordHash String
   name         String?
   createdAt    DateTime @default(now())
+}
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  adminEmail String
+  action     String
+  entity     String
+  entityId   String
+  detail     Json?
+  createdAt  DateTime @default(now())
 }
 
 // â”€â”€ BorÃ§ / Alacak Takibi â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

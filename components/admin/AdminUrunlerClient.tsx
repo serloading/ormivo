@@ -91,7 +91,17 @@ export default function AdminUrunlerClient({ products, categories, brands }: { p
                   <td className="px-6 py-4 text-[#5c4033]">{product.category?.name ?? "—"}</td>
                   <td className="px-6 py-4"><span className="text-[#2c1810] font-medium">{Number(product.price).toLocaleString("tr-TR")} TL</span></td>
                   <td className="px-6 py-4"><span className="text-[#8b6f5e] text-xs">{product.costPrice ? Number(product.costPrice).toLocaleString("tr-TR") + " TL" : "—"}</span></td>
-                  <td className="px-6 py-4"><span className={product.stock === 0 ? "text-red-600 font-medium" : product.stock < 5 ? "text-orange-500 font-medium" : "text-[#5c4033]"}>{product.stock}</span></td>
+                  <td className="px-6 py-4">
+                    <span className={product.stock === 0 ? "text-red-600 font-medium" : product.stock <= 2 ? "text-orange-500 font-medium" : "text-[#5c4033]"}>
+                      {product.stock}
+                    </span>
+                    {product.stock === 0 && (
+                      <span className="ml-2 text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">Tükendi</span>
+                    )}
+                    {product.stock > 0 && product.stock <= 2 && (
+                      <span className="ml-2 text-[10px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full">⚠ Düşük</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4">
                     <button onClick={() => handleToggle(product.id, product.isActive)}
                       className={"text-xs px-3 py-1 rounded-full transition-colors " + (product.isActive ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-gray-100 text-gray-500 hover:bg-gray-200")}>

@@ -3,7 +3,7 @@
 import { useState, useTransition, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import {
-  updateSiteOrderStatus, updateTrackingNo, updatePaymentStatus,
+  updateSiteOrderStatus, updateManuelOrderStatus, updateTrackingNo, updatePaymentStatus,
   updateDeliveryMethod, updateSiteOrderDiscount,
   updateManuelOrderPayment, updateManuelOrderTotal, updateManuelOrderDelivery,
 } from "@/lib/actions/site-order-admin";
@@ -116,10 +116,6 @@ function StatusEditor({ order }: { order: OrderRow }) {
   const [pending, startTransition] = useTransition();
   const [cur, setCur] = useState(order.status);
 
-  if (order.source === "manuel") {
-    return <span className={`text-[10px] tracking-wide uppercase px-2 py-0.5 rounded border font-medium ${STATUS_COLORS[cur] ?? "bg-gray-100 text-gray-600 border-gray-200"}`}>{STATUS_LABELS[cur] ?? cur}</span>;
-  }
-
   return (
     <PortalDropdown
       label={STATUS_LABELS[cur] ?? cur}
@@ -128,7 +124,11 @@ function StatusEditor({ order }: { order: OrderRow }) {
       current={cur}
       options={Object.entries(STATUS_LABELS).map(([k, v]) => ({ key: k, label: v }))}
       onSelect={(key) => {
-        startTransition(async () => { await updateSiteOrderStatus(order.id, key); setCur(key); });
+        startTransition(async () => {
+          if (order.source === "web") await updateSiteOrderStatus(order.id, key);
+          else await updateManuelOrderStatus(order.id, key);
+          setCur(key);
+        });
       }}
     />
   );

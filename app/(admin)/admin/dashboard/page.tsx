@@ -17,9 +17,9 @@ export default async function DashboardPage() {
       prisma.siteOrder.count({ where: { status: "PENDING" } }),
       prisma.finance.aggregate({ where: { createdAt: { gte: monthStart }, type: "INCOME" }, _sum: { amount: true } }),
       prisma.product.findMany({
-        where: { isActive: true, deletedAt: null, stock: { lt: 10 } },
+        where: { isActive: true, deletedAt: null, stock: { lte: 2 } },
         orderBy: { stock: "asc" },
-        take: 4,
+        take: 5,
         select: { id: true, name: true, stock: true },
       }),
     ]);
@@ -45,12 +45,12 @@ export default async function DashboardPage() {
       </div>
 
       {lowStockProducts.length > 0 && (
-        <div className="bg-orange-50 border border-orange-200 rounded-sm p-4 mb-6 flex items-center justify-between">
-          <p className="text-sm text-orange-700">
-            ⚠ {lowStockProducts.length} ürün düşük stokta
+        <div className="bg-red-50 border border-red-200 rounded-sm p-4 mb-6 flex items-center justify-between">
+          <p className="text-sm text-red-700">
+            ⚠ {lowStockProducts.length} ürünün stoğu 2 veya altına düştü — acil kontrol gerekiyor
           </p>
-          <Link href="/admin/urunler" className="text-xs text-orange-700 underline">
-            Stok sayfasına git
+          <Link href="/admin/urunler" className="text-xs text-red-700 underline">
+            Ürünlere git →
           </Link>
         </div>
       )}
@@ -95,8 +95,7 @@ export default async function DashboardPage() {
                   <span className="text-sm text-[#2c1810]">{p.name}</span>
                   <span className={`text-xs px-2 py-1 rounded-full ${
                     p.stock === 0 ? "bg-red-100 text-red-600" :
-                    p.stock < 5  ? "bg-orange-100 text-orange-600" :
-                                   "bg-green-100 text-green-700"
+                                   "bg-orange-100 text-orange-600"
                   }`}>
                     {p.stock} adet
                   </span>

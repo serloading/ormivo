@@ -88,6 +88,14 @@ export async function placeOrder(input: PlaceOrderInput) {
     },
   });
 
+  // Decrement stock for all items
+  for (const item of orderItems) {
+    await prisma.product.update({
+      where: { id: item.productId },
+      data:  { stock: { decrement: item.qty } },
+    });
+  }
+
   if (session) {
     await prisma.cartItem.deleteMany({
       where: { cart: { userId: session.userId } },

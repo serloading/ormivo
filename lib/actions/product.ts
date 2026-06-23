@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { logActivity } from "@/lib/actions/activity-log";
 
 export type ProductFormData = {
   name: string;
@@ -42,12 +43,26 @@ export async function createProduct(data: ProductFormData) {
 }
 
 export async function updateProduct(id: string, data: Partial<ProductFormData>) {
+  const prev = await prisma.product.findUnique({ where: { id }, select: { price: true, costPrice: true, name: true } });
   await prisma.product.update({ where: { id }, data });
   revalidatePath("/admin/urunler");
   revalidatePath("/urunler");
 
-  // If costPrice changed, rebuild Finance cost records for this product
-  if (data.costPrice !== undefined) {
+  if (data.price !== undefined && prev && Number(prev.price) !== data.price) {
+    await logActivity({
+      action:   "PRODUCT_PRICE_CHANGED",
+      entity:   "PRODUCT",
+      entityId: id,
+      detail:   { name: prev.name, field: "price", from: Number(prev.price), to: data.price },
+    });
+  }
+  if (data.costPrice !== undefined && prev && Number(prev.costPrice ?? 0) !== data.costPrice) {
+    await logActivity({
+      action:   "PRODUCT_PRICE_CHANGED",
+      entity:   "PRODUCT",
+      entityId: id,
+      detail:   { name: prev.name, field: "costPrice", from: Number(prev.costPrice ?? 0), to: data.costPrice },
+    });
     const { rebuildCostExpensesForProduct } = await import("./site-order-admin");
     await rebuildCostExpensesForProduct(id);
   }
