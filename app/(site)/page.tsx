@@ -45,7 +45,7 @@ export default async function HomePage({
     prisma.brand.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, slug: true } }),
   ]);
 
-  type RawProduct = { id: string; slug: string; name: string; price: unknown; comparePrice: unknown; images: unknown; stock: number; brand: { name: string } | null };
+  type RawProduct = { id: string; slug: string; name: string; price: unknown; comparePrice: unknown; images: string[]; stock: number; brand: { name: string } | null };
   type RawCategory = { id: string; name: string; slug: string };
   type RawBrand = { id: string; name: string; slug: string };
 
