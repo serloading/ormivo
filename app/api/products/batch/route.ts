@@ -12,8 +12,9 @@ export async function POST(req: NextRequest) {
     select: { id: true, name: true, price: true, images: true, brand: { select: { name: true } } },
   });
 
+  type BatchProduct = { id: string; name: string; price: unknown; images: unknown; brand: { name: string } | null };
   return NextResponse.json(
-    products.map((p) => ({
+    (products as BatchProduct[]).map((p) => ({
       id:     p.id,
       name:   p.name,
       price:  Number(p.price),
