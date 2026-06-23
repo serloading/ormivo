@@ -32,24 +32,25 @@ model Category {
 }
 
 model Product {
-  id           String    @id @default(cuid())
+  id           String     @id @default(cuid())
   name         String
-  slug         String    @unique
+  slug         String     @unique
   description  String?
-  price        Decimal   @db.Decimal(10, 2)
-  comparePrice Decimal?  @db.Decimal(10, 2)
-  costPrice    Decimal?  @db.Decimal(10, 2)
-  costPriceUsd Decimal?  @db.Decimal(10, 2)
+  price        Decimal    @db.Decimal(10, 2)
+  comparePrice Decimal?   @db.Decimal(10, 2)
+  costPrice    Decimal?   @db.Decimal(10, 2)
+  costPriceUsd Decimal?   @db.Decimal(10, 2)
   images       String[]
   categoryId   String?
-  category     Category? @relation(fields: [categoryId], references: [id])
+  category     Category?  @relation(fields: [categoryId], references: [id])
   brandId      String?
-  brand        Brand?    @relation(fields: [brandId], references: [id])
-  stock        Int       @default(0)
-  isActive     Boolean   @default(true)
+  brand        Brand?     @relation(fields: [brandId], references: [id])
+  stock        Int        @default(0)
+  isActive     Boolean    @default(true)
   deletedAt    DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  cartItems    CartItem[]
 }
 
 model Customer {
@@ -61,6 +62,7 @@ model Customer {
   note      String?
   orders    Order[]
   cargos    CargoTracking[]
+  debts     CustomerDebt[]
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
 }
@@ -75,9 +77,10 @@ model Order {
   shippingFee Decimal?      @db.Decimal(10, 2)
   status      OrderStatus   @default(PENDING)
   note        String?
-  cargo      CargoTracking?
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
+  cargo       CargoTracking?
+  customerDebts CustomerDebt[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 }
 
 enum OrderStatus {
@@ -125,10 +128,88 @@ enum FinanceType {
   EXPENSE
 }
 
+// ── Site Kullanıcıları ─────────────────────────────────────
+
+model SiteUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  cart         Cart?
+}
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String     @unique
+  user      SiteUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  updatedAt DateTime   @updatedAt @default(now())
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int      @default(1)
+  addedAt   DateTime @default(now())
+
+  @@unique([cartId, productId])
+}
+
 model AdminUser {
   id           String   @id @default(cuid())
   email        String   @unique
   passwordHash String
   name         String?
   createdAt    DateTime @default(now())
+}
+
+// ── Borç / Alacak Takibi ──────────────────────────────────
+
+model CustomerDebt {
+  id          String        @id @default(cuid())
+  customerId  String
+  customer    Customer      @relation(fields: [customerId], references: [id])
+  orderId     String?
+  order       Order?        @relation(fields: [orderId], references: [id])
+  description String
+  totalAmount Float
+  paidAmount  Float         @default(0)
+  dueDate     DateTime?
+  status      String        @default("BEKLIYOR")
+  createdAt   DateTime      @default(now())
+  payments    DebtPayment[]
+}
+
+model DebtPayment {
+  id      String       @id @default(cuid())
+  debtId  String
+  debt    CustomerDebt @relation(fields: [debtId], references: [id])
+  amount  Float
+  note    String?
+  paidAt  DateTime     @default(now())
+}
+
+model SupplierDebt {
+  id           String           @id @default(cuid())
+  supplierName String
+  description  String
+  totalAmount  Float
+  paidAmount   Float            @default(0)
+  dueDate      DateTime?
+  status       String           @default("BEKLIYOR")
+  createdAt    DateTime         @default(now())
+  payments     SupplierPayment[]
+}
+
+model SupplierPayment {
+  id     String       @id @default(cuid())
+  debtId String
+  debt   SupplierDebt @relation(fields: [debtId], references: [id])
+  amount Float
+  note   String?
+  paidAt DateTime     @default(now())
 }

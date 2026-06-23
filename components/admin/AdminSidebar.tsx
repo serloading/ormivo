@@ -6,15 +6,16 @@ import { signOut } from "next-auth/react";
 import { useState } from "react";
 
 const navItems = [
-  { href: "/admin/dashboard", label: "Dashboard", icon: "◈" },
-  { href: "/admin/urunler", label: "Ürünler", icon: "◇" },
-  { href: "/admin/kategoriler", label: "Kategoriler", icon: "◻" },
-  { href: "/admin/markalar", label: "Markalar", icon: "◆" },
-  { href: "/admin/musteriler", label: "Müşteriler", icon: "◉" },
-  { href: "/admin/siparisler", label: "Siparişler", icon: "◎" },
-  { href: "/admin/stok", label: "Stok", icon: "▦" },
-  { href: "/admin/kargo", label: "Kargo", icon: "▷" },
-  { href: "/admin/finans", label: "Finans", icon: "◈" },
+  { href: "/admin/dashboard",    label: "Dashboard",     icon: "◈" },
+  { href: "/admin/urunler",      label: "Ürünler",       icon: "◇" },
+  { href: "/admin/kategoriler",  label: "Kategoriler",   icon: "◻" },
+  { href: "/admin/markalar",     label: "Markalar",      icon: "◆" },
+  { href: "/admin/musteriler",   label: "Müşteriler",    icon: "◉" },
+  { href: "/admin/siparisler",   label: "Siparişler",    icon: "◎" },
+  { href: "/admin/stok",         label: "Stok",          icon: "▦" },
+  { href: "/admin/kargo",        label: "Kargo",         icon: "▷" },
+  { href: "/admin/finans",       label: "Finans",        icon: "◈" },
+  { href: "/admin/borc-alacak",  label: "Borç/Alacak",  icon: "₺" },
 ];
 
 function NavLink({ href, label, icon, pathname, onClick }: { href: string; label: string; icon: string; pathname: string; onClick?: () => void }) {

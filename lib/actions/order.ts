@@ -27,7 +27,7 @@ export async function getOrders() {
 
 export async function createOrder(data: OrderFormData) {
   const orderNo = `ORV-${Date.now()}`;
-  await prisma.order.create({
+  const order = await prisma.order.create({
     data: {
       orderNo,
       customerId: data.customerId,
@@ -38,7 +38,7 @@ export async function createOrder(data: OrderFormData) {
     },
   });
   revalidatePath("/admin/siparisler");
-  return { success: true };
+  return { success: true, id: order.id, orderNo: order.orderNo };
 }
 
 export async function updateOrderStatus(

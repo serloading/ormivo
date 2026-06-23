@@ -1,11 +1,10 @@
 import Link from "next/link";
 
 const LINKS = [
-  { href: "/urunler?kategori=kadin",          label: "Kadın Parfümleri" },
-  { href: "/urunler?kategori=erkek",          label: "Erkek Parfümleri" },
-  { href: "/urunler?kategori=unisex",         label: "Unisex" },
-  { href: "/urunler?kategori=ozel-koleksiyon", label: "Özel Koleksiyon" },
-  { href: "/hakkimizda",                      label: "Hakkımızda" },
+  { href: "/urunler?kategori=kadin",  label: "Kadın Parfümleri" },
+  { href: "/urunler?kategori=erkek",  label: "Erkek Parfümleri" },
+  { href: "/urunler?kategori=unisex", label: "Unisex" },
+  { href: "/hakkimizda",              label: "Hakkımızda" },
 ];
 
 export default function SiteFooter() {

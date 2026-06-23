@@ -1,196 +1,308 @@
+import Image from "next/image";
 import Link from "next/link";
-import ProductCard from "@/components/site/ProductCard";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/session";
+import HomeFilterClient from "@/components/site/HomeFilterClient";
+import AddToCartButton from "@/components/site/AddToCartButton";
 
-const WA = "905465402113";
+export const dynamic = "force-dynamic";
+export const metadata = { title: "Ormivo — Parfüm Kataloğu" };
 
-const CATEGORIES = [
-  { slug: "kadin",           label: "Kadın",          sub: "Feminen & zarif kreasyonlar" },
-  { slug: "erkek",           label: "Erkek",          sub: "Güçlü & maskülen imzalar" },
-  { slug: "unisex",          label: "Unisex",         sub: "Sınır tanımayan kokular" },
-  { slug: "ozel-koleksiyon", label: "Özel Koleksiyon", sub: "Niş & avangard parfümler" },
-];
 
-const PILLARS = [
-  {
-    num: "01",
-    title: "Seçkin Kürasyon",
-    desc: "Dünyanın dört bir yanındaki prestijli parfüm evlerinin en nadide kreasyonlarını sizin için bir araya getiriyoruz.",
-  },
-  {
-    num: "02",
-    title: "Orijinallik Garantisi",
-    desc: "Her ürün, resmi distribütörlerden temin edilir ve orijinallik sertifikasıyla teslim edilir.",
-  },
-  {
-    num: "03",
-    title: "Kişisel Danışmanlık",
-    desc: "Hangi kokuyu aradığınızdan emin değil misiniz? WhatsApp'tan yazın, size özel öneri sunalım.",
-  },
-];
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ kategori?: string; marka?: string; sirala?: string; q?: string }>;
+}) {
+  const sp       = await searchParams;
+  const kategori = sp.kategori ?? "";
+  const marka    = sp.marka    ?? "";
+  const sirala   = sp.sirala   ?? "";
+  const q        = sp.q        ?? "";
 
-export default async function HomePage() {
-  const featured = await prisma.product.findMany({
-    where: { isActive: true, deletedAt: null },
-    include: { category: true, brand: true },
-    orderBy: { createdAt: "desc" },
-    take: 8,
-  });
+  const where = {
+    deletedAt: null,
+    isActive:  true,
+    ...(kategori ? { category: { slug: kategori } } : {}),
+    ...(marka    ? { brand:    { slug: marka    } } : {}),
+    ...(q        ? { name:     { contains: q, mode: "insensitive" as const } } : {}),
+  };
+
+  const session = await getSession();
+  const loggedIn = !!session;
+
+  const [rawProducts, categories, brands] = await Promise.all([
+    prisma.product.findMany({
+      where,
+      include:  { category: true, brand: true },
+      orderBy:
+        sirala === "fiyat-artan"  ? { price: "asc"      } :
+        sirala === "fiyat-azalan" ? { price: "desc"     } :
+                                    { createdAt: "asc"  },
+    }),
+    prisma.category.findMany({ orderBy: { name: "asc" } }),
+    prisma.brand.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, slug: true } }),
+  ]);
+
+  // Sunucu tarafında deterministik karıştırma (hydration mismatch önlemek için seed kullan)
+  const products = (sirala === "fiyat-artan" || sirala === "fiyat-azalan")
+    ? rawProducts
+    : seededShuffle(rawProducts);
 
   return (
-    <div className="bg-[#FAFAF7]">
+    <div className="bg-[#FAFAF7] min-h-screen">
 
-      {/* ── HERO ── */}
-      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden bg-[#F5F0EA]">
-        {/* Subtle dot grid */}
-        <div
-          className="absolute inset-0 opacity-[0.035]"
-          style={{ backgroundImage: "radial-gradient(circle, #1A1A1A 1px, transparent 1px)", backgroundSize: "36px 36px" }}
-        />
-
-        {/* Dekoratif daire */}
-        <div className="absolute right-[-10%] top-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full border border-[#C4A882]/20 pointer-events-none hidden lg:block" />
-        <div className="absolute right-[-5%] top-1/2 -translate-y-1/2 w-[450px] h-[450px] rounded-full border border-[#C4A882]/10 pointer-events-none hidden lg:block" />
-
-        <div className="relative z-10 text-center px-6 max-w-3xl mx-auto animate-fade-up">
-          <p className="font-sans text-[10px] tracking-[0.6em] text-[#C4A882] uppercase mb-8">
-            Lüks Parfüm Koleksiyonu
+      {/* ── Katalog başlık bandı ── */}
+      <div className="border-b border-[#E8E4DE] bg-white px-4 md:px-8 py-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="font-serif text-xl text-[#1A1A1A]">Parfüm Kataloğu</h1>
+          <p className="font-sans text-xs text-[#9A9A9A] mt-0.5">
+            {products.length} ürün
+            {kategori && ` · ${categories.find(c=>c.slug===kategori)?.name ?? kategori}`}
+            {marka    && ` · ${brands.find(b=>b.slug===marka)?.name ?? marka}`}
+            {q        && ` · "${q}"`}
           </p>
-
-          <h1 className="font-serif text-7xl md:text-9xl font-light tracking-[0.2em] text-[#1A1A1A] uppercase mb-6 leading-none">
-            Ormivo
-          </h1>
-
-          <p className="font-serif italic text-xl text-[#8B6F4E] mb-3">
-            Her koku bir hikaye anlatır.
-          </p>
-
-          <div className="w-20 h-[1px] bg-[#C4A882] mx-auto my-8" />
-
-          <p className="font-sans text-[#6B6B6B] text-base leading-relaxed max-w-md mx-auto mb-12">
-            Dünyaca ünlü parfüm evlerinden özenle seçilmiş, zamansız kreasyonlar. Siparişlerinizi WhatsApp üzerinden kolayca verin.
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/urunler"
-              className="font-sans bg-[#1A1A1A] text-white text-[11px] tracking-[0.3em] uppercase px-12 py-4 hover:bg-[#C4A882] transition-colors duration-300"
-            >
-              Koleksiyonu Keşfet
-            </Link>
-            <a
-              href={`https://wa.me/${WA}?text=${encodeURIComponent("Merhaba, parfüm önerisi almak istiyorum.")}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-sans border border-[#1A1A1A] text-[#1A1A1A] text-[11px] tracking-[0.3em] uppercase px-12 py-4 hover:bg-[#1A1A1A] hover:text-white transition-colors duration-300"
-            >
-              WhatsApp&apos;tan Yaz
-            </a>
-          </div>
         </div>
-      </section>
 
-      {/* ── PILLARS ── */}
-      <section className="border-y border-[#E8E4DE] bg-white">
-        <div className="max-w-7xl mx-auto px-6 py-16 grid grid-cols-1 md:grid-cols-3 gap-0 divide-y md:divide-y-0 md:divide-x divide-[#E8E4DE]">
-          {PILLARS.map((p) => (
-            <div key={p.num} className="px-8 py-8 md:py-0 first:pl-0 last:pr-0">
-              <p className="font-serif italic text-[#C4A882] text-sm mb-3">{p.num}</p>
-              <h3 className="font-sans text-[11px] tracking-[0.2em] uppercase text-[#1A1A1A] mb-3">{p.title}</h3>
-              <p className="font-sans text-sm text-[#6B6B6B] leading-relaxed">{p.desc}</p>
+        {/* Arama kutusu */}
+        <form method="GET" action="/" className="flex items-center border border-[#E8E4DE] bg-[#FAFAF7] px-3 py-2 gap-2 w-full md:w-64">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4 text-[#C4A882] shrink-0">
+            <circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+          {kategori && <input type="hidden" name="kategori" value={kategori} />}
+          {marka    && <input type="hidden" name="marka"    value={marka} />}
+          {sirala   && <input type="hidden" name="sirala"   value={sirala} />}
+          <input
+            name="q"
+            defaultValue={q}
+            placeholder="Marka veya parfüm ara..."
+            className="flex-1 bg-transparent font-sans text-sm text-[#1A1A1A] placeholder-[#C8C4BE] outline-none"
+          />
+        </form>
+      </div>
+
+      <div className="flex min-h-0">
+
+        {/* ═══════════════════════════════════════
+            DESKTOP SIDEBAR
+        ═══════════════════════════════════════ */}
+        <aside className="hidden md:flex flex-col gap-0 w-56 shrink-0 border-r border-[#E8E4DE] bg-white sticky top-[72px] self-start h-[calc(100vh-72px)] overflow-y-auto">
+
+          {/* Sıfırla */}
+          {(kategori || marka || sirala || q) && (
+            <div className="px-5 pt-5 pb-3 border-b border-[#E8E4DE]">
+              <a href="/" className="font-sans text-[10px] tracking-[0.2em] uppercase text-[#C4A882] hover:text-[#8B6F4E] transition-colors">
+                × Filtreleri Sıfırla
+              </a>
             </div>
-          ))}
-        </div>
-      </section>
+          )}
 
-      {/* ── ÖNE ÇIKAN ÜRÜNLER ── */}
-      <section className="max-w-7xl mx-auto px-6 py-24">
-        <div className="flex items-end justify-between mb-12">
-          <div>
-            <p className="font-sans text-[10px] tracking-[0.5em] text-[#C4A882] uppercase mb-3">Seçkin Kreasyonlar</p>
-            <h2 className="font-serif text-4xl font-light text-[#1A1A1A]">Öne Çıkan Parfümler</h2>
+          {/* Kategori */}
+          <div className="px-5 py-5 border-b border-[#E8E4DE]">
+            <p className="font-sans text-[9px] tracking-[0.4em] text-[#C4A882] uppercase mb-3">Kategori</p>
+            <nav className="space-y-0">
+              <SidebarLink
+                href={buildHref({ kategori: "", marka, sirala, q }, "kategori", "")}
+                active={!kategori}
+                label="Tümü"
+              />
+              {categories.map((cat) => (
+                <SidebarLink
+                  key={cat.slug}
+                  href={buildHref({ kategori, marka, sirala, q }, "kategori", cat.slug)}
+                  active={kategori === cat.slug}
+                  label={cat.name}
+                />
+              ))}
+            </nav>
           </div>
-          <Link
-            href="/urunler"
-            className="hidden md:block font-sans text-[11px] tracking-[0.2em] uppercase text-[#6B6B6B] hover:text-[#1A1A1A] border-b border-[#E8E4DE] hover:border-[#1A1A1A] pb-1 transition-colors"
-          >
-            Tümünü Gör
-          </Link>
-        </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          {featured.map((product) => (
-            <ProductCard key={product.id} product={product as never} />
-          ))}
-        </div>
-
-        <div className="text-center mt-10 md:hidden">
-          <Link href="/urunler" className="font-sans text-sm text-[#6B6B6B] uppercase tracking-widest border-b border-[#E8E4DE] pb-1">
-            Tüm Koleksiyonu Gör
-          </Link>
-        </div>
-      </section>
-
-      {/* ── KATEGORİLER ── */}
-      <section className="bg-[#F5F0EA] py-24">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-14">
-            <p className="font-sans text-[10px] tracking-[0.5em] text-[#C4A882] uppercase mb-3">Kategoriler</p>
-            <h2 className="font-serif text-4xl font-light text-[#1A1A1A]">Kendinize Ait Kokuyu Bulun</h2>
+          {/* Sıralama */}
+          <div className="px-5 py-5 border-b border-[#E8E4DE]">
+            <p className="font-sans text-[9px] tracking-[0.4em] text-[#C4A882] uppercase mb-3">Sıralama</p>
+            <nav className="space-y-0">
+              <SidebarLink
+                href={buildHref({ kategori, marka, sirala: "", q }, "sirala", "")}
+                active={!sirala}
+                label="Rastgele"
+              />
+              <SidebarLink
+                href={buildHref({ kategori, marka, sirala, q }, "sirala", "fiyat-artan")}
+                active={sirala === "fiyat-artan"}
+                label="Fiyat: Artan"
+              />
+              <SidebarLink
+                href={buildHref({ kategori, marka, sirala, q }, "sirala", "fiyat-azalan")}
+                active={sirala === "fiyat-azalan"}
+                label="Fiyat: Azalan"
+              />
+            </nav>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {CATEGORIES.map((c) => (
-              <Link
-                key={c.slug}
-                href={`/urunler?kategori=${c.slug}`}
-                className="group bg-white border border-[#E8E4DE] p-8 md:p-10 flex flex-col gap-3 hover:border-[#C4A882] hover:shadow-md transition-all duration-300"
-              >
-                <span className="font-sans text-[10px] tracking-[0.25em] uppercase text-[#C4A882] group-hover:text-[#8B6F4E] transition-colors">
-                  Ormivo
-                </span>
-                <h3 className="font-serif text-xl md:text-2xl text-[#1A1A1A] group-hover:text-[#8B6F4E] transition-colors">
-                  {c.label}
-                </h3>
-                <p className="font-sans text-xs text-[#6B6B6B] leading-relaxed">{c.sub}</p>
-                <span className="font-sans text-[10px] tracking-widest uppercase text-[#C4A882] mt-2 group-hover:translate-x-1 transition-transform inline-block">
-                  Keşfet →
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* ── CTA BANNER ── */}
-      <section className="bg-[#1A1A1A] text-white py-24 text-center relative overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-[0.04]"
-          style={{ backgroundImage: "radial-gradient(circle, #C4A882 1px, transparent 1px)", backgroundSize: "40px 40px" }}
-        />
-        <div className="relative z-10 max-w-2xl mx-auto px-6">
-          <p className="font-sans text-[10px] tracking-[0.6em] text-[#C4A882] uppercase mb-6">
-            Kişisel Danışmanlık
-          </p>
-          <h2 className="font-serif text-4xl md:text-5xl font-light mb-4 leading-tight">
-            Hangi Koku Sizi <br />
-            <em className="italic text-[#C4A882]">Anlatıyor?</em>
-          </h2>
-          <p className="font-sans text-[#9A9A9A] text-base leading-relaxed mb-10 max-w-md mx-auto">
-            Size özel parfüm önerileri için WhatsApp&apos;tan yazın. Uzman ekibimiz en uygun kreasyonu bulmana yardımcı olsun.
-          </p>
-          <a
-            href={`https://wa.me/${WA}?text=${encodeURIComponent("Merhaba, bana özel parfüm önerisi almak istiyorum.")}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-3 bg-[#25D366] text-white font-sans text-[11px] tracking-[0.3em] uppercase px-10 py-4 hover:bg-[#20BA5A] transition-colors rounded-none"
-          >
-            <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 shrink-0">
-              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-            </svg>
-            Şimdi Mesaj Gönder
-          </a>
+          {/* Marka */}
+          <div className="px-5 py-5">
+            <p className="font-sans text-[9px] tracking-[0.4em] text-[#C4A882] uppercase mb-3">Marka</p>
+            <nav className="space-y-0">
+              <SidebarLink
+                href={buildHref({ kategori, marka: "", sirala, q }, "marka", "")}
+                active={!marka}
+                label="Tüm Markalar"
+              />
+              {brands.map((b) => (
+                <SidebarLink
+                  key={b.slug}
+                  href={buildHref({ kategori, marka, sirala, q }, "marka", b.slug)}
+                  active={marka === b.slug}
+                  label={b.name}
+                />
+              ))}
+            </nav>
+          </div>
+        </aside>
+
+        {/* ═══════════════════════════════════════
+            ÜRÜN ALANI
+        ═══════════════════════════════════════ */}
+        <div className="flex-1 min-w-0 p-3 md:p-5">
+
+          {/* Mobil filtre drawer */}
+          <HomeFilterClient
+            categories={categories}
+            brands={brands}
+            activeKategori={kategori}
+            activeMarka={marka}
+            activeSirala={sirala}
+            activeQ={q}
+          />
+
+          {products.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-32 text-center">
+              <p className="font-serif text-5xl text-[#C4A882] opacity-20 mb-5">◈</p>
+              <h2 className="font-serif text-xl text-[#1A1A1A] mb-2">Sonuç bulunamadı</h2>
+              <p className="font-sans text-sm text-[#9A9A9A] mb-6">Filtreleri değiştirerek tekrar deneyin.</p>
+              <a href="/" className="font-sans text-[11px] tracking-[0.25em] uppercase border border-[#1A1A1A] px-6 py-2.5 hover:bg-[#1A1A1A] hover:text-white transition-colors">
+                Sıfırla
+              </a>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-3">
+              {products.map((product) => {
+                const price    = Number(product.price);
+                const compare  = product.comparePrice ? Number(product.comparePrice) : null;
+                const discount = compare ? Math.round((1 - price / compare) * 100) : null;
+                const img      = product.images?.[0] ?? null;
+                const inStock  = product.stock > 0;
+                return (
+                  <article
+                    key={product.id}
+                    className="group bg-white border border-[#E8E4DE] hover:border-[#C4A882] hover:shadow-sm transition-all duration-200 flex flex-col"
+                  >
+                    {/* Görsel alanı — <a> yok, WA ile iç içe girmiyor */}
+                    <div className="relative overflow-hidden bg-[#F7F4F0]" style={{ aspectRatio: "3/4" }}>
+                      <Link
+                        href={`/urunler/${product.slug}`}
+                        className="absolute inset-0"
+                        aria-label={product.name}
+                      />
+                      {img ? (
+                        <Image
+                          src={img}
+                          alt={product.name}
+                          fill
+                          sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 20vw"
+                          className="object-contain p-3 group-hover:scale-[1.03] transition-transform duration-300 ease-out pointer-events-none"
+                        />
+                      ) : (
+                        <span className="absolute inset-0 flex items-center justify-center font-serif text-3xl text-[#C4A882] opacity-20 pointer-events-none">◈</span>
+                      )}
+                      {!inStock && (
+                        <span className="absolute top-2 right-2 bg-[#1A1A1A]/70 text-white font-sans text-[7px] tracking-widest uppercase px-1.5 py-0.5 pointer-events-none">
+                          Tükendi
+                        </span>
+                      )}
+                      {discount && inStock && (
+                        <span className="absolute top-2 left-2 bg-[#C4A882] text-white font-sans text-[7px] tracking-wide uppercase px-1.5 py-0.5 pointer-events-none">
+                          -%{discount}
+                        </span>
+                      )}
+                      <AddToCartButton productId={product.id} loggedIn={loggedIn} />
+                    </div>
+
+                    <div className="p-2 md:p-2.5 flex flex-col flex-1">
+                      {product.brand?.name && (
+                        <p className="font-sans text-[7px] tracking-[0.2em] text-[#C4A882] uppercase mb-0.5 truncate">
+                          {product.brand.name}
+                        </p>
+                      )}
+                      <Link href={`/urunler/${product.slug}`} className="block">
+                        <h3 className="font-sans text-[11px] md:text-xs leading-snug text-[#1A1A1A] hover:text-[#C4A882] transition-colors line-clamp-2 mb-1">
+                          {product.name}
+                        </h3>
+                      </Link>
+                      <p className="font-sans text-xs md:text-sm font-semibold text-[#1A1A1A] mt-auto">
+                        {price.toLocaleString("tr-TR")} ₺
+                        {compare && (
+                          <span className="ml-1.5 text-[10px] font-normal text-[#C4A882] line-through">
+                            {compare.toLocaleString("tr-TR")} ₺
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </div>
-      </section>
+      </div>
     </div>
   );
+}
+
+/* ─── Yardımcı: sidebar link ─── */
+function SidebarLink({ href, active, label }: { href: string; active: boolean; label: string }) {
+  return (
+    <a
+      href={href}
+      className={`block py-1.5 px-1 font-sans text-[13px] transition-colors border-l-2 pl-2 ${
+        active
+          ? "border-[#C4A882] text-[#1A1A1A] font-semibold"
+          : "border-transparent text-[#6B6B6B] hover:text-[#1A1A1A] hover:border-[#E8E4DE]"
+      }`}
+    >
+      {label}
+    </a>
+  );
+}
+
+/* ─── Günlük seed ile Fisher-Yates shuffle (server+client aynı sonucu verir) ─── */
+function seededShuffle<T>(arr: T[]): T[] {
+  // Her gün değişen seed — saatlik değişim istersen Date.getHours() ekle
+  const today = new Date();
+  let seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+  const rand = () => {
+    seed = (seed * 1664525 + 1013904223) & 0xffffffff;
+    return (seed >>> 0) / 0xffffffff;
+  };
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+/* ─── buildHref ─── */
+function buildHref(
+  state: { kategori: string; marka: string; sirala: string; q: string },
+  key: string,
+  value: string,
+) {
+  const next = { ...state, [key]: value };
+  const p = new URLSearchParams();
+  if (next.kategori) p.set("kategori", next.kategori);
+  if (next.marka)    p.set("marka",    next.marka);
+  if (next.sirala)   p.set("sirala",   next.sirala);
+  if (next.q)        p.set("q",        next.q);
+  return `/${p.toString() ? `?${p}` : ""}`;
 }

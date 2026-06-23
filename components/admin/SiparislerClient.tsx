@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Modal from "./Modal";
 import { Field, TextareaField, SubmitRow } from "./FormField";
 import { createOrder, updateOrderStatus, deleteOrder } from "@/lib/actions/order";
+import { createCustomerDebt } from "@/lib/actions/debt";
 
 type OrderItem = { productName: string; price: number; quantity: number };
 type Customer = { id: string; name: string; phone: string | null };
@@ -42,12 +43,16 @@ export default function SiparislerClient({
   const [selProduct, setSelProduct] = useState("");
   const [qty, setQty] = useState(1);
   const [items, setItems] = useState<OrderItem[]>([]);
-  const [freeShipping, setFreeShipping] = useState(true);
-  const [shippingFee, setShippingFee] = useState("");
+  const [freeShipping, setFreeShipping]     = useState(true);
+  const [shippingFee, setShippingFee]       = useState("");
+  const [paymentType, setPaymentType]       = useState<"tam" | "kismi" | "veresiye">("tam");
+  const [paidAmount,  setPaidAmount]        = useState("");
+  const [debtDueDate, setDebtDueDate]       = useState("");
 
   function reset() {
     setCustomerId(""); setNote(""); setSelProduct(""); setQty(1);
     setItems([]); setFreeShipping(true); setShippingFee("");
+    setPaymentType("tam"); setPaidAmount(""); setDebtDueDate("");
   }
 
   function addItem() {
@@ -70,13 +75,34 @@ export default function SiparislerClient({
     if (!items.length) { alert("En az bir ürün ekleyin."); return; }
     if (!customerId) { alert("Müşteri seçin."); return; }
     startTransition(async () => {
-      await createOrder({
+      const order = await createOrder({
         customerId,
         items,
         total: grandTotal,
         shippingFee: freeShipping ? null : shipping,
         note: note || undefined,
       });
+      // Borç/alacak kaydı oluştur
+      if (paymentType === "veresiye") {
+        await createCustomerDebt({
+          customerId,
+          orderId: order?.id,
+          description: `Sipariş #${order?.orderNo ?? ""} — veresiye`,
+          totalAmount: grandTotal,
+          initialPayment: 0,
+          dueDate: debtDueDate || undefined,
+        });
+      } else if (paymentType === "kismi") {
+        const paid = parseFloat(paidAmount) || 0;
+        await createCustomerDebt({
+          customerId,
+          orderId: order?.id,
+          description: `Sipariş #${order?.orderNo ?? ""} — kısmi ödeme`,
+          totalAmount: grandTotal,
+          initialPayment: paid,
+          dueDate: debtDueDate || undefined,
+        });
+      }
       router.refresh();
       reset(); setModal(false);
     });
@@ -243,6 +269,39 @@ export default function SiparislerClient({
               </div>
             </div>
           )}
+
+          {/* Ödeme Durumu */}
+          <div className="border border-[#e8ddd6] rounded-sm p-4">
+            <p className="text-xs tracking-widest text-[#5c4033] uppercase mb-3">Ödeme Durumu</p>
+            <div className="flex flex-wrap gap-3 mb-3">
+              {[
+                { val: "tam",      label: "Tam Ödendi" },
+                { val: "kismi",    label: "Kısmi Ödeme" },
+                { val: "veresiye", label: "Veresiye" },
+              ].map((opt) => (
+                <label key={opt.val} className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="paymentType" value={opt.val}
+                    checked={paymentType === opt.val}
+                    onChange={() => setPaymentType(opt.val as typeof paymentType)}
+                    className="accent-[#2c1810]" />
+                  <span className="text-sm text-[#2c1810]">{opt.label}</span>
+                </label>
+              ))}
+            </div>
+            {(paymentType === "kismi" || paymentType === "veresiye") && (
+              <div className="space-y-2 mt-2">
+                {paymentType === "kismi" && (
+                  <input type="number" min="0" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)}
+                    placeholder="Ödenen miktar (₺)" className="w-full border border-[#d4c5ba] rounded-sm px-3 py-2 text-sm text-[#2c1810] focus:outline-none focus:border-[#8b6f5e] bg-[#faf8f6]" />
+                )}
+                <input type="date" value={debtDueDate} onChange={(e) => setDebtDueDate(e.target.value)}
+                  className="w-full border border-[#d4c5ba] rounded-sm px-3 py-2 text-sm text-[#2c1810] focus:outline-none focus:border-[#8b6f5e] bg-[#faf8f6]" />
+                <p className="text-[11px] text-[#8b6f5e]">
+                  {paymentType === "veresiye" ? "Tüm tutar Borç/Alacak modülüne kaydedilecek." : "Kalan tutar Borç/Alacak modülüne kaydedilecek."}
+                </p>
+              </div>
+            )}
+          </div>
 
           <TextareaField label="Not" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Hediye paketi, özel not..." />
           <SubmitRow onCancel={() => { setModal(false); reset(); }} label="Siparişi Kaydet" />
