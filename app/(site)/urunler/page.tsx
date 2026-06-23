@@ -66,7 +66,7 @@ export default async function UrunlerPage({
 
   type UrunCat   = { id: string; name: string; slug: string };
   type UrunBrand = { id: string; name: string; slug: string };
-  type UrunProduct = { id: string; slug: string; name: string; price: unknown; comparePrice: unknown; images: string[]; stock: number; brand?: { name: string } | null };
+  type UrunProduct = { id: string; slug: string; name: string; price: unknown; comparePrice: unknown; images: string[]; stock: number; brand?: { name: string } | null; category?: { name: string } | null };
 
   const typedCats    = categories as UrunCat[];
   const typedBrands  = brands     as UrunBrand[];
