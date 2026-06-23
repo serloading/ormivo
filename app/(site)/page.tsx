@@ -21,10 +21,12 @@ export default async function HomePage({
   const sirala   = sp.sirala   ?? "";
   const q        = sp.q        ?? "";
 
+  const isOzelFilter = kategori === "ozel-koleksiyon";
   const where = {
     deletedAt: null,
     isActive:  true,
-    ...(kategori ? { category: { slug: kategori } } : {}),
+    ...(isOzelFilter           ? { isOzelKoleksiyon: true }            : {}),
+    ...(kategori && !isOzelFilter ? { category: { slug: kategori } }   : {}),
     ...(marka    ? { brand:    { slug: marka    } } : {}),
     ...(q        ? { name:     { contains: q, mode: "insensitive" as const } } : {}),
   };
