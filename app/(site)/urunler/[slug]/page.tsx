@@ -7,6 +7,7 @@ import { getSession } from "@/lib/session";
 import ProductGallery from "@/components/site/ProductGallery";
 import ProductTabs from "@/components/site/ProductTabs";
 import ProductAddToCart from "@/components/site/ProductAddToCart";
+import AddToCartButton from "@/components/site/AddToCartButton";
 
 // 494 ürünü build'de aynı anda render etmek connection pool'u aşıyor.
 // Her istek sunucuda anlık render edilir; fiyat/stok değişimleri de anında yansır.
