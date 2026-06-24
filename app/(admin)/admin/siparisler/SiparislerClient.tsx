@@ -836,7 +836,10 @@ function DeleteButton({ order }: { order: OrderRow }) {
   const router = useRouter();
   function handleDelete() {
     if (!confirm(`#${order.orderNo} siparişi silinsin mi? Finans kayıtları ve stok da geri alınır.`)) return;
-    startTransition(async () => { await deleteOrderById(order.id, order.source); router.refresh(); });
+    startTransition(async () => {
+      try { await deleteOrderById(order.id, order.source); router.refresh(); }
+      catch (e) { alert("Silme hatası: " + (e instanceof Error ? e.message : "Bilinmeyen hata")); }
+    });
   }
   return (
     <button onClick={handleDelete} className="text-xs text-red-400 hover:text-red-600">Sil</button>
@@ -904,15 +907,19 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
     if (items.some((i) => !i.name.trim())) { setError("Tüm ürün isimlerini doldurun."); return; }
 
     startSave(async () => {
-      await updateOrderItems(
-        order.id, order.source,
-        items.map((i) => ({ productId: i.productId ?? undefined, name: i.name, qty: i.qty, price: i.price })),
-        netTotal,
-        note.trim() || null,
-        { customerId: order.source === "manuel" ? customerId : undefined, discount: discountAmt, status, deliveryMethod }
-      );
-      router.refresh();
-      onClose();
+      try {
+        await updateOrderItems(
+          order.id, order.source,
+          items.map((i) => ({ productId: i.productId ?? undefined, name: i.name, qty: i.qty, price: i.price })),
+          netTotal,
+          note.trim() || null,
+          { customerId: order.source === "manuel" ? customerId : undefined, discount: discountAmt, status, deliveryMethod }
+        );
+        router.refresh();
+        onClose();
+      } catch (e) {
+        setError("Bir hata oluştu: " + (e instanceof Error ? e.message : "Bilinmeyen hata"));
+      }
     });
   }
 
