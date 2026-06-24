@@ -4,11 +4,53 @@ import HomeFilterClient   from "@/components/site/HomeFilterClient";
 import MarqueeBanner      from "@/components/site/MarqueeBanner";
 import ProductGrid        from "@/components/site/ProductGrid";
 import CollapsibleList    from "@/components/site/CollapsibleList";
+import Image              from "next/image";
+import Link               from "next/link";
+import AddToCartButton    from "@/components/site/AddToCartButton";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Ormivo — Parfüm Kataloğu" };
 
 const INITIAL_LIMIT = 15;
+
+// En çok satan 10 ürün hesapla (her iki sipariş tablosundan)
+async function getTopSellers(limit = 10) {
+  const [siteOrders, manuelOrders] = await Promise.all([
+    prisma.siteOrder.findMany({ select: { items: true }, where: { paymentStatus: { in: ["PAID", "FREE"] } } }),
+    prisma.order.findMany({ select: { items: true }, where: { paymentStatus: { in: ["PAID", "FREE"] } } }),
+  ]);
+
+  const countMap = new Map<string, number>();
+
+  for (const o of siteOrders) {
+    const items = o.items as { productId?: string; qty?: number; quantity?: number }[];
+    for (const item of items) {
+      if (!item.productId) continue;
+      countMap.set(item.productId, (countMap.get(item.productId) ?? 0) + (item.qty ?? item.quantity ?? 1));
+    }
+  }
+  for (const o of manuelOrders) {
+    const items = o.items as { productId?: string; qty?: number; quantity?: number }[];
+    for (const item of items) {
+      if (!item.productId) continue;
+      countMap.set(item.productId, (countMap.get(item.productId) ?? 0) + (item.qty ?? item.quantity ?? 1));
+    }
+  }
+
+  const sorted = [...countMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit);
+  const ids    = sorted.map(([id]) => id);
+  if (!ids.length) return [];
+
+  const products = await prisma.product.findMany({
+    where: { id: { in: ids }, isActive: true, deletedAt: null },
+    include: { brand: true },
+  });
+
+  // Orijinal sırayı koru
+  return ids
+    .map((id) => products.find((p) => p.id === id))
+    .filter(Boolean) as typeof products;
+}
 
 export default async function HomePage({
   searchParams,
@@ -25,7 +67,7 @@ export default async function HomePage({
   const where = {
     deletedAt: null,
     isActive:  true,
-    ...(isOzelFilter           ? { isOzelKoleksiyon: true }            : {}),
+    ...(isOzelFilter             ? { isOzelKoleksiyon: true }            : {}),
     ...(kategori && !isOzelFilter ? { category: { slug: kategori } }   : {}),
     ...(marka    ? { brand:    { slug: marka    } } : {}),
     ...(q        ? { name:     { contains: q, mode: "insensitive" as const } } : {}),
@@ -34,7 +76,7 @@ export default async function HomePage({
   const session  = await getSession();
   const loggedIn = !!session;
 
-  const [rawProducts, categories, brands] = await Promise.all([
+  const [rawProducts, categories, brands, topSellers] = await Promise.all([
     prisma.product.findMany({
       where,
       include: { category: true, brand: true },
@@ -45,6 +87,8 @@ export default async function HomePage({
     }),
     prisma.category.findMany({ orderBy: { name: "asc" } }),
     prisma.brand.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, slug: true } }),
+    // Sadece filtre yokken en çok satanları getir (ana sayfa görünümü)
+    (kategori || marka || q || sirala) ? Promise.resolve([]) : getTopSellers(10),
   ]);
 
   type RawProduct = { id: string; slug: string; name: string; price: unknown; comparePrice: unknown; images: string[]; stock: number; brand: { name: string } | null };
@@ -69,9 +113,18 @@ export default async function HomePage({
   /* ── Sidebar link builder ── */
   const href = (key: string, value: string) => buildHref({ kategori, marka, sirala, q }, key, value);
 
+  // Unisex'i sona bırak, Özel Koleksiyon Unisex'ten önce gelsin
+  const sortedCategories = [...(categories as RawCategory[])].sort((a, b) => {
+    if (a.slug === "unisex") return 1;
+    if (b.slug === "unisex") return -1;
+    return a.name.localeCompare(b.name, "tr");
+  });
+
   const categoryItems = [
-    { href: href("kategori", ""), active: !kategori, label: "Tümü" },
-    ...(categories as RawCategory[]).map((c) => ({ href: href("kategori", c.slug), active: kategori === c.slug, label: c.name })),
+    { href: href("kategori", ""),                  active: !kategori,                      label: "Tümü"            },
+    ...sortedCategories.filter((c) => c.slug !== "unisex").map((c) => ({ href: href("kategori", c.slug), active: kategori === c.slug, label: c.name })),
+    { href: href("kategori", "ozel-koleksiyon"),   active: kategori === "ozel-koleksiyon", label: "Özel Koleksiyon" },
+    ...sortedCategories.filter((c) => c.slug === "unisex").map((c) => ({ href: href("kategori", c.slug), active: kategori === c.slug, label: c.name })),
   ];
 
   const brandItems = [
@@ -84,6 +137,13 @@ export default async function HomePage({
     { href: href("sirala", "fiyat-artan"),   active: sirala === "fiyat-artan",  label: "Fiyat: Artan" },
     { href: href("sirala", "fiyat-azalan"),  active: sirala === "fiyat-azalan", label: "Fiyat: Azalan"},
   ];
+
+  // En çok satanlar sidebar linki (her biri doğrudan ürün sayfasına gider)
+  const topSellerItems = topSellers.map((p) => ({
+    href: `/urunler/${p.slug}`,
+    active: false,
+    label: p.name,
+  }));
 
   return (
     <div className="bg-[#FAFAF7] min-h-screen">
@@ -112,10 +172,25 @@ export default async function HomePage({
             <CollapsibleList items={sortItems} initialShow={3} />
           </div>
 
-          <div className="px-5 py-5">
+          <div className="px-5 py-5 border-b border-[#E8E4DE]">
             <p className="font-sans text-[9px] tracking-[0.4em] text-[#C4A882] uppercase mb-3">Marka</p>
             <CollapsibleList items={brandItems} initialShow={8} label="marka" />
           </div>
+
+          {topSellerItems.length > 0 && (
+            <div className="px-5 py-5">
+              <p className="font-sans text-[9px] tracking-[0.4em] text-[#C4A882] uppercase mb-3">En Çok Satanlar</p>
+              <div className="space-y-0">
+                {topSellerItems.map((item, i) => (
+                  <a key={item.href} href={item.href}
+                    className="flex items-center gap-2 py-1.5 pl-2 font-sans text-sm text-[#6B6B6B] hover:text-[#C4A882] transition-colors">
+                    <span className="text-[10px] text-[#C4A882] font-mono w-4 shrink-0">{i + 1}</span>
+                    <span className="truncate">{item.label}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </aside>
 
         {/* ── ÜRÜN ALANI ── */}
@@ -129,6 +204,52 @@ export default async function HomePage({
             activeSirala={sirala}
             activeQ={q}
           />
+
+          {/* En Çok Satanlar bölümü (sadece filtre yokken) */}
+          {topSellers.length > 0 && (
+            <section className="mb-8">
+              <div className="flex items-baseline justify-between mb-4">
+                <div>
+                  <p className="font-sans text-[9px] tracking-[0.4em] text-[#C4A882] uppercase mb-1">Öne Çıkanlar</p>
+                  <h2 className="font-serif text-xl text-[#1A1A1A]">En Çok Satanlar</h2>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                {topSellers.map((p) => {
+                  const price   = Number(p.price);
+                  const compare = p.comparePrice ? Number(p.comparePrice) : null;
+                  const img     = p.images?.[0] ?? null;
+                  return (
+                    <article key={p.id} className="group bg-white border border-[#E8E4DE] hover:border-[#C4A882] hover:shadow-md transition-all duration-300 flex flex-col">
+                      <div className="relative overflow-hidden bg-[#F5F0EA]" style={{ aspectRatio: "4/5" }}>
+                        <Link href={`/urunler/${p.slug}`} className="absolute inset-0" aria-label={p.name} />
+                        {img ? (
+                          <Image src={img} alt={p.name} fill sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 20vw"
+                            className="object-contain p-3 group-hover:scale-[1.03] transition-transform duration-500 pointer-events-none" />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <span className="font-serif text-3xl text-[#C4A882] opacity-20">◈</span>
+                          </div>
+                        )}
+                        <AddToCartButton productId={p.id} loggedIn={loggedIn} />
+                      </div>
+                      <div className="p-2.5 flex flex-col flex-1">
+                        {p.brand?.name && <p className="font-sans text-[8px] tracking-[0.2em] text-[#C4A882] uppercase mb-0.5">{p.brand.name}</p>}
+                        <Link href={`/urunler/${p.slug}`}>
+                          <h3 className="font-serif text-xs leading-snug text-[#1A1A1A] hover:text-[#C4A882] transition-colors line-clamp-2 mb-1.5">{p.name}</h3>
+                        </Link>
+                        <div className="flex items-baseline gap-1 mt-auto">
+                          <span className="font-sans text-xs font-medium text-[#1A1A1A]">{price.toLocaleString("tr-TR")} ₺</span>
+                          {compare && <span className="font-sans text-[10px] text-[#C4A882] line-through">{compare.toLocaleString("tr-TR")} ₺</span>}
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+              <div className="border-b border-[#E8E4DE] mt-8 mb-2" />
+            </section>
+          )}
 
           <ProductGrid
             initialProducts={initialProducts}
@@ -158,7 +279,6 @@ function seededShuffle<T>(arr: T[]): T[] {
   return out;
 }
 
-/* ─── buildHref ─── */
 function buildHref(
   state: { kategori: string; marka: string; sirala: string; q: string },
   key: string, value: string,

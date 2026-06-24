@@ -8,9 +8,10 @@ interface Brand { id: string; name: string; slug: string; }
 interface User  { name: string | null; phone: string; }
 
 const KATEGORILER = [
-  { href: "/?kategori=kadin",  label: "Kadın"  },
-  { href: "/?kategori=erkek",  label: "Erkek"  },
-  { href: "/?kategori=unisex", label: "Unisex" },
+  { href: "/?kategori=kadin",             label: "Kadın"           },
+  { href: "/?kategori=erkek",             label: "Erkek"           },
+  { href: "/?kategori=ozel-koleksiyon",   label: "Özel Koleksiyon" },
+  { href: "/?kategori=unisex",            label: "Unisex"          },
 ];
 
 export default function SiteHeader({
@@ -233,18 +234,8 @@ export default function SiteHeader({
             )}
           </div>
 
-          {/* ── MOBİL: hamburger + sepet ── */}
+          {/* ── MOBİL: hamburger ── */}
           <div className="md:hidden flex items-center gap-2 ml-auto">
-            <Link href="/sepet" className="relative p-2 text-[#4A4A4A]" aria-label="Sepet">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
-              </svg>
-              {totalCart > 0 && (
-                <span className="absolute top-0.5 right-0.5 bg-[#C4A882] text-white text-[8px] font-sans font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                  {totalCart > 9 ? "9+" : totalCart}
-                </span>
-              )}
-            </Link>
             <button
               onClick={() => setMobileOpen((v) => !v)}
               className="p-2 flex flex-col gap-[5px]"
@@ -296,7 +287,10 @@ export default function SiteHeader({
                 ))}
               </div>
             </details>
-            {user ? (
+            <Link href="/?kategori=ozel-koleksiyon" className="py-3 font-sans text-sm tracking-[0.1em] uppercase text-[#C4A882] border-b border-[#F0EDE8] transition-colors">
+              Özel Koleksiyon
+            </Link>
+            {user && (
               <>
                 <Link href="/hesabim" className="py-3 font-sans text-sm tracking-[0.1em] uppercase text-[#1A1A1A] hover:text-[#C4A882] border-b border-[#F0EDE8] transition-colors">
                   Hesabım
@@ -307,10 +301,6 @@ export default function SiteHeader({
                   </button>
                 </form>
               </>
-            ) : (
-              <Link href="/giris" className="py-3 font-sans text-sm tracking-[0.1em] uppercase text-[#1A1A1A] hover:text-[#C4A882] border-b border-[#F0EDE8] transition-colors">
-                Giriş Yap / Kayıt Ol
-              </Link>
             )}
           </nav>
         </div>
