@@ -437,7 +437,7 @@ export async function updateOrderItems(
         discount,        // store discount separately
         note,
         ...(extra?.status && { status: extra.status as never }),
-        ...(extra?.deliveryMethod && { deliveryMethod: extra.deliveryMethod }),
+        ...(extra?.deliveryMethod !== undefined && { deliveryMethod: extra.deliveryMethod }),
       },
     });
 
@@ -489,7 +489,7 @@ export async function updateOrderItems(
         note,
         ...(extra?.customerId && { customerId: extra.customerId }),
         ...(extra?.status && { status: extra.status as never }),
-        ...(extra?.deliveryMethod && { deliveryMethod: extra.deliveryMethod }),
+        ...(extra?.deliveryMethod !== undefined && { deliveryMethod: extra.deliveryMethod }),
       },
     });
 
