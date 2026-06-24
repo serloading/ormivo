@@ -22,26 +22,30 @@ interface FinanceRow {
   date: string;
 }
 
+interface TopCustomer {
+  name: string;
+  orderCount: number;
+  totalSpend: number;
+}
+
 interface Props {
   soldItems: SoldItem[];
   finance: FinanceRow[];
   categories: { id: string; name: string }[];
   brands: { id: string; name: string }[];
+  topCustomers: TopCustomer[];
 }
 
-const MONTHS = [
-  "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
-  "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık",
-];
+const MONTHS = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 
-export default function RaporClient({ soldItems, finance, categories, brands }: Props) {
+export default function RaporClient({ soldItems, finance, categories, brands, topCustomers }: Props) {
   const now = new Date();
   const [monthFilter, setMonthFilter] = useState<string>(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [brandFilter, setBrandFilter] = useState("");
-  const [showAll, setShowAll] = useState(false);
+  const [showAllProducts, setShowAllProducts] = useState(false);
+  const [showAllCustomers, setShowAllCustomers] = useState(false);
 
-  // Available months from data
   const availableMonths = useMemo(() => {
     const set = new Set<string>();
     [...soldItems.map((i) => i.orderDate), ...finance.map((f) => f.date)].forEach((d) => {
@@ -57,7 +61,6 @@ export default function RaporClient({ soldItems, finance, categories, brands }: 
     return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}` === monthFilter;
   }
 
-  // Filter sold items
   const filteredItems = useMemo(() => soldItems.filter((i) => {
     if (!inMonth(i.orderDate)) return false;
     if (categoryFilter && i.categoryId !== categoryFilter) return false;
@@ -65,25 +68,19 @@ export default function RaporClient({ soldItems, finance, categories, brands }: 
     return true;
   }), [soldItems, monthFilter, categoryFilter, brandFilter]);
 
-  // Aggregate by product
   const productTotals = useMemo(() => {
     const map = new Map<string, { name: string; qty: number; revenue: number; categoryName: string | null; brandName: string | null }>();
     for (const item of filteredItems) {
       const key = item.productId ?? item.name;
-      const existing = map.get(key);
-      if (existing) {
-        existing.qty += item.qty;
-        existing.revenue += item.revenue;
-      } else {
-        map.set(key, { name: item.name, qty: item.qty, revenue: item.revenue, categoryName: item.categoryName, brandName: item.brandName });
-      }
+      const ex = map.get(key);
+      if (ex) { ex.qty += item.qty; ex.revenue += item.revenue; }
+      else map.set(key, { name: item.name, qty: item.qty, revenue: item.revenue, categoryName: item.categoryName, brandName: item.brandName });
     }
     return Array.from(map.values()).sort((a, b) => b.qty - a.qty);
   }, [filteredItems]);
 
-  const top = showAll ? productTotals : productTotals.slice(0, 10);
+  const topProducts = showAllProducts ? productTotals : productTotals.slice(0, 10);
 
-  // Finance summary for selected month
   const filteredFinance = finance.filter((f) => inMonth(f.date));
   const gelir      = filteredFinance.filter((f) => f.type === "INCOME").reduce((s, f) => s + f.amount, 0);
   const kargoGider = filteredFinance.filter((f) => f.category === "Kargo Gideri").reduce((s, f) => s + f.amount, 0);
@@ -100,40 +97,39 @@ export default function RaporClient({ soldItems, finance, categories, brands }: 
     return `${MONTHS[parseInt(m) - 1]} ${y}`;
   })();
 
+  const visibleCustomers = showAllCustomers ? topCustomers : topCustomers.slice(0, 10);
+
   return (
-    <div className="p-6 space-y-8 max-w-6xl">
+    <div className="space-y-10 max-w-6xl">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-800">Rapor</h1>
-        <span className="text-sm text-gray-400">{monthLabel}</span>
+        <h1 className="text-2xl font-light tracking-wide text-[#2c1810]">Rapor</h1>
+        <span className="text-sm text-[#8b6f5e]">{monthLabel}</span>
       </div>
 
       {/* Filtreler */}
-      <div className="flex flex-wrap gap-3">
+      <div className="bg-white border border-[#e8ddd6] rounded-sm p-4 flex flex-wrap gap-3">
         <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)}
-          className="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+          className="border border-[#d4c5ba] rounded-sm px-3 py-2 text-sm text-[#5c4033] focus:outline-none focus:border-[#8b6f5e] bg-[#faf8f6]">
           <option value="">Tüm Zamanlar</option>
           {availableMonths.map((m) => {
             const [y, mo] = m.split("-");
             return <option key={m} value={m}>{MONTHS[parseInt(mo) - 1]} {y}</option>;
           })}
         </select>
-
         <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
-          className="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+          className="border border-[#d4c5ba] rounded-sm px-3 py-2 text-sm text-[#5c4033] focus:outline-none focus:border-[#8b6f5e] bg-[#faf8f6]">
           <option value="">Tüm Kategoriler</option>
           {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
-
         <select value={brandFilter} onChange={(e) => setBrandFilter(e.target.value)}
-          className="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+          className="border border-[#d4c5ba] rounded-sm px-3 py-2 text-sm text-[#5c4033] focus:outline-none focus:border-[#8b6f5e] bg-[#faf8f6]">
           <option value="">Tüm Markalar</option>
           {brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
-
-        {(categoryFilter || brandFilter) && (
-          <button onClick={() => { setCategoryFilter(""); setBrandFilter(""); }}
-            className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded px-3 py-2">
-            Filtreleri Temizle
+        {(monthFilter || categoryFilter || brandFilter) && (
+          <button onClick={() => { setMonthFilter(""); setCategoryFilter(""); setBrandFilter(""); }}
+            className="text-xs text-[#8b6f5e] hover:text-[#2c1810] border border-[#d4c5ba] rounded-sm px-3 py-2">
+            Tümünü Göster
           </button>
         )}
       </div>
@@ -141,40 +137,37 @@ export default function RaporClient({ soldItems, finance, categories, brands }: 
       {/* Finans Özeti */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Toplam Satış Geliri",  value: gelir,      color: "text-green-700",  bg: "bg-green-50 border-green-200" },
-          { label: "Kargo Giderleri",      value: kargoGider, color: "text-orange-600", bg: "bg-orange-50 border-orange-200" },
-          { label: "Ürün Maliyetleri",     value: urunGider,  color: "text-orange-600", bg: "bg-orange-50 border-orange-200" },
-          { label: "Net Kâr",              value: kar,        color: kar >= 0 ? "text-green-700" : "text-red-600", bg: kar >= 0 ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200" },
+          { label: "Satış Geliri",     value: gelir,      cls: "bg-green-50 border-green-200 text-green-700" },
+          { label: "Kargo Giderleri",  value: kargoGider, cls: "bg-orange-50 border-orange-200 text-orange-600" },
+          { label: "Ürün Maliyetleri", value: urunGider,  cls: "bg-orange-50 border-orange-200 text-orange-600" },
+          { label: "Net Kâr",          value: kar,        cls: kar >= 0 ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-600" },
         ].map((s) => (
-          <div key={s.label} className={`border rounded-lg p-4 ${s.bg}`}>
-            <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-1">{s.label}</p>
-            <p className={`text-2xl font-light ${s.color}`}>{fmt(s.value)} ₺</p>
+          <div key={s.label} className={`border rounded-sm p-4 ${s.cls}`}>
+            <p className="text-[11px] uppercase tracking-widest text-[#8b6f5e] mb-1">{s.label}</p>
+            <p className={`text-2xl font-light ${s.cls.split(" ").pop()}`}>{fmt(s.value)} ₺</p>
           </div>
         ))}
       </div>
+      {digerGider > 0 && <p className="text-xs text-[#b8a89e]">* Diğer giderler ({fmt(digerGider)} ₺) net kâr hesabına dahildir.</p>}
 
-      {digerGider > 0 && (
-        <p className="text-xs text-gray-400">* Diğer giderler ({fmt(digerGider)} ₺) net kâr hesabına dahildir.</p>
-      )}
-
-      {/* En Çok Satılan Ürünler */}
+      {/* En Çok Satan Ürünler */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-gray-800">
-            {showAll ? "Tüm Satılan Ürünler" : "En Çok Satan 10 Ürün"}
+          <h2 className="text-base font-semibold text-[#2c1810]">
+            En Çok Satan Ürünler {!showAllProducts && productTotals.length > 0 && <span className="font-normal text-sm text-[#8b6f5e]">(ilk 10)</span>}
           </h2>
-          <span className="text-sm text-gray-400">{productTotals.length} farklı ürün</span>
+          <span className="text-sm text-[#8b6f5e]">{productTotals.length} farklı ürün</span>
         </div>
 
-        {top.length === 0 ? (
-          <div className="py-16 text-center text-gray-400 text-sm bg-white border border-gray-100 rounded-lg">
-            {monthFilter ? "Bu ay için veri bulunamadı." : "Satış verisi bulunamadı."}
+        {productTotals.length === 0 ? (
+          <div className="py-16 text-center text-[#b8a89e] text-sm bg-white border border-[#e8ddd6] rounded-sm">
+            {monthFilter ? "Bu dönem için satış verisi bulunamadı." : "Henüz satış verisi yok."}
           </div>
         ) : (
-          <div className="bg-white border border-gray-100 rounded-lg overflow-hidden shadow-sm">
+          <div className="bg-white border border-[#e8ddd6] rounded-sm overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500 uppercase tracking-wide">
+                <tr className="border-b border-[#e8ddd6] bg-[#faf8f6] text-left text-xs text-[#8b6f5e] uppercase tracking-widest">
                   <th className="px-4 py-3 w-8">#</th>
                   <th className="px-4 py-3">Ürün</th>
                   <th className="px-4 py-3">Kategori</th>
@@ -184,15 +177,15 @@ export default function RaporClient({ soldItems, finance, categories, brands }: 
                 </tr>
               </thead>
               <tbody>
-                {top.map((item, idx) => (
-                  <tr key={idx} className="border-b border-gray-50 hover:bg-gray-50/60">
-                    <td className="px-4 py-3 text-gray-400 text-xs font-mono">{idx + 1}</td>
-                    <td className="px-4 py-3 font-medium text-gray-800">{item.name}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{item.categoryName ?? "—"}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{item.brandName ?? "—"}</td>
+                {topProducts.map((item, idx) => (
+                  <tr key={idx} className="border-b border-[#f0ebe6] last:border-0 hover:bg-[#faf8f6]">
+                    <td className="px-4 py-3 text-[#b8a89e] text-xs font-mono">{idx + 1}</td>
+                    <td className="px-4 py-3 font-medium text-[#2c1810]">{item.name}</td>
+                    <td className="px-4 py-3 text-[#8b6f5e] text-xs">{item.categoryName ?? "—"}</td>
+                    <td className="px-4 py-3 text-[#8b6f5e] text-xs">{item.brandName ?? "—"}</td>
                     <td className="px-4 py-3 text-right">
                       <span className="font-semibold text-indigo-600">{item.qty}</span>
-                      <span className="text-gray-400 text-xs ml-1">adet</span>
+                      <span className="text-[#b8a89e] text-xs ml-1">adet</span>
                     </td>
                     <td className="px-4 py-3 text-right font-medium text-green-700">{fmt(item.revenue)} ₺</td>
                   </tr>
@@ -204,9 +197,61 @@ export default function RaporClient({ soldItems, finance, categories, brands }: 
 
         {productTotals.length > 10 && (
           <div className="mt-3 text-center">
-            <button onClick={() => setShowAll((v) => !v)}
+            <button onClick={() => setShowAllProducts((v) => !v)}
               className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
-              {showAll ? "Sadece İlk 10'u Göster" : `Tümünü Göster (${productTotals.length} ürün)`}
+              {showAllProducts ? "Sadece İlk 10'u Göster" : `Tümünü Göster (${productTotals.length} ürün)`}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* En Çok Alışveriş Yapan Müşteriler */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-base font-semibold text-[#2c1810]">
+            En Çok Alışveriş Yapan Müşteriler
+            <span className="font-normal text-sm text-[#8b6f5e] ml-2">(tüm zamanlar)</span>
+          </h2>
+          <span className="text-sm text-[#8b6f5e]">{topCustomers.length} müşteri</span>
+        </div>
+
+        {topCustomers.length === 0 ? (
+          <div className="py-16 text-center text-[#b8a89e] text-sm bg-white border border-[#e8ddd6] rounded-sm">
+            Henüz müşteri verisi yok.
+          </div>
+        ) : (
+          <div className="bg-white border border-[#e8ddd6] rounded-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[#e8ddd6] bg-[#faf8f6] text-left text-xs text-[#8b6f5e] uppercase tracking-widest">
+                  <th className="px-4 py-3 w-8">#</th>
+                  <th className="px-4 py-3">Müşteri</th>
+                  <th className="px-4 py-3 text-right">Sipariş Sayısı</th>
+                  <th className="px-4 py-3 text-right">Toplam Harcama</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleCustomers.map((c, idx) => (
+                  <tr key={idx} className="border-b border-[#f0ebe6] last:border-0 hover:bg-[#faf8f6]">
+                    <td className="px-4 py-3 text-[#b8a89e] text-xs font-mono">{idx + 1}</td>
+                    <td className="px-4 py-3 font-medium text-[#2c1810]">{c.name}</td>
+                    <td className="px-4 py-3 text-right">
+                      <span className="font-semibold text-indigo-600">{c.orderCount}</span>
+                      <span className="text-[#b8a89e] text-xs ml-1">sipariş</span>
+                    </td>
+                    <td className="px-4 py-3 text-right font-medium text-green-700">{fmt(c.totalSpend)} ₺</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {topCustomers.length > 10 && (
+          <div className="mt-3 text-center">
+            <button onClick={() => setShowAllCustomers((v) => !v)}
+              className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+              {showAllCustomers ? "Sadece İlk 10'u Göster" : `Tümünü Göster (${topCustomers.length} müşteri)`}
             </button>
           </div>
         )}
