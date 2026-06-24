@@ -152,7 +152,7 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
                 <input type="checkbox" checked={selected.size === filtered.length && filtered.length > 0} onChange={toggleAll}
                   className="rounded border-[#d4c5ba]" />
               </th>
-              {["No", "Ad Soyad", "Telefon", "Adres", "Segment", "Sipariş", "Kayıt", ""].map((h) => (
+              {["No", "Ad Soyad", "Telefon", "Adres", "Etiket", "Sipariş", "Kayıt", ""].map((h) => (
                 <th key={h} className="text-left px-6 py-4 text-xs tracking-widest text-[#8b6f5e] uppercase font-medium">{h}</th>
               ))}
             </tr>
@@ -168,27 +168,27 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
                 <td className="px-6 py-4 text-xs text-[#b8a89e] font-mono">{c.customerNo ?? "—"}</td>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-1.5">
-                    {c.tags.length > 0 ? (
-                      c.tags.map((t) => (
-                        <span key={t} className="text-[10px] bg-[#f0ebe6] text-[#5c4033] px-1.5 py-0.5 rounded">{t}</span>
-                      ))
-                    ) : null}
+                    {c.segment && SEGMENT_ICONS[c.segment] && (
+                      <span title={SEGMENT_LABELS[c.segment]}
+                        className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold shrink-0 ${SEGMENT_ICONS[c.segment].cls}`}>
+                        {SEGMENT_ICONS[c.segment].letter}
+                      </span>
+                    )}
                     <Link href={`/admin/musteriler/${c.id}`} className="font-medium text-[#2c1810] hover:underline">
                       {c.name}
                     </Link>
                   </div>
-                  {c.email && <p className="text-xs text-[#b8a89e] mt-0.5">{c.email}</p>}
+                  {c.email && <p className="text-xs text-[#b8a89e] mt-0.5 ml-6">{c.email}</p>}
                 </td>
                 <td className="px-6 py-4 text-[#5c4033]">{c.phone || "—"}</td>
                 <td className="px-6 py-4 text-[#5c4033]">{c.address || "—"}</td>
                 <td className="px-6 py-4">
-                  {c.segment && SEGMENT_ICONS[c.segment] ? (
-                    <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded ${SEGMENT_COLORS[c.segment]}`}>
-                      <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold ${SEGMENT_ICONS[c.segment].cls}`}>
-                        {SEGMENT_ICONS[c.segment].letter}
-                      </span>
-                      {SEGMENT_LABELS[c.segment]}
-                    </span>
+                  {c.tags.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {c.tags.map((t) => (
+                        <span key={t} className="text-[10px] bg-[#f0ebe6] text-[#5c4033] px-1.5 py-0.5 rounded">{t}</span>
+                      ))}
+                    </div>
                   ) : <span className="text-[#b8a89e]">—</span>}
                 </td>
                 <td className="px-6 py-4 text-[#5c4033]">
