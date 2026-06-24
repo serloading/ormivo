@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache";
 import { logActivity } from "@/lib/actions/activity-log";
 
 const CARGO_FEE = 200;
-const LOW_STOCK_THRESHOLD = 2;
 
 function revalidateAll() {
   revalidatePath("/admin/siparisler");
@@ -343,6 +342,3 @@ export async function rebuildCostExpensesForProduct(productId: string) {
 
   revalidatePath("/admin/finans");
 }
-
-// Exported for use in low-stock checks elsewhere
-export { LOW_STOCK_THRESHOLD };
