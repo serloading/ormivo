@@ -46,10 +46,10 @@ async function generateCustomerNo(): Promise<string> {
 
 export async function createCustomer(data: CustomerFormData) {
   const customerNo = await generateCustomerNo();
-  await prisma.customer.create({ data: { ...data, customerNo } });
+  const customer = await prisma.customer.create({ data: { ...data, customerNo } });
   revalidatePath("/admin/musteriler");
   revalidatePath("/admin/siparisler");
-  return { success: true };
+  return { success: true, id: customer.id };
 }
 
 export async function backfillCustomerNos() {

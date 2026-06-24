@@ -420,12 +420,10 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, categ
   function saveNewCustomer() {
     if (!newCust.name.trim()) return;
     startCustT(async () => {
-      await createCustomer({ name: newCust.name.trim(), phone: newCust.phone.trim() || undefined });
-      // Reload customers via optimistic update
-      const newId = `temp-${Date.now()}`;
-      const newCustomer: Customer = { id: newId, name: newCust.name.trim(), phone: newCust.phone.trim() || null };
+      const result = await createCustomer({ name: newCust.name.trim(), phone: newCust.phone.trim() || undefined });
+      const newCustomer: Customer = { id: result.id, name: newCust.name.trim(), phone: newCust.phone.trim() || null };
       setCustomers((prev) => [...prev, newCustomer].sort((a, b) => a.name.localeCompare(b.name)));
-      setCustomerId(newId);
+      setCustomerId(result.id);
       setNewCust({ name: "", phone: "" });
       setShowNewCustomer(false);
     });
@@ -928,10 +926,10 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
   function saveNewCustomer() {
     if (!newCust.name.trim()) return;
     startCustT(async () => {
-      await createCustomer({ name: newCust.name.trim(), phone: newCust.phone.trim() || undefined });
-      const newCustomer: Customer = { id: `temp-${Date.now()}`, name: newCust.name.trim(), phone: newCust.phone.trim() || null };
+      const result = await createCustomer({ name: newCust.name.trim(), phone: newCust.phone.trim() || undefined });
+      const newCustomer: Customer = { id: result.id, name: newCust.name.trim(), phone: newCust.phone.trim() || null };
       setCustomers((prev) => [...prev, newCustomer].sort((a, b) => a.name.localeCompare(b.name)));
-      setCustomerId(newCustomer.id);
+      setCustomerId(result.id);
       setNewCust({ name: "", phone: "" });
       setShowNewCustomer(false);
     });
