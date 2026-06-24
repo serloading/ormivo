@@ -3,46 +3,30 @@
 import { useState, useMemo } from "react";
 
 interface SoldItem {
-  productId: string | null;
-  name: string;
-  qty: number;
-  revenue: number;
-  categoryId: string | null;
-  categoryName: string | null;
-  brandId: string | null;
-  brandName: string | null;
-  orderDate: string;
-  source: "web" | "manuel";
+  productId: string | null; name: string; qty: number; revenue: number;
+  categoryId: string | null; categoryName: string | null;
+  brandId: string | null; brandName: string | null;
+  orderDate: string; source: "web" | "manuel";
 }
-
-interface FinanceRow {
-  type: "INCOME" | "EXPENSE";
-  amount: number;
-  category: string | null;
-  date: string;
-}
-
-interface TopCustomer {
-  name: string;
-  orderCount: number;
-  totalSpend: number;
-}
+interface FinanceSummary { gelir: number; kargoGider: number; orderDate: string; }
+interface UrunMaliyet { amount: number; date: string; }
+interface TopCustomer { name: string; orderCount: number; totalSpend: number; }
 
 interface Props {
   soldItems: SoldItem[];
-  finance: FinanceRow[];
+  financeSummary: FinanceSummary[];
+  urunMaliyeti: UrunMaliyet[];
   categories: { id: string; name: string }[];
   brands: { id: string; name: string }[];
   topCustomers: TopCustomer[];
 }
 
 const MONTHS = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
-
 type ProductSort = "qty" | "revenue";
 type CustomerSort = "orderCount" | "totalSpend";
 
-export default function RaporClient({ soldItems, finance, categories, brands, topCustomers }: Props) {
-  const [monthFilter, setMonthFilter] = useState<string>("");
+export default function RaporClient({ soldItems, financeSummary, urunMaliyeti, categories, brands, topCustomers }: Props) {
+  const [monthFilter, setMonthFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [brandFilter, setBrandFilter] = useState("");
   const [showAllProducts, setShowAllProducts] = useState(false);
@@ -52,12 +36,12 @@ export default function RaporClient({ soldItems, finance, categories, brands, to
 
   const availableMonths = useMemo(() => {
     const set = new Set<string>();
-    [...soldItems.map((i) => i.orderDate), ...finance.map((f) => f.date)].forEach((d) => {
+    [...soldItems.map((i) => i.orderDate), ...financeSummary.map((f) => f.orderDate)].forEach((d) => {
       const dt = new Date(d);
       set.add(`${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`);
     });
     return Array.from(set).sort().reverse();
-  }, [soldItems, finance]);
+  }, [soldItems, financeSummary]);
 
   function inMonth(dateStr: string) {
     if (!monthFilter) return true;
@@ -91,15 +75,14 @@ export default function RaporClient({ soldItems, finance, categories, brands, to
   const topProducts  = showAllProducts  ? productTotals   : productTotals.slice(0, 10);
   const visibleCusts = showAllCustomers ? sortedCustomers : sortedCustomers.slice(0, 10);
 
-  const filteredFinance = finance.filter((f) => inMonth(f.date));
-  const gelir       = filteredFinance.filter((f) => f.type === "INCOME").reduce((s, f) => s + f.amount, 0);
-  const kargoGider  = filteredFinance.filter((f) => f.category === "Kargo Gideri").reduce((s, f) => s + f.amount, 0);
-  const urunGider   = filteredFinance.filter((f) => f.category === "Ürün Maliyeti").reduce((s, f) => s + f.amount, 0);
-  const digerGider  = filteredFinance.filter((f) => f.type === "EXPENSE" && f.category !== "Kargo Gideri" && f.category !== "Ürün Maliyeti").reduce((s, f) => s + f.amount, 0);
-  const kar = gelir - kargoGider - urunGider - digerGider;
+  // Finans özeti — doğrudan siparişlerden
+  const filteredFinance = financeSummary.filter((f) => inMonth(f.orderDate));
+  const gelir      = filteredFinance.reduce((s, f) => s + f.gelir, 0);
+  const kargoGider = filteredFinance.reduce((s, f) => s + f.kargoGider, 0);
+  const urunGider  = urunMaliyeti.filter((f) => inMonth(f.date)).reduce((s, f) => s + f.amount, 0);
+  const kar = gelir - kargoGider - urunGider;
 
   const fmt = (n: number) => n.toLocaleString("tr-TR", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-
   const monthLabel = monthFilter
     ? `${MONTHS[parseInt(monthFilter.split("-")[1]) - 1]} ${monthFilter.split("-")[0]}`
     : "Tüm Zamanlar";
@@ -144,21 +127,17 @@ export default function RaporClient({ soldItems, finance, categories, brands, to
       {/* Finans Özeti */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Satış Geliri",       value: gelir,      cls: "bg-green-50 border-green-200 text-green-700" },
-          { label: "Kargo Giderleri",    value: kargoGider, cls: "bg-orange-50 border-orange-200 text-orange-700" },
-          { label: "Ürün Maliyetleri",   value: urunGider,  cls: "bg-orange-50 border-orange-200 text-orange-700" },
-          { label: "Net Kâr",            value: kar,        cls: kar >= 0 ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-600" },
+          { label: "Satış Geliri",     value: gelir,      cls: "text-green-700 bg-green-50 border-green-200" },
+          { label: "Kargo Giderleri",  value: kargoGider, cls: "text-orange-700 bg-orange-50 border-orange-200" },
+          { label: "Ürün Maliyetleri", value: urunGider,  cls: "text-orange-700 bg-orange-50 border-orange-200" },
+          { label: "Net Kâr",          value: kar,        cls: kar >= 0 ? "text-green-700 bg-green-50 border-green-200" : "text-red-600 bg-red-50 border-red-200" },
         ].map((s) => (
-          <div key={s.label} className={`border rounded-sm p-5 ${s.cls}`}>
+          <div key={s.label} className={`border rounded-sm p-5 ${s.cls.split(" ").slice(1).join(" ")}`}>
             <p className="text-[11px] uppercase tracking-widest text-[#8b6f5e] mb-2">{s.label}</p>
-            <p className="text-2xl font-light">{fmt(s.value)} ₺</p>
+            <p className={`text-2xl font-light ${s.cls.split(" ")[0]}`}>{fmt(s.value)} ₺</p>
           </div>
         ))}
       </div>
-      {gelir === 0 && finance.length === 0 && (
-        <p className="text-xs text-[#b8a89e] -mt-6">* Satış geliri verileri, siparişler "Ödeme Alındı" olarak işaretlendiğinde finansal kayıtlara geçer.</p>
-      )}
-      {digerGider > 0 && <p className="text-xs text-[#b8a89e]">* Diğer giderler ({fmt(digerGider)} ₺) net kâr hesabına dahildir.</p>}
 
       {/* En Çok Satan Ürünler */}
       <div>
@@ -169,17 +148,14 @@ export default function RaporClient({ soldItems, finance, categories, brands, to
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-[#8b6f5e]">Sırala:</span>
-            <button onClick={() => setProductSort("qty")}
-              className={`px-3 py-1.5 text-xs rounded border transition-colors ${productSort === "qty" ? "bg-[#2c1810] text-white border-[#2c1810]" : "border-[#d4c5ba] text-[#8b6f5e] hover:bg-[#f5f0eb]"}`}>
-              Satış Adedi
-            </button>
-            <button onClick={() => setProductSort("revenue")}
-              className={`px-3 py-1.5 text-xs rounded border transition-colors ${productSort === "revenue" ? "bg-[#2c1810] text-white border-[#2c1810]" : "border-[#d4c5ba] text-[#8b6f5e] hover:bg-[#f5f0eb]"}`}>
-              Ciro
-            </button>
+            {(["qty", "revenue"] as ProductSort[]).map((v) => (
+              <button key={v} onClick={() => setProductSort(v)}
+                className={`px-3 py-1.5 text-xs rounded border transition-colors ${productSort === v ? "bg-[#2c1810] text-white border-[#2c1810]" : "border-[#d4c5ba] text-[#8b6f5e] hover:bg-[#f5f0eb]"}`}>
+                {v === "qty" ? "Satış Adedi" : "Ciro"}
+              </button>
+            ))}
           </div>
         </div>
-
         {productTotals.length === 0 ? (
           <div className="py-16 text-center text-[#b8a89e] text-sm bg-white border border-[#e8ddd6] rounded-sm">
             {monthFilter ? `${monthLabel} için satış verisi bulunamadı.` : "Henüz satış verisi yok."}
@@ -204,10 +180,7 @@ export default function RaporClient({ soldItems, finance, categories, brands, to
                     <td className="px-4 py-3 font-medium text-[#2c1810]">{item.name}</td>
                     <td className="px-4 py-3 text-[#8b6f5e] text-xs">{item.categoryName ?? "—"}</td>
                     <td className="px-4 py-3 text-[#8b6f5e] text-xs">{item.brandName ?? "—"}</td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="font-semibold text-indigo-600">{item.qty}</span>
-                      <span className="text-[#b8a89e] text-xs ml-1">adet</span>
-                    </td>
+                    <td className="px-4 py-3 text-right"><span className="font-semibold text-indigo-600">{item.qty}</span><span className="text-[#b8a89e] text-xs ml-1">adet</span></td>
                     <td className="px-4 py-3 text-right font-medium text-green-700">{fmt(item.revenue)} ₺</td>
                   </tr>
                 ))}
@@ -215,11 +188,9 @@ export default function RaporClient({ soldItems, finance, categories, brands, to
             </table>
           </div>
         )}
-
         {productTotals.length > 10 && (
           <div className="mt-3 text-center">
-            <button onClick={() => setShowAllProducts((v) => !v)}
-              className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+            <button onClick={() => setShowAllProducts((v) => !v)} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
               {showAllProducts ? "Sadece İlk 10'u Göster" : `Tümünü Göster (${productTotals.length} ürün)`}
             </button>
           </div>
@@ -235,21 +206,16 @@ export default function RaporClient({ soldItems, finance, categories, brands, to
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-[#8b6f5e]">Sırala:</span>
-            <button onClick={() => setCustomerSort("orderCount")}
-              className={`px-3 py-1.5 text-xs rounded border transition-colors ${customerSort === "orderCount" ? "bg-[#2c1810] text-white border-[#2c1810]" : "border-[#d4c5ba] text-[#8b6f5e] hover:bg-[#f5f0eb]"}`}>
-              Sipariş Sayısı
-            </button>
-            <button onClick={() => setCustomerSort("totalSpend")}
-              className={`px-3 py-1.5 text-xs rounded border transition-colors ${customerSort === "totalSpend" ? "bg-[#2c1810] text-white border-[#2c1810]" : "border-[#d4c5ba] text-[#8b6f5e] hover:bg-[#f5f0eb]"}`}>
-              Toplam Harcama
-            </button>
+            {(["orderCount", "totalSpend"] as CustomerSort[]).map((v) => (
+              <button key={v} onClick={() => setCustomerSort(v)}
+                className={`px-3 py-1.5 text-xs rounded border transition-colors ${customerSort === v ? "bg-[#2c1810] text-white border-[#2c1810]" : "border-[#d4c5ba] text-[#8b6f5e] hover:bg-[#f5f0eb]"}`}>
+                {v === "orderCount" ? "Sipariş Sayısı" : "Toplam Harcama"}
+              </button>
+            ))}
           </div>
         </div>
-
         {sortedCustomers.length === 0 ? (
-          <div className="py-16 text-center text-[#b8a89e] text-sm bg-white border border-[#e8ddd6] rounded-sm">
-            Henüz müşteri verisi yok.
-          </div>
+          <div className="py-16 text-center text-[#b8a89e] text-sm bg-white border border-[#e8ddd6] rounded-sm">Henüz müşteri verisi yok.</div>
         ) : (
           <div className="bg-white border border-[#e8ddd6] rounded-sm overflow-hidden">
             <table className="w-full text-sm">
@@ -266,10 +232,7 @@ export default function RaporClient({ soldItems, finance, categories, brands, to
                   <tr key={idx} className="border-b border-[#f0ebe6] last:border-0 hover:bg-[#faf8f6]">
                     <td className="px-4 py-3 text-[#b8a89e] text-xs font-mono">{idx + 1}</td>
                     <td className="px-4 py-3 font-medium text-[#2c1810]">{c.name}</td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="font-semibold text-indigo-600">{c.orderCount}</span>
-                      <span className="text-[#b8a89e] text-xs ml-1">sipariş</span>
-                    </td>
+                    <td className="px-4 py-3 text-right"><span className="font-semibold text-indigo-600">{c.orderCount}</span><span className="text-[#b8a89e] text-xs ml-1">sipariş</span></td>
                     <td className="px-4 py-3 text-right font-medium text-green-700">{fmt(c.totalSpend)} ₺</td>
                   </tr>
                 ))}
@@ -277,11 +240,9 @@ export default function RaporClient({ soldItems, finance, categories, brands, to
             </table>
           </div>
         )}
-
         {sortedCustomers.length > 10 && (
           <div className="mt-3 text-center">
-            <button onClick={() => setShowAllCustomers((v) => !v)}
-              className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+            <button onClick={() => setShowAllCustomers((v) => !v)} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
               {showAllCustomers ? "Sadece İlk 10'u Göster" : `Tümünü Göster (${sortedCustomers.length} müşteri)`}
             </button>
           </div>
