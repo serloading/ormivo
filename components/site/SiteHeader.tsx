@@ -85,7 +85,7 @@ export default function SiteHeader({
           {/* ── LOGO (sol) ── */}
           <Link
             href="/"
-            className="font-serif text-2xl tracking-[0.35em] text-[#1A1A1A] uppercase hover:text-[#C4A882] transition-colors duration-300 shrink-0"
+            className="font-serif text-2xl tracking-[0.35em] text-[#1A1A1A] hover:text-[#C4A882] transition-colors duration-300 shrink-0"
           >
             Ormivo
           </Link>

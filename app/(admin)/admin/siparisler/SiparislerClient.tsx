@@ -583,6 +583,12 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, categ
                       className="w-24 border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-indigo-400" />
                   </div>
                   <div className="flex flex-col gap-0.5">
+                    <label className="text-[10px] text-gray-400">Toplam</label>
+                    <div className="w-24 px-2 py-1.5 text-sm font-medium text-gray-700 bg-gray-50 border border-gray-100 rounded text-right">
+                      {(item.qty * item.price).toLocaleString("tr-TR")} ₺
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
                     <label className="text-[10px] text-gray-400 invisible">Del</label>
                     {items.length > 1 && (
                       <button type="button" onClick={() => setItems((p) => p.filter((_, i) => i !== idx))}
@@ -1066,6 +1072,12 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
                     <label className="text-[10px] text-gray-400">Fiyat (₺)</label>
                     <input type="number" min="0" value={item.price} onChange={(e) => changeItem(idx, "price", Number(e.target.value))}
                       className="w-24 border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-indigo-400" />
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <label className="text-[10px] text-gray-400">Toplam</label>
+                    <div className="w-24 px-2 py-1.5 text-sm font-medium text-gray-700 bg-gray-50 border border-gray-100 rounded text-right">
+                      {(item.qty * item.price).toLocaleString("tr-TR")} ₺
+                    </div>
                   </div>
                   <div className="flex flex-col gap-0.5">
                     <label className="text-[10px] text-gray-400 invisible">Del</label>
