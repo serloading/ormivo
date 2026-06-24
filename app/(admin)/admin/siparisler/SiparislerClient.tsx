@@ -911,7 +911,7 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
         await updateOrderItems(
           order.id, order.source,
           items.map((i) => ({ productId: i.productId ?? undefined, name: i.name, qty: i.qty, price: i.price })),
-          netTotal,
+          order.source === "web" ? grossTotal : netTotal, // web: gross, manuel: net (no discount)
           note.trim() || null,
           { customerId: order.source === "manuel" ? customerId : undefined, discount: discountAmt, status, deliveryMethod }
         );

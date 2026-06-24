@@ -347,47 +347,51 @@ export async function rebuildCostExpensesForProduct(productId: string) {
 
 type OrderItem = { name: string; qty: number; price: number; productId?: string };
 
+// total = gross total (before discount); discount is passed separately in extra
 export async function updateOrderItems(
   orderId: string,
   source: "web" | "manuel",
   items: OrderItem[],
-  total: number,
+  total: number,      // gross total (sum of items)
   note: string | null,
   extra?: { customerId?: string; discount?: number; status?: string; deliveryMethod?: string }
 ) {
   const discount = extra?.discount ?? 0;
-  const netTotal = Math.max(0, total);
+  const netIncome = Math.max(0, total - discount); // actual income after discount
 
   if (source === "web") {
     const order = await prisma.siteOrder.update({
       where: { id: orderId },
       data: {
         items: items as never,
-        total: netTotal,
+        total,           // store gross total
+        discount,        // store discount separately
         note,
-        ...(discount !== undefined && { discount }),
         ...(extra?.status && { status: extra.status as never }),
         ...(extra?.deliveryMethod && { deliveryMethod: extra.deliveryMethod }),
       },
     });
 
-    // Sync finance if paid
-    if (order.paymentStatus === "PAID" || order.paymentStatus === "FREE") {
-      // Update INCOME amount
-      if (order.paymentStatus === "PAID") {
-        const income = await prisma.finance.findFirst({ where: { siteOrderId: orderId, type: "INCOME" } });
-        const incomeAmt = Math.max(0, netTotal - discount);
-        if (income) {
-          await prisma.finance.update({ where: { id: income.id }, data: { amount: incomeAmt } });
-        }
+    // Sync finance for PAID orders
+    if (order.paymentStatus === "PAID") {
+      const income = await prisma.finance.findFirst({ where: { siteOrderId: orderId, type: "INCOME" } });
+      if (income) {
+        await prisma.finance.update({ where: { id: income.id }, data: { amount: netIncome } });
+      } else {
+        // Create income record if missing
+        await prisma.finance.create({
+          data: { type: "INCOME", amount: netIncome, description: `Sipariş #${order.orderNo}${discount > 0 ? ` (${discount.toLocaleString("tr-TR")}₺ iskonto)` : ""}`, category: "Satış", siteOrderId: orderId },
+        });
       }
+    }
 
-      // Rebuild cost expenses
+    // Rebuild cost expenses for PAID or FREE
+    if (order.paymentStatus === "PAID" || order.paymentStatus === "FREE") {
       await prisma.finance.deleteMany({ where: { siteOrderId: orderId, category: "Ürün Maliyeti" } });
       await ensureCostExpenses({ id: orderId, orderNo: order.orderNo, items }, "web");
     }
 
-    // Sync cargo expense
+    // Sync cargo expense regardless of payment status
     const deliveryMethod = extra?.deliveryMethod ?? order.deliveryMethod;
     if (deliveryMethod === "CARGO") {
       const existing = await prisma.finance.findFirst({ where: { siteOrderId: orderId, category: "Kargo Gideri" } });
@@ -404,7 +408,7 @@ export async function updateOrderItems(
       where: { id: orderId },
       data: {
         items: items as never,
-        total: netTotal,
+        total,  // manuel orders: total is the net total (no separate discount)
         note,
         ...(extra?.customerId && { customerId: extra.customerId }),
         ...(extra?.status && { status: extra.status as never }),
@@ -414,12 +418,15 @@ export async function updateOrderItems(
 
     // Sync finance if paid
     if (order.paymentStatus === "PAID") {
-      // Update INCOME
       const income = await prisma.finance.findFirst({
         where: { description: { contains: `Sipariş #${order.orderNo}` }, type: "INCOME" },
       });
       if (income) {
-        await prisma.finance.update({ where: { id: income.id }, data: { amount: netTotal } });
+        await prisma.finance.update({ where: { id: income.id }, data: { amount: total } });
+      } else {
+        await prisma.finance.create({
+          data: { type: "INCOME", amount: total, description: `Sipariş #${order.orderNo} (Manuel)`, category: "Satış" },
+        });
       }
 
       // Rebuild cost expenses
