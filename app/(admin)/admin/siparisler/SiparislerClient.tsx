@@ -966,22 +966,22 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
                 </div>
               ) : (
                 <div className="space-y-1">
-                  <div className="flex gap-1 items-center">
-                    <select value={customerId} onChange={(e) => setCustomerId(e.target.value)}
-                      className="flex-1 border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
-                      <option value="">Müşteri seçin...</option>
-                      {customers.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}{c.phone ? ` — ${c.phone}` : ""}</option>
-                      ))}
-                    </select>
+                  <select value={customerId} onChange={(e) => setCustomerId(e.target.value)}
+                    className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                    <option value="">Müşteri seçin...</option>
+                    {customers.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}{c.phone ? ` — ${c.phone}` : ""}</option>
+                    ))}
+                  </select>
+                  <div className="flex gap-2">
                     {customerId && (
                       <a href={`/admin/musteriler/${customerId}`} target="_blank" rel="noreferrer"
-                        className="text-xs text-indigo-500 hover:text-indigo-700 border border-indigo-200 rounded px-2 py-2 whitespace-nowrap">Profil</a>
+                        className="text-xs text-indigo-500 hover:text-indigo-700">Profil →</a>
                     )}
+                    <button type="button" onClick={() => setShowNewCustomer(true)} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
+                      + Yeni müşteri ekle
+                    </button>
                   </div>
-                  <button type="button" onClick={() => setShowNewCustomer(true)} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
-                    + Yeni müşteri ekle
-                  </button>
                 </div>
               )}
             </div>

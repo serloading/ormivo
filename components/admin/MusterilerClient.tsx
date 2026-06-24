@@ -10,12 +10,12 @@ import { SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/customer-constants";
 
 type Customer = {
   id: string; name: string; phone: string | null; email: string | null;
-  city: string | null; note: string | null; segment: string | null; tags: string[];
+  city: string | null; address: string | null; note: string | null; segment: string | null; tags: string[];
   _count?: { orders: number; siteOrders: number };
   createdAt: Date | string;
 };
 
-const EMPTY = { name: "", phone: "", email: "", city: "", note: "" };
+const EMPTY = { name: "", phone: "", email: "", address: "", note: "" };
 
 export default function MusterilerClient({ customers }: { customers: Customer[] }) {
   const router = useRouter();
@@ -35,7 +35,7 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
   function openAdd() { setEditing(null); setForm(EMPTY); setModal(true); }
   function openEdit(c: Customer) {
     setEditing(c);
-    setForm({ name: c.name, phone: c.phone ?? "", email: c.email ?? "", city: c.city ?? "", note: c.note ?? "" });
+    setForm({ name: c.name, phone: c.phone ?? "", email: c.email ?? "", address: c.address ?? "", note: c.note ?? "" });
     setModal(true);
   }
 
@@ -84,7 +84,7 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[#e8ddd6] bg-[#faf8f6]">
-              {["Ad Soyad", "Telefon", "Şehir", "Segment", "Sipariş", "Kayıt", ""].map((h) => (
+              {["Ad Soyad", "Telefon", "Adres", "Segment", "Sipariş", "Kayıt", ""].map((h) => (
                 <th key={h} className="text-left px-6 py-4 text-xs tracking-widest text-[#8b6f5e] uppercase font-medium">{h}</th>
               ))}
             </tr>
@@ -108,7 +108,7 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
                   )}
                 </td>
                 <td className="px-6 py-4 text-[#5c4033]">{c.phone || "—"}</td>
-                <td className="px-6 py-4 text-[#5c4033]">{c.city || "—"}</td>
+                <td className="px-6 py-4 text-[#5c4033]">{c.address || "—"}</td>
                 <td className="px-6 py-4">
                   {c.segment ? (
                     <span className={`text-[10px] tracking-wide px-2 py-0.5 rounded border font-medium ${SEGMENT_COLORS[c.segment] ?? "bg-gray-100 text-gray-600"}`}>
@@ -136,7 +136,7 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
           <Field label="Ad Soyad" required value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="Ayşe Kaya" />
           <Field label="Telefon" type="tel" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} placeholder="0532 000 0000" />
           <Field label="E-posta" type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} placeholder="ayse@email.com" />
-          <Field label="Şehir" value={form.city} onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))} placeholder="İstanbul" />
+          <Field label="Adres" value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} placeholder="İstanbul, Kadıköy..." />
           <TextareaField label="Not" value={form.note} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))} placeholder="Özel not..." />
           <SubmitRow onCancel={() => setModal(false)} label={editing ? "Güncelle" : "Kaydet"} />
         </form>

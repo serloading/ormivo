@@ -10,6 +10,7 @@ export type CustomerFormData = {
   phone?: string;
   email?: string;
   city?: string;
+  address?: string;
   note?: string;
 };
 

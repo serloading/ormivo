@@ -59,6 +59,7 @@ model Customer {
   phone      String?
   email      String?
   city       String?
+  address    String?
   note       String?
   segment    String?
   tags       String[]
