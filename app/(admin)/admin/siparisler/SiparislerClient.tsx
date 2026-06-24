@@ -142,7 +142,7 @@ function PaymentEditor({ order }: { order: OrderRow }) {
 
   const opts = order.source === "web"
     ? Object.entries(PAYMENT_LABELS).map(([k, v]) => ({ key: k, label: v }))
-    : [{ key: "PENDING", label: "Ödeme Bekliyor" }, { key: "PAID", label: "Ödeme Alındı" }];
+    : Object.entries(PAYMENT_LABELS).map(([k, v]) => ({ key: k, label: v }));
 
   return (
     <PortalDropdown
