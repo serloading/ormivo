@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useTransition, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import {
   updateSiteOrderStatus, updateManuelOrderStatus, updateTrackingNo, updatePaymentStatus,
   updateDeliveryMethod, updateSiteOrderDiscount,
   updateManuelOrderPayment, updateManuelOrderTotal, updateManuelOrderDelivery,
+  updateOrderItems, deleteOrderById,
 } from "@/lib/actions/site-order-admin";
 import { createOrder } from "@/lib/actions/order";
 import { createCustomer } from "@/lib/actions/customer";
@@ -701,6 +703,7 @@ export default function SiparislerClient({
   const [filter, setFilter] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
   const [showNewOrder, setShowNewOrder] = useState(false);
+  const [editOrder, setEditOrder] = useState<OrderRow | null>(null);
 
   const filtered = orders.filter((o) => {
     const q = filter.toLowerCase();
@@ -747,6 +750,7 @@ export default function SiparislerClient({
               <th className="px-4 py-3">Ödeme</th>
               <th className="px-4 py-3">Teslimat</th>
               <th className="px-4 py-3">Kargo</th>
+              <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody>
@@ -800,6 +804,11 @@ export default function SiparislerClient({
                 <td className="px-4 py-3"><PaymentEditor order={order} /></td>
                 <td className="px-4 py-3"><DeliveryEditor order={order} /></td>
                 <td className="px-4 py-3"><TrackingForm order={order} /></td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <button onClick={() => setEditOrder(order)}
+                    className="text-xs text-indigo-500 hover:text-indigo-700 mr-3">Düzenle</button>
+                  <DeleteButton order={order} />
+                </td>
               </tr>
             ))}
           </tbody>
@@ -809,6 +818,107 @@ export default function SiparislerClient({
       {showNewOrder && (
         <NewOrderModal customers={customers} products={products} categories={categories} brands={brands} onClose={() => setShowNewOrder(false)} />
       )}
+      {editOrder && (
+        <EditOrderModal order={editOrder} onClose={() => setEditOrder(null)} />
+      )}
+    </div>
+  );
+}
+
+// ---- Delete Button ----
+function DeleteButton({ order }: { order: OrderRow }) {
+  const [, startTransition] = useTransition();
+  const router = useRouter();
+  function handleDelete() {
+    if (!confirm(`#${order.orderNo} siparişi silinsin mi? Finans kayıtları ve stok da geri alınır.`)) return;
+    startTransition(async () => { await deleteOrderById(order.id, order.source); router.refresh(); });
+  }
+  return (
+    <button onClick={handleDelete} className="text-xs text-red-400 hover:text-red-600">Sil</button>
+  );
+}
+
+// ---- Edit Order Modal ----
+function EditOrderModal({ order, onClose }: { order: OrderRow; onClose: () => void }) {
+  const [, startTransition] = useTransition();
+  const router = useRouter();
+  const [items, setItems] = useState(order.items.map((i) => ({ ...i })));
+  const [note, setNote] = useState(order.note ?? "");
+  const [manualTotal, setManualTotal] = useState(false);
+  const [customTotal, setCustomTotal] = useState(order.total);
+
+  const autoTotal = items.reduce((s, i) => s + i.price * i.qty, 0);
+  const total = manualTotal ? customTotal : autoTotal;
+
+  function updateItem(idx: number, field: keyof typeof items[0], val: string) {
+    setItems((prev) => prev.map((it, i) => i === idx ? { ...it, [field]: field === "name" ? val : Number(val) || 0 } : it));
+  }
+  function addItem() { setItems((prev) => [...prev, { name: "", qty: 1, price: 0 }]); }
+  function removeItem(idx: number) { setItems((prev) => prev.filter((_, i) => i !== idx)); }
+
+  function handleSave() {
+    startTransition(async () => {
+      await updateOrderItems(order.id, order.source, items, total, note || null);
+      router.refresh();
+      onClose();
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-xl max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="text-sm font-semibold text-gray-800">Sipariş Düzenle — #{order.orderNo}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">×</button>
+        </div>
+        <div className="overflow-y-auto px-6 py-4 space-y-4 flex-1">
+          {/* Ürünler */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Ürünler</p>
+              <button onClick={addItem} className="text-xs text-indigo-500 hover:text-indigo-700">+ Ürün Ekle</button>
+            </div>
+            <div className="space-y-2">
+              {items.map((item, idx) => (
+                <div key={idx} className="flex gap-2 items-center">
+                  <input value={item.name} onChange={(e) => updateItem(idx, "name", e.target.value)}
+                    placeholder="Ürün adı" className="flex-1 border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-indigo-400" />
+                  <input type="number" value={item.qty} min={1} onChange={(e) => updateItem(idx, "qty", e.target.value)}
+                    className="w-14 border border-gray-200 rounded px-2 py-1.5 text-sm text-center focus:outline-none focus:border-indigo-400" />
+                  <input type="number" value={item.price} min={0} onChange={(e) => updateItem(idx, "price", e.target.value)}
+                    placeholder="Fiyat" className="w-24 border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-indigo-400" />
+                  <button onClick={() => removeItem(idx)} className="text-red-400 hover:text-red-600 text-sm px-1">×</button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Not */}
+          <div>
+            <p className="text-xs font-medium text-gray-600 uppercase tracking-wide mb-1">Not</p>
+            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2}
+              className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-400 resize-none" />
+          </div>
+
+          {/* Tutar */}
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+              <input type="checkbox" checked={manualTotal} onChange={(e) => setManualTotal(e.target.checked)} />
+              Manuel tutar gir
+            </label>
+            {manualTotal ? (
+              <input type="number" value={customTotal} onChange={(e) => setCustomTotal(Number(e.target.value))}
+                className="border border-gray-200 rounded px-3 py-1.5 text-sm w-32 focus:outline-none focus:border-indigo-400" />
+            ) : (
+              <span className="text-sm font-semibold text-gray-800">{autoTotal.toLocaleString("tr-TR")} ₺ (otomatik)</span>
+            )}
+          </div>
+        </div>
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
+          <button onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">İptal</button>
+          <button onClick={handleSave} className="bg-indigo-600 text-white text-sm px-5 py-2 rounded hover:bg-indigo-700">Kaydet</button>
+        </div>
+      </div>
     </div>
   );
 }

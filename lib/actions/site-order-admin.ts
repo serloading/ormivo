@@ -342,3 +342,50 @@ export async function rebuildCostExpensesForProduct(productId: string) {
 
   revalidatePath("/admin/finans");
 }
+
+// ── Edit & Delete ─────────────────────────────────────────────────────────────
+
+type OrderItem = { name: string; qty: number; price: number; productId?: string };
+
+export async function updateOrderItems(
+  orderId: string,
+  source: "web" | "manuel",
+  items: OrderItem[],
+  total: number,
+  note: string | null
+) {
+  if (source === "web") {
+    await prisma.siteOrder.update({ where: { id: orderId }, data: { items: items as never, total, note } });
+  } else {
+    await prisma.order.update({ where: { id: orderId }, data: { items: items as never, total, note } });
+  }
+  revalidatePath("/admin/siparisler");
+  revalidatePath("/admin/finans");
+  return { success: true };
+}
+
+export async function deleteOrderById(orderId: string, source: "web" | "manuel") {
+  if (source === "web") {
+    const order = await prisma.siteOrder.findUniqueOrThrow({
+      where: { id: orderId },
+      select: { orderNo: true, items: true },
+    });
+    await prisma.finance.deleteMany({ where: { siteOrderId: orderId } });
+    await prisma.finance.deleteMany({ where: { description: { contains: `#${order.orderNo}` } } });
+    await restoreStock(order.items);
+    await prisma.siteOrder.delete({ where: { id: orderId } });
+  } else {
+    const order = await prisma.order.findUniqueOrThrow({
+      where: { id: orderId },
+      select: { orderNo: true, items: true },
+    });
+    await prisma.finance.deleteMany({ where: { description: { contains: `#${order.orderNo}` } } });
+    await restoreStock(order.items);
+    await prisma.order.delete({ where: { id: orderId } });
+  }
+  revalidatePath("/admin/siparisler");
+  revalidatePath("/admin/finans");
+  revalidatePath("/admin/urunler");
+  revalidatePath("/admin/dashboard");
+  return { success: true };
+}
