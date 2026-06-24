@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateCustomerSegment, updateCustomerTags, addCustomerNote, deleteCustomerNote } from "@/lib/actions/customer";
+import { updateCustomer, updateCustomerSegment, updateCustomerTags, addCustomerNote, deleteCustomerNote } from "@/lib/actions/customer";
 import { SEGMENTS, SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/customer-constants";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -18,11 +18,12 @@ const PAYMENT_LABELS: Record<string, string> = {
   FREE:    "Bedava",
 };
 
-const PREDEFINED_TAGS = ["B2B", "Toptan", "VIP Müşteri", "Sorunlu", "Sadık", "Kurumsal"];
+const PREDEFINED_TAGS = ["B2B", "Toptan", "Sadık", "Kurumsal", "Sorunlu"];
 
 type CustomerData = {
   id: string; name: string; phone: string | null; email: string | null;
-  city: string | null; note: string | null; segment: string | null; tags: string[];
+  city: string | null; address: string | null; note: string | null;
+  segment: string | null; tags: string[];
   notes: { id: string; content: string; createdBy: string; createdAt: string }[];
   createdAt: string;
 };
@@ -41,6 +42,32 @@ export default function MusteriProfilClient({
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
+
+  // Müşteri bilgileri düzenleme
+  const [editingInfo, setEditingInfo] = useState(false);
+  const [infoForm, setInfoForm] = useState({
+    name:    customer.name,
+    phone:   customer.phone ?? "",
+    email:   customer.email ?? "",
+    address: customer.address ?? "",
+    note:    customer.note ?? "",
+  });
+  const [infoSaving, startInfoT] = useTransition();
+
+  function handleInfoSave(e: React.FormEvent) {
+    e.preventDefault();
+    startInfoT(async () => {
+      await updateCustomer(customer.id, {
+        name:    infoForm.name.trim(),
+        phone:   infoForm.phone.trim() || undefined,
+        email:   infoForm.email.trim() || undefined,
+        address: infoForm.address.trim() || undefined,
+        note:    infoForm.note.trim() || undefined,
+      });
+      setEditingInfo(false);
+      router.refresh();
+    });
+  }
 
   const [segment, setSegment] = useState(customer.segment ?? "");
   const [tags, setTags]       = useState<string[]>(customer.tags);
@@ -90,35 +117,76 @@ export default function MusteriProfilClient({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-      {/* Sol kolon: Kişisel bilgiler + Segment + Etiketler */}
+      {/* Sol kolon */}
       <div className="space-y-4">
 
-        {/* Kişisel bilgiler */}
+        {/* Müşteri Bilgileri — düzenlenebilir */}
         <div className="bg-white border border-[#e8ddd6] rounded-sm p-5">
-          <h3 className="text-xs tracking-widest text-[#5c4033] uppercase mb-4">Müşteri Bilgileri</h3>
-          <div className="space-y-3">
-            {[
-              ["Telefon",    customer.phone  || "—"],
-              ["E-posta",    customer.email  || "—"],
-              ["Şehir",      customer.city   || "—"],
-              ["Kayıt",      new Date(customer.createdAt).toLocaleDateString("tr-TR")],
-              ["Son Sipariş", lastOrder ? new Date(lastOrder.createdAt).toLocaleDateString("tr-TR") : "—"],
-            ].map(([k, v]) => (
-              <div key={k} className="flex justify-between text-sm border-b border-[#f0ebe6] pb-2">
-                <span className="text-[#8b6f5e]">{k}</span>
-                <span className="text-[#2c1810] font-medium">{v}</span>
-              </div>
-            ))}
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xs tracking-widest text-[#5c4033] uppercase">Müşteri Bilgileri</h3>
+            {!editingInfo && (
+              <button onClick={() => setEditingInfo(true)}
+                className="text-xs text-[#8b6f5e] hover:text-[#2c1810] underline">Düzenle</button>
+            )}
           </div>
-          {customer.phone && (
-            <a href={`https://wa.me/9${customer.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer"
-              className="block w-full text-center bg-[#2c1810] text-[#f5f0eb] text-xs tracking-widest uppercase py-2.5 hover:bg-[#3d2418] transition-colors mt-4">
-              WhatsApp&apos;tan Yaz
-            </a>
+
+          {editingInfo ? (
+            <form onSubmit={handleInfoSave} className="space-y-3">
+              {[
+                { label: "Ad Soyad *", key: "name",    type: "text" },
+                { label: "Telefon",    key: "phone",   type: "tel" },
+                { label: "E-posta",   key: "email",   type: "email" },
+                { label: "Adres",     key: "address", type: "text" },
+              ].map(({ label, key, type }) => (
+                <div key={key}>
+                  <label className="text-xs text-[#8b6f5e] block mb-0.5">{label}</label>
+                  <input type={type} value={infoForm[key as keyof typeof infoForm]}
+                    onChange={(e) => setInfoForm((p) => ({ ...p, [key]: e.target.value }))}
+                    className="w-full border border-[#d4c5ba] rounded-sm px-3 py-1.5 text-sm bg-[#faf8f6] focus:outline-none focus:border-[#8b6f5e]" />
+                </div>
+              ))}
+              <div>
+                <label className="text-xs text-[#8b6f5e] block mb-0.5">Not</label>
+                <textarea value={infoForm.note} onChange={(e) => setInfoForm((p) => ({ ...p, note: e.target.value }))} rows={2}
+                  className="w-full border border-[#d4c5ba] rounded-sm px-3 py-1.5 text-sm bg-[#faf8f6] focus:outline-none focus:border-[#8b6f5e] resize-none" />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button type="submit" disabled={infoSaving || !infoForm.name.trim()}
+                  className="flex-1 bg-[#2c1810] text-[#f5f0eb] text-xs py-2 hover:bg-[#3d2418] transition-colors disabled:opacity-60">
+                  {infoSaving ? "Kaydediliyor..." : "Kaydet"}
+                </button>
+                <button type="button" onClick={() => setEditingInfo(false)}
+                  className="px-4 text-xs text-[#8b6f5e] border border-[#d4c5ba] hover:bg-[#f5f0eb]">İptal</button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <div className="space-y-3">
+                {[
+                  ["Telefon",     customer.phone   || "—"],
+                  ["E-posta",    customer.email   || "—"],
+                  ["Adres",      customer.address || "—"],
+                  ["Not",        customer.note    || "—"],
+                  ["Kayıt",      new Date(customer.createdAt).toLocaleDateString("tr-TR")],
+                  ["Son Sipariş", lastOrder ? new Date(lastOrder.createdAt).toLocaleDateString("tr-TR") : "—"],
+                ].map(([k, v]) => (
+                  <div key={k} className="flex justify-between text-sm border-b border-[#f0ebe6] pb-2 last:border-0">
+                    <span className="text-[#8b6f5e]">{k}</span>
+                    <span className="text-[#2c1810] font-medium text-right max-w-[160px] break-words">{v}</span>
+                  </div>
+                ))}
+              </div>
+              {customer.phone && (
+                <a href={`https://wa.me/9${customer.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer"
+                  className="block w-full text-center bg-[#2c1810] text-[#f5f0eb] text-xs tracking-widest uppercase py-2.5 hover:bg-[#3d2418] transition-colors mt-4">
+                  WhatsApp&apos;tan Yaz
+                </a>
+              )}
+            </>
           )}
         </div>
 
-        {/* Özet istatistikler */}
+        {/* Özet */}
         <div className="grid grid-cols-3 gap-3">
           {[
             { label: "Sipariş",   value: orders.length },
@@ -177,7 +245,7 @@ export default function MusteriProfilClient({
         </div>
       </div>
 
-      {/* Sağ kolon: Sipariş geçmişi + Notlar */}
+      {/* Sağ kolon */}
       <div className="lg:col-span-2 space-y-4">
 
         {/* Notlar */}
@@ -221,8 +289,17 @@ export default function MusteriProfilClient({
               </thead>
               <tbody>
                 {orders.map((o) => (
-                  <tr key={o.id} className="border-b border-[#f0ebe6] last:border-0">
-                    <td className="py-2.5 text-[#2c1810] font-medium text-xs">{o.orderNo.slice(-8)}</td>
+                  <tr key={o.id} className="border-b border-[#f0ebe6] last:border-0 hover:bg-[#faf8f6]">
+                    <td className="py-2.5">
+                      <a
+                        href={`/admin/siparisler/detay?id=${o.id}&source=${o.source}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-mono text-xs font-semibold text-[#2c1810] hover:text-indigo-600 hover:underline"
+                      >
+                        #{o.orderNo}
+                      </a>
+                    </td>
                     <td className="py-2.5">
                       <span className={`text-[10px] px-1.5 py-0.5 rounded ${o.source === "web" ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"}`}>
                         {o.source === "web" ? "Web" : "Manuel"}

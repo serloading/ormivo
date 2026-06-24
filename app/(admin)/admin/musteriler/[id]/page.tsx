@@ -42,6 +42,7 @@ export default async function MusteriProfilPage({ params }: { params: Promise<{ 
     phone:     customer.phone,
     email:     customer.email,
     city:      customer.city,
+    address:   (customer as { address?: string | null }).address ?? null,
     note:      customer.note,
     segment:   customer.segment,
     tags:      customer.tags,

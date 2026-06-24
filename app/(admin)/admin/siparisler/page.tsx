@@ -61,14 +61,15 @@ export default async function SiparislerPage({
       memberName:    o.user?.name ?? null,
       memberPhone:   o.user?.phone ?? null,
     })),
-    ...b2bOrders.map((o) => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ...(b2bOrders as any[]).map((o) => ({
       id:            o.id,
       source:        "manuel" as const,
       orderNo:       o.orderNo,
       status:        o.status,
       createdAt:     o.createdAt.toISOString(),
-      recipientName: o.customer.name,
-      recipientPhone: o.customer.phone ?? null,
+      recipientName: o.customer?.name ?? "Silinmiş Müşteri",
+      recipientPhone: o.customer?.phone ?? null,
       addressLine:   null,
       city:          null,
       district:      null,

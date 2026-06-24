@@ -396,6 +396,7 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, categ
   const [status, setStatus] = useState("PENDING");
   const [deliveryMethod, setDeliveryMethod] = useState("PICKUP");
   const [discount, setDiscount] = useState("");
+  const [orderDate, setOrderDate] = useState(new Date().toISOString().slice(0, 10));
   const [items, setItems] = useState<ItemForm[]>([{ productId: null, name: "", qty: 1, price: 0 }]);
   const [useManualTotal, setUseManualTotal] = useState(false);
   const [manualTotal, setManualTotal] = useState("");
@@ -475,6 +476,7 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, categ
         note: note.trim() || undefined,
         status,
         deliveryMethod,
+        orderDate,
       });
       onClose();
     });
@@ -535,6 +537,13 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, categ
                 {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
+          </div>
+
+          {/* Sipariş Tarihi */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Sipariş Tarihi</label>
+            <input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)}
+              className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-400" />
           </div>
 
           {/* Teslimat Yöntemi */}
@@ -704,6 +713,9 @@ export default function SiparislerClient({
   const [sourceFilter, setSourceFilter] = useState("");
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [editOrder, setEditOrder] = useState<OrderRow | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [, startBulkT] = useTransition();
+  const router = useRouter();
 
   const filtered = orders.filter((o) => {
     const q = filter.toLowerCase();
@@ -713,12 +725,35 @@ export default function SiparislerClient({
     return matchQ && (!sourceFilter || o.source === sourceFilter);
   });
 
+  function toggleSelect(id: string) {
+    setSelected((prev) => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  }
+  function toggleAll() {
+    setSelected((prev) => prev.size === filtered.length ? new Set() : new Set(filtered.map((o) => o.id)));
+  }
+  function handleBulkDelete() {
+    if (!confirm(`${selected.size} siparişi silmek istediğinize emin misiniz?`)) return;
+    startBulkT(async () => {
+      for (const order of orders.filter((o) => selected.has(o.id))) {
+        await deleteOrderById(order.id, order.source);
+      }
+      setSelected(new Set());
+      router.refresh();
+    });
+  }
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-xl font-semibold text-gray-800">Siparişler</h1>
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-400">{filtered.length} sipariş</span>
+          {selected.size > 0 && (
+            <button onClick={handleBulkDelete}
+              className="bg-red-600 text-white text-xs px-4 py-2 rounded font-medium hover:bg-red-700 transition-colors">
+              {selected.size} Siparişi Sil
+            </button>
+          )}
           <button onClick={() => setShowNewOrder(true)}
             className="bg-indigo-600 text-white text-xs px-4 py-2 rounded font-medium hover:bg-indigo-700 transition-colors">
             + Yeni Sipariş
@@ -742,6 +777,9 @@ export default function SiparislerClient({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500 uppercase tracking-wide">
+              <th className="px-3 py-3 w-8">
+                <input type="checkbox" checked={selected.size === filtered.length && filtered.length > 0} onChange={toggleAll} className="rounded" />
+              </th>
               <th className="px-4 py-3">Sipariş</th>
               <th className="px-4 py-3">Müşteri</th>
               <th className="px-4 py-3">Ürünler</th>
@@ -758,7 +796,10 @@ export default function SiparislerClient({
               <tr><td colSpan={8} className="px-4 py-16 text-center text-gray-400 text-sm">Sipariş bulunamadı.</td></tr>
             )}
             {filtered.map((order) => (
-              <tr key={order.id} className="border-b border-gray-50 hover:bg-gray-50/60 align-top">
+              <tr key={order.id} className={`border-b border-gray-50 align-top ${selected.has(order.id) ? "bg-red-50" : "hover:bg-gray-50/60"}`}>
+                <td className="px-3 py-3">
+                  <input type="checkbox" checked={selected.has(order.id)} onChange={() => toggleSelect(order.id)} className="rounded" />
+                </td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   <div className="font-mono text-xs font-semibold text-gray-700">#{order.orderNo}</div>
                   <div className="text-[10px] text-gray-400 mt-0.5">

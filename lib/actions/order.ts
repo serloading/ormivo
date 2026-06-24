@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 
+const CARGO_FEE = 200;
+
 export type OrderItem = {
   productId?: string;
   productName: string;
@@ -19,6 +21,7 @@ export type OrderFormData = {
   note?: string;
   status?: string;
   deliveryMethod?: string;
+  orderDate?: string; // ISO date string, overrides createdAt
 };
 
 export async function getOrders() {
@@ -40,6 +43,7 @@ export async function createOrder(data: OrderFormData) {
       note: data.note,
       status: (data.status ?? "PENDING") as never,
       deliveryMethod: data.deliveryMethod ?? "PICKUP",
+      ...(data.orderDate ? { createdAt: new Date(data.orderDate) } : {}),
     },
   });
 
@@ -52,8 +56,44 @@ export async function createOrder(data: OrderFormData) {
     });
   }
 
+  // Ürün maliyeti giderleri hemen kayıt
+  const productIds = itemsWithProduct.map((i) => i.productId!);
+  if (productIds.length > 0) {
+    const productCosts = await prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, costPrice: true },
+    });
+    for (const item of itemsWithProduct) {
+      const prod = productCosts.find((p) => p.id === item.productId);
+      if (!prod?.costPrice) continue;
+      const cost = Number(prod.costPrice) * item.quantity;
+      await prisma.finance.create({
+        data: {
+          type:        "EXPENSE",
+          amount:      cost,
+          description: `Ürün maliyeti — ${item.productName} — #${order.orderNo}`,
+          category:    "Ürün Maliyeti",
+        },
+      });
+    }
+  }
+
+  // Kargo gideri — kargo ile gönderilecekse
+  if ((data.deliveryMethod ?? "PICKUP") === "CARGO") {
+    await prisma.finance.create({
+      data: {
+        type:        "EXPENSE",
+        amount:      CARGO_FEE,
+        description: `Kargo — Sipariş #${order.orderNo}`,
+        category:    "Kargo Gideri",
+      },
+    });
+  }
+
   revalidatePath("/admin/siparisler");
+  revalidatePath("/admin/finans");
   revalidatePath("/admin/urunler");
+  revalidatePath("/admin/musteriler");
   return { success: true, id: order.id, orderNo: order.orderNo };
 }
 
@@ -63,11 +103,13 @@ export async function updateOrderStatus(
 ) {
   await prisma.order.update({ where: { id }, data: { status } });
   revalidatePath("/admin/siparisler");
+  revalidatePath("/admin/musteriler");
   return { success: true };
 }
 
 export async function deleteOrder(id: string) {
   await prisma.order.delete({ where: { id } });
   revalidatePath("/admin/siparisler");
+  revalidatePath("/admin/musteriler");
   return { success: true };
 }

@@ -3,12 +3,12 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { toggleProductActive, deleteProduct } from "@/lib/actions/product";
+import { toggleProductActive, deleteProduct, backfillProductNos } from "@/lib/actions/product";
 
 type Category = { id: string; name: string; slug: string };
 type Brand = { id: string; name: string; slug: string };
 type Product = {
-  id: string; name: string; slug: string; price: number | string;
+  id: string; productNo?: string | null; name: string; slug: string; price: number | string;
   comparePrice?: number | string | null; costPrice?: number | string | null;
   stock: number; isActive: boolean;
   category?: Category | null;
@@ -41,8 +41,18 @@ export default function AdminUrunlerClient({ products, categories, brands }: { p
     }
   }
 
+  function handleBackfill() {
+    startTransition(async () => { await backfillProductNos(); router.refresh(); });
+  }
+
   return (
     <>
+      <div className="flex justify-end mb-4">
+        <button onClick={handleBackfill}
+          className="border border-[#d4c5ba] text-[#8b6f5e] text-xs tracking-widest uppercase px-4 py-2 hover:bg-[#f5f0eb] transition-colors">
+          Numara Ata
+        </button>
+      </div>
       <div className="bg-white border border-[#e8ddd6] rounded-sm p-4 mb-6 flex flex-wrap gap-3">
         <input type="text" placeholder="Urun ara..." value={search} onChange={(e) => setSearch(e.target.value)}
           className="flex-1 min-w-[180px] border border-[#d4c5ba] rounded-sm px-3 py-2 text-sm text-[#2c1810] placeholder-[#b8a89e] focus:outline-none focus:border-[#8b6f5e] bg-[#faf8f6]" />
@@ -75,7 +85,7 @@ export default function AdminUrunlerClient({ products, categories, brands }: { p
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[#e8ddd6] bg-[#faf8f6]">
-                {["Urun", "Marka", "Kategori", "Satis Fiyati", "Gelis Fiyati", "Stok", "Durum", ""].map((h) => (
+                {["No", "Urun", "Marka", "Kategori", "Satis Fiyati", "Gelis Fiyati", "Stok", "Durum", ""].map((h) => (
                   <th key={h} className="text-left px-6 py-4 text-xs tracking-widest text-[#8b6f5e] uppercase font-medium">{h}</th>
                 ))}
               </tr>
@@ -83,6 +93,7 @@ export default function AdminUrunlerClient({ products, categories, brands }: { p
             <tbody>
               {filtered.map((product, i) => (
                 <tr key={product.id} className={"border-b border-[#f0ebe6] hover:bg-[#faf8f6] transition-colors " + (i === filtered.length - 1 ? "border-b-0" : "")}>
+                  <td className="px-6 py-4 text-xs text-[#b8a89e] font-mono">{product.productNo ?? "—"}</td>
                   <td className="px-6 py-4">
                     <p className="font-medium text-[#2c1810]">{product.name}</p>
                     <p className="text-xs text-[#b8a89e] mt-0.5">/{product.slug}</p>

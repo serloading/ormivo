@@ -34,22 +34,58 @@ export async function getCustomerById(id: string) {
   });
 }
 
+async function generateCustomerNo(): Promise<string> {
+  const last = await prisma.customer.findFirst({
+    where: { customerNo: { not: null } },
+    orderBy: { customerNo: "desc" },
+    select: { customerNo: true },
+  });
+  const lastNum = last?.customerNo ? parseInt(last.customerNo.replace("MUS-", ""), 10) : 0;
+  return `MUS-${String(lastNum + 1).padStart(4, "0")}`;
+}
+
 export async function createCustomer(data: CustomerFormData) {
-  await prisma.customer.create({ data });
+  const customerNo = await generateCustomerNo();
+  await prisma.customer.create({ data: { ...data, customerNo } });
   revalidatePath("/admin/musteriler");
+  revalidatePath("/admin/siparisler");
   return { success: true };
+}
+
+export async function backfillCustomerNos() {
+  const customers = await prisma.customer.findMany({
+    where: { customerNo: null },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+  const last = await prisma.customer.findFirst({
+    where: { customerNo: { not: null } },
+    orderBy: { customerNo: "desc" },
+    select: { customerNo: true },
+  });
+  let num = last?.customerNo ? parseInt(last.customerNo.replace("MUS-", ""), 10) : 0;
+  for (const c of customers) {
+    num++;
+    await prisma.customer.update({
+      where: { id: c.id },
+      data: { customerNo: `MUS-${String(num).padStart(4, "0")}` },
+    });
+  }
+  return { count: customers.length };
 }
 
 export async function updateCustomer(id: string, data: Partial<CustomerFormData>) {
   await prisma.customer.update({ where: { id }, data });
   revalidatePath("/admin/musteriler");
   revalidatePath(`/admin/musteriler/${id}`);
+  revalidatePath("/admin/siparisler");
   return { success: true };
 }
 
 export async function deleteCustomer(id: string) {
   await prisma.customer.delete({ where: { id } });
   revalidatePath("/admin/musteriler");
+  revalidatePath("/admin/siparisler");
   return { success: true };
 }
 

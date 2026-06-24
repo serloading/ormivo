@@ -11,6 +11,7 @@ function revalidateAll() {
   revalidatePath("/admin/finans");
   revalidatePath("/admin/urunler");
   revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/musteriler");
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -70,6 +71,48 @@ async function restoreStock(items: unknown) {
       });
     } catch {
       // product may have been deleted — skip silently
+    }
+  }
+}
+
+// Sipariş düzenlenince stok farkını uygula (eski - yeni)
+async function applyStockDiff(
+  prevItems: { productId?: string; qty: number }[],
+  newItems: { productId?: string; qty: number }[]
+) {
+  // Ürün bazında qty değişimini hesapla
+  const prevMap = new Map<string, number>();
+  for (const i of prevItems) if (i.productId) prevMap.set(i.productId, (prevMap.get(i.productId) ?? 0) + i.qty);
+  const newMap = new Map<string, number>();
+  for (const i of newItems) if (i.productId) newMap.set(i.productId, (newMap.get(i.productId) ?? 0) + i.qty);
+
+  // Tüm productId'leri topla
+  const allIds = new Set([...prevMap.keys(), ...newMap.keys()]);
+  for (const productId of allIds) {
+    const prev = prevMap.get(productId) ?? 0;
+    const next = newMap.get(productId) ?? 0;
+    const diff = next - prev; // pozitif = daha fazla alındı (stok azalır), negatif = iade (stok artar)
+    if (diff === 0) continue;
+    try {
+      await prisma.product.update({
+        where: { id: productId },
+        data:  { stock: { increment: -diff } }, // diff>0 ise azalt, diff<0 ise artır
+      });
+    } catch { /* ürün silinmişse sessizce geç */ }
+  }
+}
+
+async function syncCargoExpense(orderId: string, orderNo: string, deliveryMethod: string) {
+  const existing = await prisma.finance.findFirst({ where: { siteOrderId: orderId, category: "Kargo Gideri" } });
+  if (deliveryMethod === "CARGO") {
+    if (!existing) {
+      await prisma.finance.create({
+        data: { type: "EXPENSE", amount: CARGO_FEE, description: `Kargo — Sipariş #${orderNo}`, category: "Kargo Gideri", siteOrderId: orderId },
+      });
+    }
+  } else {
+    if (existing) {
+      await prisma.finance.delete({ where: { id: existing.id } });
     }
   }
 }
@@ -185,11 +228,21 @@ export async function updatePaymentStatus(orderId: string, paymentStatus: string
       });
     }
     await ensureCostExpenses(order, "web");
+    await syncCargoExpense(orderId, order.orderNo, order.deliveryMethod ?? "");
     revalidatePath("/admin/finans");
   }
 
   if (paymentStatus === "FREE") {
+    // Gelir yok ama ürün maliyeti ve kargo gideri yine de kaydedilmeli
+    await prisma.finance.deleteMany({ where: { siteOrderId: orderId, type: "INCOME" } });
     await ensureCostExpenses(order, "web");
+    await syncCargoExpense(orderId, order.orderNo, order.deliveryMethod ?? "");
+    revalidatePath("/admin/finans");
+  }
+
+  if (paymentStatus === "PENDING") {
+    // Ödeme bekleniyor: gelir ve gider kayıtlarını temizle
+    await prisma.finance.deleteMany({ where: { siteOrderId: orderId } });
     revalidatePath("/admin/finans");
   }
 
@@ -243,7 +296,15 @@ export async function updateManuelOrderDelivery(orderId: string, deliveryMethod:
 }
 
 export async function updateManuelOrderTotal(orderId: string, total: number) {
-  await prisma.order.update({ where: { id: orderId }, data: { total } });
+  const order = await prisma.order.update({ where: { id: orderId }, data: { total }, select: { orderNo: true, paymentStatus: true } });
+  // Ödeme alınmışsa gelir kaydını güncelle
+  if (order.paymentStatus === "PAID") {
+    const income = await prisma.finance.findFirst({
+      where: { description: { contains: `Sipariş #${order.orderNo}` }, type: "INCOME" },
+    });
+    if (income) await prisma.finance.update({ where: { id: income.id }, data: { amount: total } });
+    revalidatePath("/admin/finans");
+  }
   revalidatePath("/admin/siparisler");
   return { success: true };
 }
@@ -360,6 +421,14 @@ export async function updateOrderItems(
   const netIncome = Math.max(0, total - discount); // actual income after discount
 
   if (source === "web") {
+    // Stok farkı: eski items ile yeni items arasındaki farkı hesapla
+    const prevOrder = await prisma.siteOrder.findUniqueOrThrow({
+      where: { id: orderId },
+      select: { items: true },
+    });
+    const prevItems = prevOrder.items as { productId?: string; qty: number }[];
+    await applyStockDiff(prevItems, items);
+
     const order = await prisma.siteOrder.update({
       where: { id: orderId },
       data: {
@@ -404,6 +473,14 @@ export async function updateOrderItems(
       await prisma.finance.deleteMany({ where: { siteOrderId: orderId, category: "Kargo Gideri" } });
     }
   } else {
+    // Stok farkı: eski items ile yeni items arasındaki farkı hesapla
+    const prevOrder = await prisma.order.findUniqueOrThrow({
+      where: { id: orderId },
+      select: { items: true },
+    });
+    const prevItems = prevOrder.items as { productId?: string; qty: number }[];
+    await applyStockDiff(prevItems, items);
+
     const order = await prisma.order.update({
       where: { id: orderId },
       data: {

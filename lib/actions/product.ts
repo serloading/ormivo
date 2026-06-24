@@ -35,11 +35,44 @@ export async function getProductBySlug(slug: string) {
   });
 }
 
+async function generateProductNo(): Promise<string> {
+  const last = await prisma.product.findFirst({
+    where: { productNo: { not: null } },
+    orderBy: { productNo: "desc" },
+    select: { productNo: true },
+  });
+  const lastNum = last?.productNo ? parseInt(last.productNo.replace("PRD-", ""), 10) : 0;
+  return `PRD-${String(lastNum + 1).padStart(4, "0")}`;
+}
+
 export async function createProduct(data: ProductFormData) {
-  await prisma.product.create({ data });
+  const productNo = await generateProductNo();
+  await prisma.product.create({ data: { ...data, productNo } });
   revalidatePath("/admin/urunler");
   revalidatePath("/urunler");
   return { success: true };
+}
+
+export async function backfillProductNos() {
+  const products = await prisma.product.findMany({
+    where: { productNo: null },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+  const last = await prisma.product.findFirst({
+    where: { productNo: { not: null } },
+    orderBy: { productNo: "desc" },
+    select: { productNo: true },
+  });
+  let num = last?.productNo ? parseInt(last.productNo.replace("PRD-", ""), 10) : 0;
+  for (const p of products) {
+    num++;
+    await prisma.product.update({
+      where: { id: p.id },
+      data: { productNo: `PRD-${String(num).padStart(4, "0")}` },
+    });
+  }
+  return { count: products.length };
 }
 
 export async function updateProduct(id: string, data: Partial<ProductFormData>) {
@@ -71,11 +104,21 @@ export async function updateProduct(id: string, data: Partial<ProductFormData>) 
 }
 
 export async function deleteProduct(id: string) {
+  const product = await prisma.product.findUnique({ where: { id }, select: { name: true, costPrice: true } });
+
+  if (product) {
+    // O ürünün adını içeren tüm "Ürün Maliyeti" finance kayıtlarını sil
+    await prisma.finance.deleteMany({
+      where: { category: "Ürün Maliyeti", description: { contains: product.name } },
+    });
+  }
+
   await prisma.product.update({
     where: { id },
     data: { deletedAt: new Date(), isActive: false },
   });
   revalidatePath("/admin/urunler");
+  revalidatePath("/admin/finans");
   revalidatePath("/urunler");
   return { success: true };
 }

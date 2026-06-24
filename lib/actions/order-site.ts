@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { getCart } from "@/lib/actions/cart";
 
+const CARGO_FEE = 200;
+
 interface GuestItem { productId: string; qty: number; }
 
 interface PlaceOrderInput {
@@ -95,6 +97,38 @@ export async function placeOrder(input: PlaceOrderInput) {
       data:  { stock: { decrement: item.qty } },
     });
   }
+
+  // Ürün maliyeti giderleri — sipariş oluşturulunca hemen kayıt
+  const productIds = orderItems.map((i) => i.productId);
+  const productCosts = await prisma.product.findMany({
+    where: { id: { in: productIds } },
+    select: { id: true, costPrice: true },
+  });
+  for (const item of orderItems) {
+    const prod = productCosts.find((p) => p.id === item.productId);
+    if (!prod?.costPrice) continue;
+    const cost = Number(prod.costPrice) * item.qty;
+    await prisma.finance.create({
+      data: {
+        type:        "EXPENSE",
+        amount:      cost,
+        description: `Ürün maliyeti — ${item.name} — #${order.orderNo}`,
+        category:    "Ürün Maliyeti",
+        siteOrderId: order.id,
+      },
+    });
+  }
+
+  // Kargo gideri — web siparişi varsayılan olarak kargo ile gider
+  await prisma.finance.create({
+    data: {
+      type:        "EXPENSE",
+      amount:      CARGO_FEE,
+      description: `Kargo — Sipariş #${order.orderNo}`,
+      category:    "Kargo Gideri",
+      siteOrderId: order.id,
+    },
+  });
 
   if (session) {
     await prisma.cartItem.deleteMany({
