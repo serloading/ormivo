@@ -12,10 +12,13 @@ export default async function SiparislerPage({
   const sp = await searchParams;
   const statusFilter = sp.status ?? null;
 
-  // Default (no status param) shows only active orders (excludes DELIVERED and CANCELLED)
-  const activeFilter = statusFilter
-    ? ({ status: statusFilter } as never)
-    : ({ status: { notIn: ["DELIVERED", "CANCELLED"] } } as never);
+  // ALL = tüm siparişler, boş = aktif (DELIVERED ve CANCELLED hariç)
+  const activeFilter =
+    statusFilter === "ALL"
+      ? ({} as never)
+      : statusFilter
+      ? ({ status: statusFilter } as never)
+      : ({ status: { notIn: ["DELIVERED", "CANCELLED"] } } as never);
 
   const [siteOrders, b2bOrders, customers, products, categories, brands] = await Promise.all([
     prisma.siteOrder.findMany({

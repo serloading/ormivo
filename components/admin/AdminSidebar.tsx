@@ -19,7 +19,8 @@ const navGroups: NavGroup[] = [
   {
     group: "Sipariş Yönetimi",
     items: [
-      { href: "/admin/siparisler",                        label: "Siparişler",           icon: "◎" },
+      { href: "/admin/siparisler",                        label: "Yeni Siparişler",      icon: "◎" },
+      { href: "/admin/siparisler?status=ALL",             label: "Tüm Siparişler",       icon: "≡" },
       { href: "/admin/siparisler?status=PENDING",         label: "Bekleyenler",          icon: "○" },
       { href: "/admin/siparisler?status=SHIPPED",         label: "Kargoya Verildi",      icon: "◐" },
       { href: "/admin/siparisler?status=DELIVERED",       label: "Teslim Edilenler",     icon: "●" },
