@@ -823,8 +823,6 @@ export default function SiparislerClient({
           order={editOrder}
           customers={customers}
           products={products}
-          categories={categories}
-          brands={brands}
           onClose={() => setEditOrder(null)}
         />
       )}
@@ -846,15 +844,12 @@ function DeleteButton({ order }: { order: OrderRow }) {
 }
 
 // ---- Edit Order Modal ----
-function EditOrderModal({ order, customers: initCustomers, products: initProducts, categories, brands, onClose }: {
+function EditOrderModal({ order, customers: initCustomers, products: initProducts, onClose }: {
   order: OrderRow;
   customers: Customer[];
   products: ProductOption[];
-  categories: CatBrand[];
-  brands: CatBrand[];
   onClose: () => void;
 }) {
-  const [, startTransition] = useTransition();
   const router = useRouter();
 
   // State — pre-filled from existing order
@@ -882,11 +877,6 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
   const [newCust, setNewCust] = useState({ name: "", phone: "" });
   const [custSaving, startCustT] = useTransition();
 
-  // Inline new product
-  const [newProductIdx, setNewProductIdx] = useState<number | null>(null);
-  const [newProd, setNewProd] = useState({ name: "", price: "", costPrice: "", categoryId: "", brandId: "" });
-  const [prodSaving, startProdT] = useTransition();
-
   function changeItem(idx: number, field: keyof ItemForm, val: string | number | null) {
     setItems((prev) => prev.map((it, i) => i === idx ? { ...it, [field]: val } : it));
   }
@@ -900,24 +890,6 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
       setCustomerId(newCustomer.id);
       setNewCust({ name: "", phone: "" });
       setShowNewCustomer(false);
-    });
-  }
-
-  function saveNewProduct(idx: number) {
-    if (!newProd.name.trim() || !newProd.price) return;
-    startProdT(async () => {
-      const slug = newProd.name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-      await createProduct({
-        name: newProd.name.trim(), slug: `${slug}-${Date.now()}`, description: "",
-        price: Number(newProd.price), costPrice: newProd.costPrice ? Number(newProd.costPrice) : undefined,
-        categoryId: newProd.categoryId || undefined, brandId: newProd.brandId || undefined, stock: 0, isActive: true, images: [],
-      });
-      const newP: ProductOption = { id: `temp-${Date.now()}`, name: newProd.name.trim(), price: Number(newProd.price), stock: 0 };
-      setProducts((prev) => [...prev, newP]);
-      changeItem(idx, "name", newP.name);
-      changeItem(idx, "price", newP.price);
-      setNewProd({ name: "", price: "", costPrice: "", categoryId: "", brandId: "" });
-      setNewProductIdx(null);
     });
   }
 
@@ -1036,10 +1008,8 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
             <div className="space-y-2">
               {items.map((item, idx) => (
                 <div key={idx} className="flex gap-2 items-start">
-                  <div className="flex-1 space-y-0.5">
+                  <div className="flex-1">
                     <ProductInput item={item} idx={idx} products={products} onChange={changeItem} />
-                    <button type="button" onClick={() => { setNewProductIdx(idx); setNewProd({ name: item.name, price: String(item.price || ""), costPrice: "", categoryId: "", brandId: "" }); }}
-                      className="text-[10px] text-green-600 hover:text-green-800">+ Listede yoksa yeni ürün ekle</button>
                   </div>
                   <div className="flex flex-col gap-0.5">
                     <label className="text-[10px] text-gray-400">Adet</label>
@@ -1063,37 +1033,6 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
             </div>
             <button type="button" onClick={() => setItems((p) => [...p, { productId: null, name: "", qty: 1, price: 0 }])}
               className="text-xs text-indigo-600 hover:text-indigo-800 font-medium mt-2">+ Ürün Satırı Ekle</button>
-
-            {newProductIdx !== null && (
-              <div className="border border-green-200 rounded p-3 bg-green-50 space-y-2 mt-2">
-                <p className="text-xs font-medium text-green-700">Yeni Ürün Ekle</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <input value={newProd.name} onChange={(e) => setNewProd((p) => ({ ...p, name: e.target.value }))}
-                    placeholder="Ürün adı *" autoFocus className="col-span-2 border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-green-400" />
-                  <input type="number" value={newProd.price} onChange={(e) => setNewProd((p) => ({ ...p, price: e.target.value }))}
-                    placeholder="Satış fiyatı ₺ *" className="border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-green-400" />
-                  <input type="number" value={newProd.costPrice} onChange={(e) => setNewProd((p) => ({ ...p, costPrice: e.target.value }))}
-                    placeholder="Alış fiyatı ₺ (maliyet)" className="border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-green-400" />
-                  <select value={newProd.categoryId} onChange={(e) => setNewProd((p) => ({ ...p, categoryId: e.target.value }))}
-                    className="border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-green-400">
-                    <option value="">Kategori seç</option>
-                    {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                  <select value={newProd.brandId} onChange={(e) => setNewProd((p) => ({ ...p, brandId: e.target.value }))}
-                    className="border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-green-400">
-                    <option value="">Marka seç</option>
-                    {brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                  </select>
-                </div>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => saveNewProduct(newProductIdx)} disabled={!newProd.name.trim() || !newProd.price || prodSaving}
-                    className="flex-1 bg-green-600 text-white text-xs py-1.5 rounded disabled:opacity-60">
-                    {prodSaving ? "Kaydediliyor..." : "Ürünü Kaydet ve Seç"}
-                  </button>
-                  <button type="button" onClick={() => setNewProductIdx(null)} className="text-xs text-gray-400 px-2">İptal</button>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Tutar + İskonto */}
