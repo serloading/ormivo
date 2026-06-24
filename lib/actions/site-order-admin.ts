@@ -352,12 +352,33 @@ export async function updateOrderItems(
   source: "web" | "manuel",
   items: OrderItem[],
   total: number,
-  note: string | null
+  note: string | null,
+  extra?: { customerId?: string; discount?: number; status?: string; deliveryMethod?: string }
 ) {
   if (source === "web") {
-    await prisma.siteOrder.update({ where: { id: orderId }, data: { items: items as never, total, note } });
+    await prisma.siteOrder.update({
+      where: { id: orderId },
+      data: {
+        items: items as never,
+        total,
+        note,
+        ...(extra?.discount !== undefined && { discount: extra.discount }),
+        ...(extra?.status && { status: extra.status as never }),
+        ...(extra?.deliveryMethod && { deliveryMethod: extra.deliveryMethod }),
+      },
+    });
   } else {
-    await prisma.order.update({ where: { id: orderId }, data: { items: items as never, total, note } });
+    await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        items: items as never,
+        total,
+        note,
+        ...(extra?.customerId && { customerId: extra.customerId }),
+        ...(extra?.status && { status: extra.status as never }),
+        ...(extra?.deliveryMethod && { deliveryMethod: extra.deliveryMethod }),
+      },
+    });
   }
   revalidatePath("/admin/siparisler");
   revalidatePath("/admin/finans");
