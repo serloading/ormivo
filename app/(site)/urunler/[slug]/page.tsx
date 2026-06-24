@@ -70,10 +70,7 @@ export default async function UrunDetayPage({
       deletedAt: null,
       isActive: true,
       id: { not: product.id },
-      OR: [
-        ...(product.brandId    ? [{ brandId: product.brandId }]       : []),
-        ...(product.categoryId ? [{ categoryId: product.categoryId }] : []),
-      ],
+      ...(product.categoryId ? { categoryId: product.categoryId } : {}),
     },
     include: { category: true, brand: true },
     take: 4,
@@ -218,7 +215,7 @@ export default async function UrunDetayPage({
         {/* ══════════════════════════════════════
             2. DETAY SEKMELERİ
         ══════════════════════════════════════ */}
-        <ProductTabs description={product.description} />
+        <ProductTabs description={product.description} scentNotes={product.scentNotes} />
 
         {/* ══════════════════════════════════════
             3. BENZERİ ÜRÜNLER

@@ -9,6 +9,7 @@ type Category = { id: string; name: string; slug: string };
 type Brand = { id: string; name: string; slug: string; logo?: string | null };
 type Product = {
   id: string; name: string; slug: string; description?: string | null;
+  scentNotes?: string | null;
   price: number | string; comparePrice?: number | string | null;
   costPrice?: number | string | null; costPriceUsd?: number | string | null;
   stock: number; isActive: boolean; isOzelKoleksiyon?: boolean; images: string[];
@@ -36,6 +37,7 @@ export default function ProductForm({ product, categories, brands }: Props) {
     name: product?.name ?? "",
     slug: product?.slug ?? "",
     description: product?.description ?? "",
+    scentNotes: product?.scentNotes ?? "",
     price: product?.price?.toString() ?? "",
     comparePrice: product?.comparePrice?.toString() ?? "",
     costPrice: product?.costPrice?.toString() ?? "",
@@ -102,6 +104,7 @@ export default function ProductForm({ product, categories, brands }: Props) {
       name: form.name,
       slug: form.slug,
       description: form.description,
+      scentNotes: form.scentNotes || undefined,
       price: parseFloat(form.price) || 0,
       comparePrice: form.comparePrice ? parseFloat(form.comparePrice) : undefined,
       costPrice: form.costPrice ? parseFloat(form.costPrice) : undefined,
@@ -142,6 +145,11 @@ export default function ProductForm({ product, categories, brands }: Props) {
               <div>
                 <label className={labelCls}>Aciklama</label>
                 <textarea rows={4} value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} className={inputCls} placeholder="Urun aciklamasi..." />
+              </div>
+              <div>
+                <label className={labelCls}>Koku Notaları</label>
+                <textarea rows={3} value={form.scentNotes} onChange={(e) => setForm((p) => ({ ...p, scentNotes: e.target.value }))} className={inputCls} placeholder="Üst nota: Bergamot, Limon&#10;Orta nota: Gül, Yasemin&#10;Dip nota: Misk, Amber" />
+                <p className="text-xs text-[#b8a89e] mt-1">Ürün sayfasında gösterilir</p>
               </div>
             </div>
           </div>

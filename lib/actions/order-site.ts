@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { getCart } from "@/lib/actions/cart";
+import { useCoupon } from "@/lib/actions/coupon";
 
 const CARGO_FEE = 200;
 
@@ -17,10 +18,12 @@ interface PlaceOrderInput {
   note?:          string;
   guestItems?:    GuestItem[];
   saveAddress?:   boolean;
+  couponCode?:    string;
+  couponDiscount?: number;
 }
 
 export async function placeOrder(input: PlaceOrderInput) {
-  const { recipientName, recipientPhone, addressLine, city, district, note, guestItems, saveAddress } = input;
+  const { recipientName, recipientPhone, addressLine, city, district, note, guestItems, saveAddress, couponCode, couponDiscount } = input;
 
   if (!recipientName?.trim())  return { error: "Ad Soyad gerekli." };
   if (!recipientPhone?.trim()) return { error: "Telefon gerekli." };
@@ -83,7 +86,9 @@ export async function placeOrder(input: PlaceOrderInput) {
       district:       district?.trim() || null,
       note:           note?.trim() || null,
       items:          orderItems,
-      total,
+      total:          Math.max(0, total - (couponDiscount ?? 0)),
+      discount:       couponDiscount ?? 0,
+      couponCode:     couponCode ?? null,
       customerId:     customer.id,
       userId:         session?.userId ?? null,
       status:         "PENDING",
@@ -129,6 +134,10 @@ export async function placeOrder(input: PlaceOrderInput) {
       siteOrderId: order.id,
     },
   });
+
+  if (couponCode) {
+    await useCoupon(couponCode);
+  }
 
   if (session) {
     await prisma.cartItem.deleteMany({

@@ -8,6 +8,7 @@ export type ProductFormData = {
   name: string;
   slug: string;
   description: string;
+  scentNotes?: string;
   price: number;
   comparePrice?: number;
   costPrice?: number;

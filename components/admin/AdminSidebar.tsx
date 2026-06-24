@@ -38,6 +38,7 @@ const navGroups: NavGroup[] = [
     items: [
       { href: "/admin/rapor",       label: "Rapor",          icon: "◉" },
       { href: "/admin/borc-alacak", label: "Borç / Alacak",  icon: "₺" },
+      { href: "/admin/kuponlar",   label: "Kupon Kodları",  icon: "%" },
     ],
   },
 ];
