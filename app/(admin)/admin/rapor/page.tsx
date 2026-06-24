@@ -79,10 +79,11 @@ export default async function RaporPage() {
       });
     }
 
+    const netTotal = Math.max(0, orderTotal - Number(order.discount ?? 0));
     const key = `web-${order.recipientName}`;
     const existing = customerMap.get(key);
-    if (existing) { existing.orderCount += 1; existing.totalSpend += orderTotal; }
-    else customerMap.set(key, { name: order.recipientName ?? "Bilinmiyor", orderCount: 1, totalSpend: orderTotal });
+    if (existing) { existing.orderCount += 1; existing.totalSpend += netTotal; }
+    else customerMap.set(key, { name: order.recipientName ?? "Bilinmiyor", orderCount: 1, totalSpend: netTotal });
   }
 
   for (const order of b2bOrders) {
