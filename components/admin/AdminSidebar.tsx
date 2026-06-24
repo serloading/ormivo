@@ -36,9 +36,7 @@ const navGroups: NavGroup[] = [
   {
     group: "Finans Yönetimi",
     items: [
-      { href: "/admin/finans",      label: "Gelir & Gider", icon: "◈" },
-      { href: "/admin/borc-alacak", label: "Borç / Alacak", icon: "₺" },
-      { href: "/admin/rapor",       label: "Rapor",          icon: "◉" },
+      { href: "/admin/rapor", label: "Rapor", icon: "◉" },
     ],
   },
 ];

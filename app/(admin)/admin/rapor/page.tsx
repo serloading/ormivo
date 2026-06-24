@@ -56,15 +56,16 @@ export default async function RaporPage() {
     for (const item of items) {
       const name = item.productName ?? item.name ?? "—";
       const qty  = item.quantity ?? item.qty ?? 1;
+      const prod2 = item.productId ? productMap.get(item.productId) : null;
       soldItems.push({
         productId:    item.productId ?? null,
         name,
         qty,
         revenue:      item.price * qty,
-        categoryId:   null,
-        categoryName: null,
-        brandId:      null,
-        brandName:    null,
+        categoryId:   prod2?.categoryId ?? null,
+        categoryName: prod2?.category?.name ?? null,
+        brandId:      prod2?.brandId ?? null,
+        brandName:    prod2?.brand?.name ?? null,
         orderDate:    order.createdAt,
         source:       "manuel",
       });
