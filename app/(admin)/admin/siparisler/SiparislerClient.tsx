@@ -868,6 +868,8 @@ export default function SiparislerClient({
           order={editOrder}
           customers={customers}
           products={products}
+          categories={categories}
+          brands={brands}
           onClose={() => setEditOrder(null)}
         />
       )}
@@ -892,71 +894,99 @@ function DeleteButton({ order }: { order: OrderRow }) {
 }
 
 // ---- Edit Order Modal ----
-function EditOrderModal({ order, customers: initCustomers, products: initProducts, onClose }: {
+function EditOrderModal({ order, customers: initCustomers, products: initProducts, categories, brands, onClose }: {
   order: OrderRow;
   customers: Customer[];
   products: ProductOption[];
+  categories: CatBrand[];
+  brands: CatBrand[];
   onClose: () => void;
 }) {
   const router = useRouter();
 
-  // State — pre-filled from existing order
   const [customers, setCustomers] = useState(initCustomers);
   const [products, setProducts] = useState(initProducts);
   const [customerId, setCustomerId] = useState(() => {
-    // For manuel orders, find customer id by matching recipientName
     const match = initCustomers.find((c) => c.name === order.recipientName);
     return match?.id ?? "";
   });
   const [items, setItems] = useState<ItemForm[]>(
     order.items.map((i) => ({ productId: (i as { productId?: string }).productId ?? null, name: i.name, qty: i.qty, price: i.price }))
   );
-  const [status, setStatus] = useState(order.status);
+  const [status, setStatus]               = useState(order.status);
   const [deliveryMethod, setDeliveryMethod] = useState(order.deliveryMethod);
-  const [discount, setDiscount] = useState(String(order.discount || ""));
-  const [note, setNote] = useState(order.note ?? "");
-  const [useManualTotal, setUseManualTotal] = useState(false);
-  const [manualTotal, setManualTotal] = useState(String(order.total));
-  const [pending, startSave] = useTransition();
-  const [error, setError] = useState("");
+  const [discount, setDiscount]           = useState(String(order.discount || ""));
+  const [note, setNote]                   = useState(order.note ?? "");
+  const [manualTotal, setManualTotal]     = useState(String(order.total));
+  const [totalEdited, setTotalEdited]     = useState(false);
+  const [pending, startSave]              = useTransition();
+  const [error, setError]                 = useState("");
 
-  // Inline new customer
-  const [showNewCustomer, setShowNewCustomer] = useState(false);
-  const [newCust, setNewCust] = useState({ name: "", phone: "" });
-  const [custSaving, startCustT] = useTransition();
+  // Yeni müşteri
+  const [showNewCust, setShowNewCust] = useState(false);
+  const [newCust, setNewCust]         = useState({ name: "", phone: "" });
+  const [custSaving, startCustT]      = useTransition();
+
+  // Yeni ürün
+  const [newProdIdx, setNewProdIdx]   = useState<number | null>(null);
+  const [newProd, setNewProd]         = useState({ name: "", price: "", costPrice: "", categoryId: "", brandId: "" });
+  const [prodSaving, startProdT]      = useTransition();
 
   function changeItem(idx: number, field: keyof ItemForm, val: string | number | null) {
     setItems((prev) => prev.map((it, i) => i === idx ? { ...it, [field]: val } : it));
   }
 
+  // Ürünler değişince toplam otomatik güncelle (kullanıcı manuel değiştirmediyse)
+  const autoTotal = items.reduce((s, i) => s + i.qty * i.price, 0);
+  useEffect(() => {
+    if (!totalEdited) setManualTotal(String(autoTotal));
+  }, [autoTotal, totalEdited]);
+
+  const grossTotal  = Number(manualTotal) || 0;
+  const discountAmt = Number(discount) || 0;
+  const netTotal    = Math.max(0, grossTotal - discountAmt);
+
   function saveNewCustomer() {
     if (!newCust.name.trim()) return;
     startCustT(async () => {
       const result = await createCustomer({ name: newCust.name.trim(), phone: newCust.phone.trim() || undefined });
-      const newCustomer: Customer = { id: result.id, name: newCust.name.trim(), phone: newCust.phone.trim() || null };
-      setCustomers((prev) => [...prev, newCustomer].sort((a, b) => a.name.localeCompare(b.name)));
+      const c: Customer = { id: result.id, name: newCust.name.trim(), phone: newCust.phone.trim() || null };
+      setCustomers((prev) => [...prev, c].sort((a, b) => a.name.localeCompare(b.name)));
       setCustomerId(result.id);
       setNewCust({ name: "", phone: "" });
-      setShowNewCustomer(false);
+      setShowNewCust(false);
     });
   }
 
-  const autoTotal = items.reduce((s, i) => s + i.qty * i.price, 0);
-  const grossTotal = useManualTotal ? (Number(manualTotal) || 0) : autoTotal;
-  const discountAmt = Number(discount) || 0;
-  const netTotal = Math.max(0, grossTotal - discountAmt);
+  function saveNewProduct(idx: number) {
+    if (!newProd.name.trim() || !newProd.price) return;
+    startProdT(async () => {
+      const slug = newProd.name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+      await createProduct({
+        name: newProd.name.trim(), slug: `${slug}-${Date.now()}`, description: "",
+        price: Number(newProd.price), costPrice: newProd.costPrice ? Number(newProd.costPrice) : undefined,
+        categoryId: newProd.categoryId || undefined, brandId: newProd.brandId || undefined,
+        stock: 0, isActive: true, images: [],
+      });
+      const p: ProductOption = { id: `temp-${Date.now()}`, name: newProd.name.trim(), price: Number(newProd.price), stock: 0 };
+      setProducts((prev) => [...prev, p]);
+      changeItem(idx, "name", p.name);
+      changeItem(idx, "price", p.price);
+      setNewProd({ name: "", price: "", costPrice: "", categoryId: "", brandId: "" });
+      setNewProdIdx(null);
+    });
+  }
 
   function handleSave() {
     setError("");
     if (order.source === "manuel" && !customerId) { setError("Müşteri seçin."); return; }
     if (items.some((i) => !i.name.trim())) { setError("Tüm ürün isimlerini doldurun."); return; }
-
     startSave(async () => {
       try {
         await updateOrderItems(
           order.id, order.source,
           items.map((i) => ({ productId: i.productId ?? undefined, name: i.name, qty: i.qty, price: i.price })),
-          order.source === "web" ? grossTotal : netTotal, // web: gross, manuel: net (no discount)
+          order.source === "web" ? grossTotal : netTotal,
           note.trim() || null,
           { customerId: order.source === "manuel" ? customerId : undefined, discount: discountAmt, status, deliveryMethod }
         );
@@ -968,62 +998,64 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
     });
   }
 
-  const selectedCustomer = customers.find((c) => c.id === customerId);
+  const selectedCust = customers.find((c) => c.id === customerId);
 
   return (
-    <div className="fixed inset-0 z-[9990] flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[92vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
-          <h2 className="text-base font-semibold text-gray-800">Sipariş Düzenle — #{order.orderNo}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+    <div className="fixed inset-0 z-[9990] flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white w-full max-w-3xl max-h-[95vh] overflow-y-auto shadow-2xl flex flex-col">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-5 border-b border-[#e8ddd6] sticky top-0 bg-white z-10">
+          <div>
+            <p className="text-[10px] tracking-[0.3em] uppercase text-[#8b6f5e]">Sipariş Düzenle</p>
+            <h2 className="text-lg font-light text-[#2c1810] tracking-wide mt-0.5">#{order.orderNo}</h2>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-[#8b6f5e] hover:text-[#2c1810] hover:bg-[#f5f0eb] rounded-sm transition-colors text-xl">×</button>
         </div>
 
-        <div className="p-5 space-y-4">
+        <div className="p-6 space-y-6">
+
+          {/* Müşteri + Durum */}
           <div className="grid grid-cols-2 gap-4">
-            {/* Müşteri */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                Müşteri {order.source === "web" && <span className="text-gray-400">(web siparişi)</span>}
+              <label className="block text-[10px] tracking-widest uppercase text-[#8b6f5e] mb-2">
+                Müşteri {order.source === "web" && <span className="normal-case text-[#b8a89e]">(web siparişi)</span>}
               </label>
               {order.source === "web" ? (
-                <div className="border border-gray-200 rounded px-3 py-2 text-sm text-gray-700 bg-gray-50">
-                  {order.recipientName}
-                  {order.recipientPhone && <span className="text-gray-400 ml-2">{order.recipientPhone}</span>}
-                  {selectedCustomer && (
-                    <a href={`/admin/musteriler/${selectedCustomer.id}`} target="_blank" rel="noreferrer"
-                      className="ml-2 text-xs text-indigo-500 hover:text-indigo-700">Profil →</a>
-                  )}
+                <div className="border border-[#e8ddd6] bg-[#faf8f6] px-3 py-2.5 text-sm text-[#2c1810] rounded-sm">
+                  <span className="font-medium">{order.recipientName}</span>
+                  {order.recipientPhone && <span className="text-[#8b6f5e] ml-2 text-xs">{order.recipientPhone}</span>}
                 </div>
-              ) : showNewCustomer ? (
-                <div className="border border-indigo-200 rounded p-3 bg-indigo-50 space-y-2">
-                  <p className="text-xs font-medium text-indigo-700">Yeni Müşteri</p>
+              ) : showNewCust ? (
+                <div className="border border-[#d4c5ba] bg-[#faf8f6] p-3 rounded-sm space-y-2">
+                  <p className="text-xs font-medium text-[#5c4033]">Yeni Müşteri</p>
                   <input value={newCust.name} onChange={(e) => setNewCust((p) => ({ ...p, name: e.target.value }))}
-                    placeholder="İsim *" autoFocus className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-indigo-400" />
+                    placeholder="İsim *" autoFocus
+                    className="w-full border border-[#d4c5ba] rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-[#8b6f5e]" />
                   <input value={newCust.phone} onChange={(e) => setNewCust((p) => ({ ...p, phone: e.target.value }))}
-                    placeholder="Telefon (opsiyonel)" className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-indigo-400" />
+                    placeholder="Telefon (opsiyonel)"
+                    className="w-full border border-[#d4c5ba] rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-[#8b6f5e]" />
                   <div className="flex gap-2">
                     <button type="button" onClick={saveNewCustomer} disabled={!newCust.name.trim() || custSaving}
-                      className="flex-1 bg-indigo-600 text-white text-xs py-1.5 rounded disabled:opacity-60">
+                      className="flex-1 bg-[#2c1810] text-white text-xs py-2 rounded-sm disabled:opacity-50">
                       {custSaving ? "Kaydediliyor..." : "Kaydet"}
                     </button>
-                    <button type="button" onClick={() => setShowNewCustomer(false)} className="text-xs text-gray-400 px-2">İptal</button>
+                    <button type="button" onClick={() => setShowNewCust(false)} className="text-xs text-[#8b6f5e] px-3">İptal</button>
                   </div>
                 </div>
               ) : (
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <select value={customerId} onChange={(e) => setCustomerId(e.target.value)}
-                    className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                    className="w-full border border-[#d4c5ba] rounded-sm px-3 py-2.5 text-sm text-[#2c1810] focus:outline-none focus:border-[#8b6f5e] bg-white">
                     <option value="">Müşteri seçin...</option>
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}{c.phone ? ` — ${c.phone}` : ""}</option>
-                    ))}
+                    {customers.map((c) => <option key={c.id} value={c.id}>{c.name}{c.phone ? ` — ${c.phone}` : ""}</option>)}
                   </select>
-                  <div className="flex gap-2">
-                    {customerId && (
-                      <a href={`/admin/musteriler/${customerId}`} target="_blank" rel="noreferrer"
-                        className="text-xs text-indigo-500 hover:text-indigo-700">Profil →</a>
+                  <div className="flex gap-3">
+                    {selectedCust && (
+                      <a href={`/admin/musteriler/${selectedCust.id}`} target="_blank" rel="noreferrer"
+                        className="text-xs text-[#8b6f5e] hover:text-[#2c1810]">Profil →</a>
                     )}
-                    <button type="button" onClick={() => setShowNewCustomer(true)} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
+                    <button type="button" onClick={() => setShowNewCust(true)} className="text-xs text-[#5c4033] hover:text-[#2c1810] font-medium">
                       + Yeni müşteri ekle
                     </button>
                   </div>
@@ -1031,11 +1063,10 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
               )}
             </div>
 
-            {/* Durum */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Sipariş Durumu</label>
+              <label className="block text-[10px] tracking-widest uppercase text-[#8b6f5e] mb-2">Sipariş Durumu</label>
               <select value={status} onChange={(e) => setStatus(e.target.value)}
-                className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                className="w-full border border-[#d4c5ba] rounded-sm px-3 py-2.5 text-sm text-[#2c1810] focus:outline-none focus:border-[#8b6f5e] bg-white">
                 {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
@@ -1043,107 +1074,156 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
 
           {/* Teslimat */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-2">Teslimat Yöntemi</label>
-            <div className="flex gap-3">
+            <label className="block text-[10px] tracking-widest uppercase text-[#8b6f5e] mb-2">Teslimat Yöntemi</label>
+            <div className="flex gap-2">
               {Object.entries(DELIVERY_LABELS).map(([k, v]) => (
-                <label key={k} className={`flex items-center gap-2 px-4 py-2.5 rounded border cursor-pointer transition-colors ${deliveryMethod === k ? DELIVERY_COLORS[k] + " border-current" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
-                  <input type="radio" name="edit_deliveryMethod" value={k} checked={deliveryMethod === k} onChange={() => setDeliveryMethod(k)} className="sr-only" />
-                  <span className="text-sm font-medium">{v}</span>
-                </label>
+                <button key={k} type="button" onClick={() => setDeliveryMethod(k)}
+                  className={`px-5 py-2.5 text-sm font-medium border rounded-sm transition-colors ${deliveryMethod === k ? "bg-[#2c1810] text-white border-[#2c1810]" : "border-[#d4c5ba] text-[#5c4033] hover:bg-[#f5f0eb]"}`}>
+                  {v}
+                </button>
               ))}
             </div>
           </div>
 
           {/* Ürünler */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-2">Ürünler *</label>
+            <label className="block text-[10px] tracking-widest uppercase text-[#8b6f5e] mb-3">Ürünler</label>
             <div className="space-y-2">
               {items.map((item, idx) => (
-                <div key={idx} className="flex gap-2 items-start">
-                  <div className="flex-1">
-                    <ProductInput item={item} idx={idx} products={products} onChange={changeItem} />
-                  </div>
-                  <div className="flex flex-col gap-0.5">
-                    <label className="text-[10px] text-gray-400">Adet</label>
-                    <input type="number" min="1" value={item.qty} onChange={(e) => changeItem(idx, "qty", Number(e.target.value))}
-                      className="w-14 border border-gray-200 rounded px-2 py-1.5 text-sm text-center focus:outline-none focus:border-indigo-400" />
-                  </div>
-                  <div className="flex flex-col gap-0.5">
-                    <label className="text-[10px] text-gray-400">Fiyat (₺)</label>
-                    <input type="number" min="0" value={item.price} onChange={(e) => changeItem(idx, "price", Number(e.target.value))}
-                      className="w-24 border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-indigo-400" />
-                  </div>
-                  <div className="flex flex-col gap-0.5">
-                    <label className="text-[10px] text-gray-400">Toplam</label>
-                    <div className="w-24 px-2 py-1.5 text-sm font-medium text-gray-700 bg-gray-50 border border-gray-100 rounded text-right">
-                      {(item.qty * item.price).toLocaleString("tr-TR")} ₺
+                <div key={idx} className="border border-[#e8ddd6] rounded-sm bg-[#faf8f6] p-3 space-y-2">
+                  <div className="flex gap-2 items-start">
+                    <div className="flex-1">
+                      <ProductInput item={item} idx={idx} products={products} onChange={changeItem} />
                     </div>
-                  </div>
-                  <div className="flex flex-col gap-0.5">
-                    <label className="text-[10px] text-gray-400 invisible">Del</label>
+                    <div className="flex flex-col gap-0.5">
+                      <label className="text-[10px] text-[#8b6f5e]">Adet</label>
+                      <input type="number" min="1" value={item.qty}
+                        onChange={(e) => changeItem(idx, "qty", Number(e.target.value))}
+                        className="w-16 border border-[#d4c5ba] rounded-sm px-2 py-1.5 text-sm text-center focus:outline-none focus:border-[#8b6f5e] bg-white" />
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <label className="text-[10px] text-[#8b6f5e]">Fiyat (₺)</label>
+                      <input type="number" min="0" value={item.price}
+                        onChange={(e) => changeItem(idx, "price", Number(e.target.value))}
+                        className="w-24 border border-[#d4c5ba] rounded-sm px-2 py-1.5 text-sm focus:outline-none focus:border-[#8b6f5e] bg-white" />
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <label className="text-[10px] text-[#8b6f5e]">Toplam</label>
+                      <div className="w-24 px-2 py-1.5 text-sm font-medium text-[#2c1810] bg-white border border-[#e8ddd6] rounded-sm text-right">
+                        {(item.qty * item.price).toLocaleString("tr-TR")} ₺
+                      </div>
+                    </div>
                     {items.length > 1 && (
-                      <button type="button" onClick={() => setItems((p) => p.filter((_, i) => i !== idx))}
-                        className="w-8 h-8 flex items-center justify-center text-red-400 hover:text-red-600 border border-red-100 rounded hover:bg-red-50">✕</button>
+                      <div className="flex flex-col gap-0.5">
+                        <label className="text-[10px] invisible">—</label>
+                        <button type="button" onClick={() => setItems((p) => p.filter((_, i) => i !== idx))}
+                          className="w-8 h-8 flex items-center justify-center text-red-400 hover:text-red-600 border border-red-100 rounded-sm hover:bg-red-50 transition-colors">✕</button>
+                      </div>
                     )}
                   </div>
+                  {/* Yeni ürün ekleme butonu her satırda */}
+                  {newProdIdx === idx ? (
+                    <div className="border-t border-[#e8ddd6] pt-2 space-y-2">
+                      <p className="text-xs font-medium text-[#5c4033]">Yeni Ürün Ekle</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input value={newProd.name} onChange={(e) => setNewProd((p) => ({ ...p, name: e.target.value }))}
+                          placeholder="Ürün adı *" autoFocus
+                          className="border border-[#d4c5ba] rounded-sm px-2 py-1.5 text-xs focus:outline-none focus:border-[#8b6f5e]" />
+                        <input value={newProd.price} onChange={(e) => setNewProd((p) => ({ ...p, price: e.target.value }))}
+                          placeholder="Satış fiyatı *" type="number"
+                          className="border border-[#d4c5ba] rounded-sm px-2 py-1.5 text-xs focus:outline-none focus:border-[#8b6f5e]" />
+                        <input value={newProd.costPrice} onChange={(e) => setNewProd((p) => ({ ...p, costPrice: e.target.value }))}
+                          placeholder="Maliyet fiyatı" type="number"
+                          className="border border-[#d4c5ba] rounded-sm px-2 py-1.5 text-xs focus:outline-none focus:border-[#8b6f5e]" />
+                        <select value={newProd.categoryId} onChange={(e) => setNewProd((p) => ({ ...p, categoryId: e.target.value }))}
+                          className="border border-[#d4c5ba] rounded-sm px-2 py-1.5 text-xs focus:outline-none focus:border-[#8b6f5e] bg-white">
+                          <option value="">Kategori seç</option>
+                          {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                        <select value={newProd.brandId} onChange={(e) => setNewProd((p) => ({ ...p, brandId: e.target.value }))}
+                          className="border border-[#d4c5ba] rounded-sm px-2 py-1.5 text-xs focus:outline-none focus:border-[#8b6f5e] bg-white">
+                          <option value="">Marka seç</option>
+                          {brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                        </select>
+                      </div>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => saveNewProduct(idx)} disabled={!newProd.name.trim() || !newProd.price || prodSaving}
+                          className="flex-1 bg-[#2c1810] text-white text-xs py-1.5 rounded-sm disabled:opacity-50">
+                          {prodSaving ? "Kaydediliyor..." : "Ürünü Kaydet & Seç"}
+                        </button>
+                        <button type="button" onClick={() => setNewProdIdx(null)} className="text-xs text-[#8b6f5e] px-3">İptal</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button type="button" onClick={() => { setNewProdIdx(idx); setNewProd({ name: item.name, price: String(item.price || ""), costPrice: "", categoryId: "", brandId: "" }); }}
+                      className="text-[11px] text-[#8b6f5e] hover:text-[#2c1810] transition-colors">
+                      + Listede yoksa yeni ürün ekle
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
             <button type="button" onClick={() => setItems((p) => [...p, { productId: null, name: "", qty: 1, price: 0 }])}
-              className="text-xs text-indigo-600 hover:text-indigo-800 font-medium mt-2">+ Ürün Satırı Ekle</button>
+              className="mt-2 text-xs text-[#5c4033] hover:text-[#2c1810] font-medium border border-dashed border-[#d4c5ba] rounded-sm px-4 py-2 w-full hover:bg-[#faf8f6] transition-colors">
+              + Ürün Satırı Ekle
+            </button>
           </div>
 
-          {/* Tutar + İskonto */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <label className="text-xs font-medium text-gray-600">Toplam Tutar</label>
-                <label className="flex items-center gap-1 text-[10px] text-gray-500 cursor-pointer">
-                  <input type="checkbox" checked={useManualTotal} onChange={(e) => setUseManualTotal(e.target.checked)} />
-                  Manuel gir
+          {/* Tutar */}
+          <div className="border border-[#e8ddd6] rounded-sm p-4 bg-[#faf8f6] space-y-3">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] tracking-widest uppercase text-[#8b6f5e] mb-1.5">
+                  Toplam Tutar (₺)
+                  {totalEdited && <span className="ml-2 normal-case text-[#b8a89e]">manuel</span>}
                 </label>
+                <input type="number" min="0" value={manualTotal}
+                  onChange={(e) => { setManualTotal(e.target.value); setTotalEdited(true); }}
+                  className="w-full border border-[#d4c5ba] rounded-sm px-3 py-2.5 text-sm text-[#2c1810] font-medium focus:outline-none focus:border-[#8b6f5e] bg-white" />
+                {totalEdited && (
+                  <button type="button" onClick={() => { setManualTotal(String(autoTotal)); setTotalEdited(false); }}
+                    className="text-[10px] text-[#8b6f5e] hover:text-[#2c1810] mt-1">
+                    ↺ Otomatik hesapla ({autoTotal.toLocaleString("tr-TR")} ₺)
+                  </button>
+                )}
               </div>
-              {useManualTotal
-                ? <input type="number" min="0" value={manualTotal} onChange={(e) => setManualTotal(e.target.value)}
-                    className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-400" />
-                : <div className="text-lg font-bold text-gray-800 py-1">{autoTotal.toLocaleString("tr-TR")} ₺</div>
-              }
+              <div>
+                <label className="block text-[10px] tracking-widest uppercase text-[#8b6f5e] mb-1.5">İskonto (₺)</label>
+                <input type="number" min="0" value={discount} onChange={(e) => setDiscount(e.target.value)} placeholder="0"
+                  className="w-full border border-[#d4c5ba] rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-[#8b6f5e] bg-white" />
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">İskonto (₺)</label>
-              <input type="number" min="0" value={discount} onChange={(e) => setDiscount(e.target.value)} placeholder="0"
-                className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-400" />
-            </div>
+            {discountAmt > 0 && (
+              <div className="flex items-center gap-2 text-sm border-t border-[#e8ddd6] pt-3">
+                <span className="text-[#8b6f5e]">{grossTotal.toLocaleString("tr-TR")} ₺</span>
+                <span className="text-[#b8a89e]">−</span>
+                <span className="text-orange-600">{discountAmt.toLocaleString("tr-TR")} ₺ iskonto</span>
+                <span className="text-[#b8a89e]">=</span>
+                <span className="font-semibold text-[#2c1810] text-base">{netTotal.toLocaleString("tr-TR")} ₺</span>
+              </div>
+            )}
           </div>
-
-          {discountAmt > 0 && (
-            <div className="bg-green-50 border border-green-200 rounded px-3 py-2 text-sm">
-              <span className="text-gray-600">Brüt: {grossTotal.toLocaleString("tr-TR")}₺</span>
-              <span className="mx-2 text-gray-400">−</span>
-              <span className="text-orange-600">İskonto: {discountAmt.toLocaleString("tr-TR")}₺</span>
-              <span className="mx-2 text-gray-400">=</span>
-              <span className="font-bold text-green-700">Net: {netTotal.toLocaleString("tr-TR")}₺</span>
-            </div>
-          )}
 
           {/* Not */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Not (opsiyonel)</label>
+            <label className="block text-[10px] tracking-widest uppercase text-[#8b6f5e] mb-1.5">Not</label>
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Sipariş notu..."
-              className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-400 resize-none" />
+              className="w-full border border-[#d4c5ba] rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-[#8b6f5e] resize-none bg-[#faf8f6]" />
           </div>
 
-          {error && <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded">{error}</p>}
+          {error && <p className="text-xs text-red-500 bg-red-50 border border-red-100 px-3 py-2 rounded-sm">{error}</p>}
+        </div>
 
-          <div className="flex gap-3 pt-1">
-            <button type="button" onClick={handleSave} disabled={pending}
-              className="flex-1 bg-indigo-600 text-white py-2.5 rounded text-sm font-medium hover:bg-indigo-700 disabled:opacity-60 transition-colors">
-              {pending ? "Kaydediliyor..." : `Kaydet${netTotal > 0 ? ` — ${netTotal.toLocaleString("tr-TR")}₺` : ""}`}
-            </button>
-            <button type="button" onClick={onClose} className="px-5 py-2 border border-gray-200 rounded text-sm text-gray-600 hover:bg-gray-50">
-              İptal
-            </button>
-          </div>
+        {/* Footer */}
+        <div className="sticky bottom-0 bg-white border-t border-[#e8ddd6] px-6 py-4 flex gap-3">
+          <button type="button" onClick={handleSave} disabled={pending}
+            className="flex-1 bg-[#2c1810] text-[#f5f0eb] py-3 text-sm tracking-widest uppercase font-light hover:bg-[#3d2418] disabled:opacity-50 transition-colors">
+            {pending ? "Kaydediliyor..." : `Kaydet — ${netTotal.toLocaleString("tr-TR")} ₺`}
+          </button>
+          <button type="button" onClick={onClose}
+            className="px-6 py-3 border border-[#d4c5ba] text-sm text-[#5c4033] hover:bg-[#f5f0eb] transition-colors">
+            İptal
+          </button>
         </div>
       </div>
     </div>
