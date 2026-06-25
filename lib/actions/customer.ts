@@ -49,7 +49,7 @@ async function generateCustomerNo(): Promise<string> {
 export async function createCustomer(data: CustomerFormData) {
   try {
     const customerNo = await generateCustomerNo();
-    const customer = await prisma.customer.create({ data: { ...data, customerNo } });
+    const customer = await prisma.customer.create({ data: { ...data, customerNo, tags: [] } });
     revalidatePath("/admin/musteriler");
     revalidatePath("/admin/siparisler");
     return { success: true, id: customer.id, error: null };
