@@ -796,7 +796,8 @@ export default function SiparislerClient({
               <th className="px-4 py-3">Müşteri</th>
               <th className="px-4 py-3">Ürünler</th>
               <th className="px-4 py-3">Tutar</th>
-              <th className="px-4 py-3">İndirimli</th>
+              <th className="px-4 py-3">İndirim</th>
+              <th className="px-4 py-3">İndirimli Tutar</th>
               <th className="px-4 py-3">Durum</th>
               <th className="px-4 py-3">Ödeme</th>
               <th className="px-4 py-3">Teslimat</th>
@@ -839,22 +840,34 @@ export default function SiparislerClient({
                     ))}
                   </div>
                 </td>
+                {/* Tutar: ürünlerin orijinal fiyat toplamı */}
                 <td className="px-4 py-3 whitespace-nowrap">
-                  <div className="text-xs text-gray-500">Toplam</div>
                   <div className="font-medium text-gray-800 text-sm">
                     {order.items.reduce((s, i) => s + i.qty * i.price, 0).toLocaleString("tr-TR")} ₺
                   </div>
                 </td>
-                <td className="px-4 py-3">
+                {/* İndirim */}
+                <td className="px-4 py-3 whitespace-nowrap">
                   {order.source === "web" ? (
                     <div>
-                      <div className="font-bold text-gray-800 text-sm whitespace-nowrap">{order.total.toLocaleString("tr-TR")} ₺</div>
-                      <div className="mt-1"><DiscountEditor order={order} /></div>
+                      <DiscountEditor order={order} />
                       {order.discount > 0 && (
-                        <div className="text-[10px] text-green-700 mt-0.5 font-medium">
-                          Net: {(order.total - order.discount).toLocaleString("tr-TR")} ₺
+                        <div className="text-xs text-orange-600 font-medium mt-0.5">
+                          -{order.discount.toLocaleString("tr-TR")} ₺
                         </div>
                       )}
+                    </div>
+                  ) : (
+                    order.discount > 0
+                      ? <span className="text-xs text-orange-600 font-medium">-{order.discount.toLocaleString("tr-TR")} ₺</span>
+                      : <span className="text-xs text-gray-300">—</span>
+                  )}
+                </td>
+                {/* İndirimli Tutar: net ödenecek */}
+                <td className="px-4 py-3 whitespace-nowrap">
+                  {order.source === "web" ? (
+                    <div className="font-bold text-gray-800 text-sm">
+                      {(order.total - order.discount).toLocaleString("tr-TR")} ₺
                     </div>
                   ) : (
                     <TotalEditor order={order} />
