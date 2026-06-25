@@ -83,7 +83,7 @@ export default function RaporClient({ soldItems, financeSummary, urunMaliyeti, c
   const urunGider  = urunMaliyeti.filter((f) => inMonth(f.date)).reduce((s, f) => s + f.amount, 0);
   const kar = gelir - kargoGider - urunGider;
 
-  const fmt = (n: number) => n.toLocaleString("tr-TR", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  const fmt = (n: number) => Math.round(n).toLocaleString("tr-TR", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   const monthLabel = monthFilter
     ? `${MONTHS[parseInt(monthFilter.split("-")[1]) - 1]} ${monthFilter.split("-")[0]}`
     : "Tüm Zamanlar";
