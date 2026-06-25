@@ -82,16 +82,20 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     startTransition(async () => {
-      if (editing) {
-        await updateCustomer(editing.id, form);
-        await updateCustomerSegment(editing.id, formSegment || null);
-        await updateCustomerTags(editing.id, formTags);
-      } else {
-        await createCustomer(form);
-        // segment/tags set sonradan — createCustomer ID döndürmüyor, refresh'ten sonra profil üzerinden yapılır
+      try {
+        if (editing) {
+          await updateCustomer(editing.id, form);
+          await updateCustomerSegment(editing.id, formSegment || null);
+          await updateCustomerTags(editing.id, formTags);
+        } else {
+          await createCustomer(form);
+        }
+        router.refresh();
+        setModal(false);
+      } catch (err) {
+        console.error("Müşteri kaydedilemedi:", err);
+        alert("Kayıt sırasında hata oluştu. Lütfen tekrar deneyin.");
       }
-      router.refresh();
-      setModal(false);
     });
   }
 

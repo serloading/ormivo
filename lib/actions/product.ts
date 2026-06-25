@@ -25,7 +25,7 @@ export async function getProducts() {
   return prisma.product.findMany({
     where: { deletedAt: null },
     include: { category: true, brand: true },
-    orderBy: { createdAt: "desc" },
+    orderBy: { name: "asc" },
   });
 }
 

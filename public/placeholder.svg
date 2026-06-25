@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" width="600" height="800">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#F7F4F0"/>
+      <stop offset="100%" style="stop-color:#EDE8E0"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#D4B896"/>
+      <stop offset="50%" style="stop-color:#C4A882"/>
+      <stop offset="100%" style="stop-color:#A8896A"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Arkaplan -->
+  <rect width="600" height="800" fill="url(#bg)"/>
+
+  <!-- İnce çerçeve -->
+  <rect x="20" y="20" width="560" height="760" fill="none" stroke="#D4C4B0" stroke-width="1" opacity="0.6"/>
+  <rect x="30" y="30" width="540" height="740" fill="none" stroke="#D4C4B0" stroke-width="0.5" opacity="0.4"/>
+
+  <!-- Merkez dekoratif daire -->
+  <circle cx="300" cy="340" r="120" fill="none" stroke="url(#gold)" stroke-width="1" opacity="0.5"/>
+  <circle cx="300" cy="340" r="90" fill="none" stroke="url(#gold)" stroke-width="0.5" opacity="0.3"/>
+
+  <!-- Parfüm şişesi silueti -->
+  <g transform="translate(300, 340)">
+    <!-- Şişe gövdesi -->
+    <rect x="-32" y="-60" width="64" height="90" rx="8" fill="none" stroke="url(#gold)" stroke-width="1.5"/>
+    <!-- Şişe boynu -->
+    <rect x="-10" y="-80" width="20" height="24" rx="3" fill="none" stroke="url(#gold)" stroke-width="1.5"/>
+    <!-- Kapak -->
+    <rect x="-14" y="-90" width="28" height="14" rx="2" fill="none" stroke="url(#gold)" stroke-width="1.5"/>
+    <!-- İç detay çizgiler -->
+    <line x1="-20" y1="-40" x2="20" y2="-40" stroke="url(#gold)" stroke-width="0.5" opacity="0.5"/>
+    <line x1="-20" y1="-20" x2="20" y2="-20" stroke="url(#gold)" stroke-width="0.5" opacity="0.5"/>
+    <!-- Etiket alanı -->
+    <rect x="-22" y="-55" width="44" height="55" rx="3" fill="none" stroke="url(#gold)" stroke-width="0.5" opacity="0.4"/>
+  </g>
+
+  <!-- Köşe süslemeleri -->
+  <g opacity="0.3" stroke="url(#gold)" stroke-width="0.8" fill="none">
+    <path d="M 50 50 L 50 80 M 50 50 L 80 50"/>
+    <path d="M 550 50 L 520 50 M 550 50 L 550 80"/>
+    <path d="M 50 750 L 50 720 M 50 750 L 80 750"/>
+    <path d="M 550 750 L 520 750 M 550 750 L 550 720"/>
+  </g>
+
+  <!-- Yatay dekoratif çizgi -->
+  <line x1="80" y1="500" x2="520" y2="500" stroke="url(#gold)" stroke-width="0.5" opacity="0.4"/>
+  <line x1="140" y1="508" x2="460" y2="508" stroke="url(#gold)" stroke-width="0.3" opacity="0.3"/>
+
+  <!-- ORMIVO logosu -->
+  <text x="300" y="560" font-family="Georgia, serif" font-size="22" letter-spacing="12" fill="url(#gold)" text-anchor="middle" opacity="0.8">ORMIVO</text>
+
+  <!-- Yakında yazısı -->
+  <text x="300" y="610" font-family="Georgia, serif" font-size="13" letter-spacing="5" fill="#B8A89A" text-anchor="middle" opacity="0.7">YAKINDA</text>
+
+  <!-- Alt ince çizgi -->
+  <line x1="220" y1="628" x2="380" y2="628" stroke="#C4A882" stroke-width="0.5" opacity="0.4"/>
+
+  <!-- Küçük alt yazı -->
+  <text x="300" y="660" font-family="Georgia, serif" font-size="10" letter-spacing="2" fill="#C0B0A0" text-anchor="middle" opacity="0.5">Ürün görseli yakında eklenecek</text>
+</svg>
