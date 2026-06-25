@@ -28,6 +28,7 @@ const nextConfig: NextConfig = {
   images: {
     localPatterns: [
       { pathname: "/uploads/**" },
+      { pathname: "/*.svg" },
     ],
     remotePatterns: [
       { protocol: "https", hostname: "*.supabase.co" },
