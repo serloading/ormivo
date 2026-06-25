@@ -18,7 +18,7 @@ const CAT_HEADINGS: Record<string, string> = {
   kadin:            "Kadın Parfümleri",
   erkek:            "Erkek Parfümleri",
   unisex:           "Unisex Parfümler",
-  "ozel-koleksiyon":"Özel Koleksiyon",
+
 };
 
 function buildHref(current: { kategori: string; marka: string; sirala: string }, key: string, value: string) {
@@ -40,13 +40,11 @@ export default async function UrunlerPage({
   const marka    = sp.marka    ?? "";
   const sirala   = sp.sirala   ?? "";
 
-  const isOzelFilter = kategori === "ozel-koleksiyon";
   const where = {
     deletedAt: null,
     isActive: true,
-    ...(isOzelFilter              ? { isOzelKoleksiyon: true }           : {}),
-    ...(kategori && !isOzelFilter ? { category: { slug: kategori } }     : {}),
-    ...(marka                     ? { brand:    { slug: marka    } }     : {}),
+    ...(kategori ? { category: { slug: kategori } } : {}),
+    ...(marka    ? { brand:    { slug: marka    } } : {}),
   };
 
   const orderBy =

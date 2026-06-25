@@ -423,7 +423,8 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, categ
     startCustT(async () => {
       try {
         const result = await createCustomer({ name: newCust.name.trim(), phone: newCust.phone.trim() || undefined });
-        if (!result?.id) throw new Error("Müşteri ID alınamadı.");
+        if (result?.error) { setError("Müşteri eklenemedi: " + result.error); return; }
+        if (!result?.id) { setError("Müşteri eklenemedi: ID alınamadı."); return; }
         const newCustomer: Customer = { id: result.id, name: newCust.name.trim(), phone: newCust.phone.trim() || null };
         setCustomers((prev) => [...prev, newCustomer].sort((a, b) => a.name.localeCompare(b.name)));
         setCustomerId(result.id);
@@ -960,7 +961,8 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
     startCustT(async () => {
       try {
         const result = await createCustomer({ name: newCust.name.trim(), phone: newCust.phone.trim() || undefined });
-        if (!result?.id) throw new Error("Müşteri ID alınamadı.");
+        if (result?.error) { setError("Müşteri eklenemedi: " + result.error); return; }
+        if (!result?.id) { setError("Müşteri eklenemedi: ID alınamadı."); return; }
         const c: Customer = { id: result.id, name: newCust.name.trim(), phone: newCust.phone.trim() || null };
         setCustomers((prev) => [...prev, c].sort((a, b) => a.name.localeCompare(b.name)));
         setCustomerId(result.id);

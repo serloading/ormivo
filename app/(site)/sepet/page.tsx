@@ -32,7 +32,7 @@ export default async function SepetPage() {
   const items = cart?.items ?? [];
 
   // Cinsiyet tespiti: sepetteki ürünlerin kategorilerine bakarak
-  type CartProduct = { id: string; name: string; price: unknown; brand?: { name: string } | null; images: string[]; slug: string; categoryId?: string | null };
+  type CartProduct = { id: string; name: string; price: unknown; brand?: { name: string; slug: string } | null; images: string[]; slug: string; categoryId?: string | null };
   const cartCategoryIds = [...new Set(
     items.map((i) => (i.product as CartProduct).categoryId).filter(Boolean) as string[]
   )];

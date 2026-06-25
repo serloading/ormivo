@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 
-export default function ProductGallery({ images, name }: { images: string[]; name: string }) {
+export default function ProductGallery({ images, name, showDiscountBadge, isBestSeller }: { images: string[]; name: string; showDiscountBadge?: boolean; isBestSeller?: boolean }) {
   const [active, setActive] = useState(0);
 
   if (!images.length) {
@@ -33,6 +33,17 @@ export default function ProductGallery({ images, name }: { images: string[]; nam
         {/* Köşe aksanlar */}
         <span className="absolute top-4 left-4 w-8 h-8 border-t border-l border-[#C4A882]/30 pointer-events-none" />
         <span className="absolute bottom-4 right-4 w-8 h-8 border-b border-r border-[#C4A882]/30 pointer-events-none" />
+        {/* Badgeler */}
+        {showDiscountBadge && (
+          <span className="absolute top-3 left-3 z-10 bg-[#C4A882] text-white font-sans text-[9px] tracking-widest px-2.5 py-1 uppercase font-medium pointer-events-none">
+            %20 İndirim
+          </span>
+        )}
+        {isBestSeller && (
+          <span className="absolute top-3 right-3 z-10 bg-[#1A1A1A] text-[#C4A882] font-sans text-[9px] tracking-widest px-2.5 py-1 uppercase font-medium pointer-events-none">
+            ★ En Çok Satan
+          </span>
+        )}
       </div>
 
       {/* Thumbnail'lar */}

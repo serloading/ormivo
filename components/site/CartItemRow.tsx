@@ -15,7 +15,7 @@ interface CartItemRowProps {
       slug:   string;
       price:  unknown;
       images: string[];
-      brand?: { name: string } | null;
+      brand?: { name: string; slug: string } | null;
     };
   };
 }
@@ -34,21 +34,23 @@ export default function CartItemRow({ item }: CartItemRowProps) {
   return (
     <div className={`flex gap-4 bg-white border border-[#E8E4DE] p-4 transition-opacity ${pending ? "opacity-50" : ""}`}>
       {/* Görsel */}
-      <div className="w-20 h-24 bg-[#F7F4F0] shrink-0 relative overflow-hidden">
+      <Link href={`/urunler/${item.product.slug}`} className="w-20 h-24 bg-[#F7F4F0] shrink-0 relative overflow-hidden block">
         {img ? (
-          <Image src={img} alt={item.product.name} fill className="object-contain p-2" />
+          <Image src={img} alt={item.product.name} fill className="object-contain p-2 hover:scale-[1.03] transition-transform duration-300" />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center font-serif text-2xl text-[#C4A882] opacity-20">◈</div>
         )}
-      </div>
+      </Link>
 
       {/* Bilgi */}
       <div className="flex-1 min-w-0 flex flex-col justify-between">
         <div>
           {item.product.brand?.name && (
-            <p className="font-sans text-[9px] tracking-[0.2em] text-[#C4A882] mb-0.5" lang="en" style={{ textTransform: 'uppercase' }}>
+            <Link href={`/?marka=${item.product.brand.slug}`}
+              className="font-sans text-[9px] tracking-[0.2em] text-[#C4A882] mb-0.5 hover:text-[#8B6F4E] transition-colors block"
+              style={{ textTransform: 'uppercase' }}>
               {item.product.brand.name}
-            </p>
+            </Link>
           )}
           <Link href={`/urunler/${item.product.slug}`} className="font-sans text-sm text-[#1A1A1A] leading-snug line-clamp-2 hover:text-[#C4A882] transition-colors">
             {item.product.name}

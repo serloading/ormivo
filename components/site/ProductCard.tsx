@@ -39,13 +39,13 @@ export default function ProductCard({ product }: { product: Product }) {
         )}
         {/* Sol üst: %20 indirim badge */}
         {compare && (
-          <span className="absolute top-3 left-3 bg-[#C4A882] text-white font-sans text-[9px] tracking-widest px-2.5 py-1 uppercase font-medium">
+          <span className="absolute top-2 left-2 bg-[#C4A882] text-white font-sans text-[10px] tracking-widest px-3 py-1.5 uppercase font-semibold shadow-sm">
             %20 İndirim
           </span>
         )}
         {/* Sağ üst: En çok satan badge */}
         {product.isBestSeller && (
-          <span className="absolute top-3 right-3 bg-[#1A1A1A] text-[#C4A882] font-sans text-[9px] tracking-widest px-2.5 py-1 uppercase font-medium">
+          <span className="absolute top-2 right-2 bg-[#1A1A1A] text-[#C4A882] font-sans text-[10px] tracking-widest px-3 py-1.5 uppercase font-semibold shadow-sm">
             ★ En Çok Satan
           </span>
         )}

@@ -5,7 +5,7 @@ import BorcAlacakClient from "@/components/admin/BorcAlacakClient";
 export const metadata = { title: "Borç/Alacak — Ormivo Admin" };
 
 export default async function BorcAlacakPage() {
-  const [customerDebts, supplierDebts, customers, orders, stats, pendingSiteOrders] = await Promise.all([
+  const [customerDebts, supplierDebts, customers, orders, stats, pendingSiteOrders, pendingB2BOrders] = await Promise.all([
     prisma.customerDebt.findMany({
       include: { customer: true, order: true, payments: { orderBy: { paidAt: "desc" } } },
       orderBy: { createdAt: "desc" },
@@ -22,6 +22,11 @@ export default async function BorcAlacakPage() {
       orderBy: { createdAt: "desc" },
       include: { user: { select: { name: true, phone: true } } },
     }),
+    prisma.order.findMany({
+      where: { paymentStatus: "PENDING", status: { not: "CANCELLED" } },
+      orderBy: { createdAt: "desc" },
+      include: { customer: { select: { name: true, phone: true } } },
+    }),
   ]);
 
   const rawNames = (supplierDebts as Array<{ supplierName: string }>).map((d) => d.supplierName);
@@ -36,6 +41,7 @@ export default async function BorcAlacakPage() {
       supplierNames={supplierNames}
       stats={stats}
       pendingSiteOrders={pendingSiteOrders as never}
+      pendingB2BOrders={pendingB2BOrders as never}
     />
   );
 }

@@ -63,12 +63,10 @@ export default async function HomePage({
   const sirala   = sp.sirala   ?? "";
   const q        = sp.q        ?? "";
 
-  const isOzelFilter = kategori === "ozel-koleksiyon";
   const where = {
     deletedAt: null,
     isActive:  true,
-    ...(isOzelFilter             ? { isOzelKoleksiyon: true }            : {}),
-    ...(kategori && !isOzelFilter ? { category: { slug: kategori } }   : {}),
+    ...(kategori ? { category: { slug: kategori } } : {}),
     ...(marka    ? { brand:    { slug: marka    } } : {}),
     ...(q        ? { name:     { contains: q, mode: "insensitive" as const } } : {}),
   };
@@ -113,7 +111,6 @@ export default async function HomePage({
   /* ── Sidebar link builder ── */
   const href = (key: string, value: string) => buildHref({ kategori, marka, sirala, q }, key, value);
 
-  // Unisex'i sona bırak, Özel Koleksiyon Unisex'ten önce gelsin
   const sortedCategories = [...(categories as RawCategory[])].sort((a, b) => {
     if (a.slug === "unisex") return 1;
     if (b.slug === "unisex") return -1;
@@ -121,10 +118,8 @@ export default async function HomePage({
   });
 
   const categoryItems = [
-    { href: href("kategori", ""),                  active: !kategori,                      label: "Tümü"            },
-    ...sortedCategories.filter((c) => c.slug !== "unisex" && c.slug !== "ozel-koleksiyon").map((c) => ({ href: href("kategori", c.slug), active: kategori === c.slug, label: c.name })),
-    { href: href("kategori", "ozel-koleksiyon"),   active: kategori === "ozel-koleksiyon", label: "Özel Koleksiyon" },
-    ...sortedCategories.filter((c) => c.slug === "unisex").map((c) => ({ href: href("kategori", c.slug), active: kategori === c.slug, label: c.name })),
+    { href: href("kategori", ""), active: !kategori, label: "Tümü" },
+    ...sortedCategories.filter((c) => c.slug !== "ozel-koleksiyon").map((c) => ({ href: href("kategori", c.slug), active: kategori === c.slug, label: c.name })),
   ];
 
   const brandItems = [
@@ -231,6 +226,14 @@ export default async function HomePage({
                             <span className="font-serif text-3xl text-[#C4A882] opacity-20">◈</span>
                           </div>
                         )}
+                        {compare && (
+                          <span className="absolute top-2 left-2 z-10 bg-[#C4A882] text-white font-sans text-[10px] tracking-widest px-2.5 py-1 uppercase font-semibold pointer-events-none shadow-sm">
+                            %20 İndirim
+                          </span>
+                        )}
+                        <span className="absolute top-2 right-2 z-10 bg-[#1A1A1A] text-[#C4A882] font-sans text-[10px] tracking-widest px-2.5 py-1 uppercase font-semibold pointer-events-none shadow-sm">
+                          ★ En Çok Satan
+                        </span>
                         <AddToCartButton productId={p.id} loggedIn={loggedIn} />
                       </div>
                       <div className="p-2.5 flex flex-col flex-1">

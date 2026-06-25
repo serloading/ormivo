@@ -80,11 +80,7 @@ export default function HomeFilterClient({
             <p className="font-sans text-[9px] tracking-[0.4em] text-[#C4A882] uppercase mb-2">Kategori</p>
             <div className="space-y-0">
               <FilterLink href={href("kategori", "")} active={!activeKategori} label="Tümü" onNavigate={() => setOpen(false)} />
-              {categories.filter((c) => c.slug !== "unisex" && c.slug !== "ozel-koleksiyon").map((cat) => (
-                <FilterLink key={cat.slug} href={href("kategori", cat.slug)} active={activeKategori === cat.slug} label={cat.name} onNavigate={() => setOpen(false)} />
-              ))}
-              <FilterLink href={href("kategori", "ozel-koleksiyon")} active={activeKategori === "ozel-koleksiyon"} label="Özel Koleksiyon" onNavigate={() => setOpen(false)} />
-              {categories.filter((c) => c.slug === "unisex").map((cat) => (
+              {categories.filter((c) => c.slug !== "ozel-koleksiyon").map((cat) => (
                 <FilterLink key={cat.slug} href={href("kategori", cat.slug)} active={activeKategori === cat.slug} label={cat.name} onNavigate={() => setOpen(false)} />
               ))}
             </div>

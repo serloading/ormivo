@@ -121,11 +121,11 @@ export default function GuestCart() {
       <div className="md:col-span-2 space-y-3">
         {enriched.map(({ productId, qty, product }) => (
           <div key={productId} className="bg-white border border-[#E8E4DE] p-4 flex gap-4 items-start">
-            <div className="w-16 h-20 bg-[#F7F4F0] shrink-0 relative overflow-hidden">
+            <Link href={product?.slug ? `/urunler/${product.slug}` : "#"} className="w-16 h-20 bg-[#F7F4F0] shrink-0 relative overflow-hidden block">
               {product?.images?.[0] && (
-                <Image src={product.images[0]} alt={product.name ?? ""} fill className="object-contain p-1" />
+                <Image src={product.images[0]} alt={product.name ?? ""} fill className="object-contain p-1 hover:scale-[1.03] transition-transform duration-300" />
               )}
-            </div>
+            </Link>
             <div className="flex-1 min-w-0">
               {product?.brand && <p className="font-sans text-[9px] tracking-[0.2em] text-[#C4A882] mb-0.5" lang="en" style={{ textTransform: 'uppercase' }}>{product.brand}</p>}
               <Link href={product?.slug ? `/urunler/${product.slug}` : "#"} className="font-sans text-sm text-[#1A1A1A] leading-snug line-clamp-2 hover:text-[#C4A882] transition-colors">{product?.name ?? productId}</Link>
@@ -165,16 +165,16 @@ export default function GuestCart() {
           {!appliedCoupon ? (
             <div className="border-t border-[#E8E4DE] pt-4 mb-4">
               <p className="font-sans text-[10px] tracking-[0.15em] uppercase text-[#9A9A9A] mb-2">İndirim Kodu</p>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2">
                 <input
                   value={couponInput}
                   onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
                   onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), applyCoupon())}
                   placeholder="KUPON KODU"
-                  className="flex-1 border border-[#E8E4DE] px-3 py-2 font-sans text-xs outline-none focus:border-[#C4A882] uppercase tracking-widest transition-colors"
+                  className="w-full border border-[#E8E4DE] px-3 py-2 font-sans text-xs outline-none focus:border-[#C4A882] uppercase tracking-widest transition-colors"
                 />
                 <button type="button" onClick={applyCoupon} disabled={!couponInput.trim()}
-                  className="bg-[#1A1A1A] text-white font-sans text-[10px] tracking-widest uppercase px-3 py-2 hover:bg-[#C4A882] disabled:opacity-40 transition-colors">
+                  className="w-full bg-[#1A1A1A] text-white font-sans text-[10px] tracking-widest uppercase px-3 py-2 hover:bg-[#C4A882] disabled:opacity-40 transition-colors">
                   Uygula
                 </button>
               </div>

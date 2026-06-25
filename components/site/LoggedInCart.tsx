@@ -9,7 +9,7 @@ import { addToCart } from "@/lib/actions/cart";
 import CartItemRow from "./CartItemRow";
 
 interface Product {
-  id: string; name: string; price: unknown; brand?: { name: string } | null;
+  id: string; name: string; price: unknown; brand?: { name: string; slug: string } | null;
   images: string[]; slug: string;
 }
 interface CartItem { id: string; quantity: number; product: Product; }
@@ -156,16 +156,16 @@ export default function LoggedInCart({
             {!appliedCoupon ? (
               <div className="border-t border-[#E8E4DE] pt-4">
                 <p className="font-sans text-[10px] tracking-[0.15em] uppercase text-[#9A9A9A] mb-2">İndirim Kodu</p>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2">
                   <input
                     value={couponInput}
                     onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
                     onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), applyCoupon())}
                     placeholder="KUPON KODU"
-                    className="flex-1 border border-[#E8E4DE] px-3 py-2 font-sans text-xs outline-none focus:border-[#C4A882] uppercase tracking-widest transition-colors"
+                    className="w-full border border-[#E8E4DE] px-3 py-2 font-sans text-xs outline-none focus:border-[#C4A882] uppercase tracking-widest transition-colors"
                   />
                   <button type="button" onClick={applyCoupon} disabled={!couponInput.trim() || couponPending}
-                    className="bg-[#1A1A1A] text-white font-sans text-[10px] tracking-widest uppercase px-3 py-2 hover:bg-[#C4A882] disabled:opacity-40 transition-colors">
+                    className="w-full bg-[#1A1A1A] text-white font-sans text-[10px] tracking-widest uppercase px-3 py-2 hover:bg-[#C4A882] disabled:opacity-40 transition-colors">
                     {couponPending ? "..." : "Uygula"}
                   </button>
                 </div>

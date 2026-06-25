@@ -40,6 +40,14 @@ interface PendingSiteOrder {
   user: { name: string | null; phone: string } | null;
 }
 
+interface PendingB2BOrder {
+  id: string; orderNo: string; createdAt: Date;
+  total: number; items: unknown;
+  deliveryMethod: string;
+  note: string | null;
+  customer: { name: string; phone: string | null } | null;
+}
+
 // ── Helpers ──────────────────────────────────────────────────
 const fmt = (n: number) => n.toLocaleString("tr-TR", { minimumFractionDigits: 2 });
 
@@ -121,6 +129,7 @@ export default function BorcAlacakClient({
   supplierNames: initSN,
   stats,
   pendingSiteOrders,
+  pendingB2BOrders,
 }: {
   customerDebts: CDebt[];
   supplierDebts: SDebt[];
@@ -129,6 +138,7 @@ export default function BorcAlacakClient({
   supplierNames: string[];
   stats: Stats;
   pendingSiteOrders: PendingSiteOrder[];
+  pendingB2BOrders: PendingB2BOrder[];
 }) {
   const [tab, setTab] = useState<"musteri" | "tedarikci">("musteri");
   const [isPending, startT] = useTransition();
@@ -233,7 +243,7 @@ export default function BorcAlacakClient({
       {/* ── TABS ── */}
       <div className="border-b border-gray-200 flex gap-0">
         {([
-          { key: "musteri",   label: `Müşteri Alacakları${pendingSiteOrders.length > 0 ? ` (+${pendingSiteOrders.length} web)` : ""}` },
+          { key: "musteri",   label: `Müşteri Alacakları${(pendingSiteOrders.length + pendingB2BOrders.length) > 0 ? ` (+${pendingSiteOrders.length + pendingB2BOrders.length})` : ""}` },
           { key: "tedarikci", label: "Tedarikçi Borçları" },
         ] as const).map(({ key, label }) => (
           <button
@@ -300,9 +310,62 @@ export default function BorcAlacakClient({
             </div>
           )}
 
+          {/* B2B Manuel Sipariş Alacakları */}
+          {pendingB2BOrders.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-amber-600 mb-3">Manuel Sipariş Alacakları ({pendingB2BOrders.length})</h3>
+              <div className="overflow-x-auto bg-white border border-amber-100 rounded">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 bg-amber-50 text-left">
+                      {["Sipariş No", "Müşteri", "Ürünler", "Teslimat", "Tutar", "Tarih"].map((h) => (
+                        <th key={h} className="px-4 py-2.5 text-[11px] uppercase tracking-wide text-amber-500 font-medium whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {pendingB2BOrders.map((o) => {
+                      const items = o.items as { productName?: string; name?: string; quantity?: number; qty?: number }[];
+                      return (
+                        <tr key={o.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-2.5 font-mono text-xs font-semibold text-gray-700">#{o.orderNo.slice(-8)}</td>
+                          <td className="px-4 py-2.5">
+                            {o.customer ? (
+                              <>
+                                <p className="font-medium text-[#2c1810]">{o.customer.name}</p>
+                                {o.customer.phone && <p className="text-[11px] text-gray-400">{o.customer.phone}</p>}
+                              </>
+                            ) : (
+                              <p className="text-gray-400 text-xs">Müşteri yok</p>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 max-w-[200px]">
+                            {items.map((item, i) => (
+                              <p key={i} className="text-xs text-gray-600 truncate">{item.productName ?? item.name ?? "—"} ×{item.quantity ?? item.qty ?? 1}</p>
+                            ))}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <span className={`text-[10px] px-2 py-0.5 rounded border font-medium ${o.deliveryMethod === "CARGO" ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-teal-50 text-teal-700 border-teal-200"}`}>
+                              {o.deliveryMethod === "CARGO" ? "Kargo" : "Ofisten Teslim"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 font-semibold text-amber-700 whitespace-nowrap">{Number(o.total).toLocaleString("tr-TR")} ₺</td>
+                          <td className="px-4 py-2.5 text-[11px] text-gray-400 whitespace-nowrap">{new Date(o.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="text-right mt-1">
+                <span className="text-xs text-gray-500">Toplam beklenen: <span className="font-semibold text-amber-700">{pendingB2BOrders.reduce((s, o) => s + Number(o.total), 0).toLocaleString("tr-TR")} ₺</span></span>
+              </div>
+            </div>
+          )}
+
           {/* Manuel Alacaklar */}
           <div className="space-y-4">
-            {pendingSiteOrders.length > 0 && <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">Manuel Alacaklar</h3>}
+            {(pendingSiteOrders.length > 0 || pendingB2BOrders.length > 0) && <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">Manuel Alacaklar</h3>}
             <div className="flex justify-end">
             <button
               onClick={() => setModal({ type: "new-customer" })}

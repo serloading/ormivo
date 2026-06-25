@@ -113,7 +113,7 @@ export default async function UrunDetayPage({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 lg:gap-16 mb-16">
 
           {/* Sol: Galeri */}
-          <ProductGallery images={product.images ?? []} name={product.name} />
+          <ProductGallery images={product.images ?? []} name={product.name} showDiscountBadge={!!compare} isBestSeller={product.isBestSeller} />
 
           {/* Sağ: Ürün bilgisi */}
           <div className="flex flex-col">
@@ -163,11 +163,6 @@ export default async function UrunDetayPage({
               {compare && (
                 <span className="font-sans text-lg text-[#C4A882] line-through">
                   {compare.toLocaleString("tr-TR")} ₺
-                </span>
-              )}
-              {discount && (
-                <span className="font-sans text-xs bg-[#F5F0EA] text-[#8B6F4E] border border-[#E8E4DE] px-2.5 py-1 tracking-wide">
-                  %{discount} indirim
                 </span>
               )}
             </div>

@@ -6,6 +6,7 @@ import { getSession } from "@/lib/session";
 import { getCartCount } from "@/lib/actions/cart";
 import SiteHeader from "@/components/site/SiteHeader";
 import SiteFooter from "@/components/site/SiteFooter";
+import BottomNav from "@/components/site/BottomNav";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://ormivo.com"),
@@ -29,8 +30,11 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         user={session ? { name: session.name ?? null, phone: session.phone } : null}
         cartCount={cartCount}
       />
-      <main className="flex-1">{children}</main>
+      <main className="flex-1 pb-16 md:pb-0">{children}</main>
       <SiteFooter />
+      <div className="md:hidden">
+        <BottomNav cartCount={cartCount} loggedIn={!!session} />
+      </div>
     </div>
   );
 }

@@ -35,21 +35,29 @@ export async function getCustomerById(id: string) {
 }
 
 async function generateCustomerNo(): Promise<string> {
-  const last = await prisma.customer.findFirst({
+  const all = await prisma.customer.findMany({
     where: { customerNo: { not: null } },
-    orderBy: { customerNo: "desc" },
     select: { customerNo: true },
   });
-  const lastNum = last?.customerNo ? parseInt(last.customerNo.replace("MUS-", ""), 10) : 0;
-  return `MUS-${String(lastNum + 1).padStart(4, "0")}`;
+  const maxNum = all.reduce((max, c) => {
+    const n = c.customerNo ? parseInt(c.customerNo.replace("MUS-", ""), 10) : 0;
+    return isNaN(n) ? max : Math.max(max, n);
+  }, 0);
+  return `MUS-${String(maxNum + 1).padStart(4, "0")}`;
 }
 
 export async function createCustomer(data: CustomerFormData) {
-  const customerNo = await generateCustomerNo();
-  const customer = await prisma.customer.create({ data: { ...data, customerNo } });
-  revalidatePath("/admin/musteriler");
-  revalidatePath("/admin/siparisler");
-  return { success: true, id: customer.id };
+  try {
+    const customerNo = await generateCustomerNo();
+    const customer = await prisma.customer.create({ data: { ...data, customerNo } });
+    revalidatePath("/admin/musteriler");
+    revalidatePath("/admin/siparisler");
+    return { success: true, id: customer.id, error: null };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[createCustomer] HATA:", msg);
+    return { success: false, id: null, error: msg };
+  }
 }
 
 export async function backfillCustomerNos() {

@@ -145,7 +145,7 @@ export default function RaporClient({ soldItems, financeSummary, urunMaliyeti, c
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <div>
             <Link href="/admin/urunler" className="text-base font-semibold text-[#2c1810] hover:text-[#8b6f5e] transition-colors">En Çok Satan Ürünler →</Link>
-            <p className="text-xs text-[#8b6f5e] mt-0.5">{productTotals.length} farklı ürün · {filteredItems.reduce((s, i) => s + i.qty, 0)} adet satıldı</p>
+            <p className="text-xs text-[#8b6f5e] mt-0.5">{productTotals.length} farklı ürün · {Math.round(filteredItems.reduce((s, i) => s + i.qty, 0))} adet satıldı</p>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-[#8b6f5e]">Sırala:</span>

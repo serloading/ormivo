@@ -121,12 +121,12 @@ export default function ProductGrid({ initialProducts, total, loggedIn, filters 
                   <span className="absolute inset-0 flex items-center justify-center font-serif text-3xl text-[#C4A882] opacity-20 pointer-events-none">◈</span>
                 )}
                 {!inStock && (
-                  <span className="absolute top-2 right-2 bg-[#1A1A1A]/70 text-white font-sans text-[7px] tracking-widest uppercase px-1.5 py-0.5 pointer-events-none">
+                  <span className="absolute top-2 right-2 bg-[#1A1A1A]/70 text-white font-sans text-[10px] tracking-widest uppercase px-2.5 py-1 pointer-events-none font-semibold shadow-sm">
                     Tükendi
                   </span>
                 )}
                 {discount && inStock && (
-                  <span className="absolute top-2 left-2 bg-[#C4A882] text-white font-sans text-[7px] tracking-wide uppercase px-1.5 py-0.5 pointer-events-none">
+                  <span className="absolute top-2 left-2 bg-[#C4A882] text-white font-sans text-[10px] tracking-widest uppercase px-2.5 py-1 pointer-events-none font-semibold shadow-sm">
                     -%{discount}
                   </span>
                 )}

@@ -67,7 +67,7 @@ export default async function RaporPage() {
     if (order.paymentStatus === "PAID") {
       const discount = Number(order.discount ?? 0);
       financeSummary.push({
-        gelir: Math.max(0, orderTotal - discount),
+        gelir: Math.round(Math.max(0, orderTotal - discount)),
         kargoGider: order.deliveryMethod === "CARGO" ? CARGO_FEE : 0,
         orderDate: order.createdAt,
       });
@@ -112,7 +112,7 @@ export default async function RaporPage() {
 
     if (order.paymentStatus === "PAID") {
       financeSummary.push({
-        gelir: orderTotal,
+        gelir: Math.round(orderTotal),
         kargoGider: order.deliveryMethod === "CARGO" ? CARGO_FEE : 0,
         orderDate: order.createdAt,
       });

@@ -8,10 +8,10 @@ interface Brand { id: string; name: string; slug: string; }
 interface User  { name: string | null; phone: string; }
 
 const KATEGORILER = [
-  { href: "/?kategori=kadin",             label: "Kadın"           },
-  { href: "/?kategori=erkek",             label: "Erkek"           },
-  { href: "/?kategori=ozel-koleksiyon",   label: "Özel Koleksiyon" },
-  { href: "/?kategori=unisex",            label: "UNISEX"          },
+  { href: "/?kategori=kadin",  label: "Kadın"  },
+  { href: "/?kategori=erkek",  label: "Erkek"  },
+  { href: "/?kategori=unisex", label: "UNISEX" },
+  { href: "/markalar",         label: "Markalar" },
 ];
 
 export default function SiteHeader({
@@ -27,21 +27,18 @@ export default function SiteHeader({
   const router   = useRouter();
 
   const [mobileOpen, setMobileOpen]   = useState(false);
-  const [markaOpen,  setMarkaOpen]    = useState(false);
   const [userOpen,   setUserOpen]     = useState(false);
   const [searchQ,    setSearchQ]      = useState("");
   const [guestCount, setGuestCount]   = useState(0);
 
-  const markaRef = useRef<HTMLDivElement>(null);
   const userRef  = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { setMobileOpen(false); setMarkaOpen(false); setUserOpen(false); }, [pathname]);
+  useEffect(() => { setMobileOpen(false); setUserOpen(false); }, [pathname]);
 
   /* Dışarı tıklanınca dropdown kapat */
   useEffect(() => {
     function handler(e: MouseEvent) {
-      if (markaRef.current && !markaRef.current.contains(e.target as Node)) setMarkaOpen(false);
-      if (userRef.current  && !userRef.current.contains(e.target as Node))  setUserOpen(false);
+      if (userRef.current && !userRef.current.contains(e.target as Node)) setUserOpen(false);
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -59,15 +56,6 @@ export default function SiteHeader({
     window.addEventListener("guest-cart-updated", read);
     return () => window.removeEventListener("guest-cart-updated", read);
   }, []);
-
-  /* Marka dropdown alfabetik gruplama */
-  const grouped: Record<string, Brand[]> = {};
-  for (const b of brands) {
-    const l = b.name[0].toUpperCase();
-    if (!grouped[l]) grouped[l] = [];
-    grouped[l].push(b);
-  }
-  const letters = Object.keys(grouped).sort();
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -123,48 +111,6 @@ export default function SiteHeader({
                 {item.label}
               </Link>
             ))}
-
-            {/* Markalar dropdown */}
-            <div ref={markaRef} className="relative">
-              <button
-                onClick={() => setMarkaOpen((v) => !v)}
-                className={`px-3 py-1.5 font-sans text-[11px] tracking-[0.15em] uppercase rounded transition-colors flex items-center gap-1 ${
-                  markaOpen ? "text-[#C4A882] bg-[#FAF7F3]" : "text-[#4A4A4A] hover:text-[#C4A882] hover:bg-[#FAF7F3]"
-                }`}
-              >
-                Markalar
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`w-3 h-3 transition-transform duration-200 ${markaOpen ? "rotate-180" : ""}`}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
-                </svg>
-              </button>
-
-              {markaOpen && (
-                <div className="absolute top-full right-0 mt-2 w-[700px] bg-white border border-[#E8E4DE] shadow-2xl z-50">
-                  <div className="flex items-center justify-between px-6 py-3.5 border-b border-[#E8E4DE] bg-[#FAFAF7]">
-                    <p className="font-sans text-[10px] tracking-[0.4em] uppercase text-[#C4A882]">Tüm Markalar</p>
-                    <Link href="/" onClick={() => setMarkaOpen(false)}
-                      className="font-sans text-[10px] tracking-[0.2em] uppercase text-[#9A9A9A] hover:text-[#1A1A1A] transition-colors">
-                      Tümünü Gör →
-                    </Link>
-                  </div>
-                  <div className="p-6 max-h-[400px] overflow-y-auto">
-                    <div className="grid grid-cols-4 gap-x-6 gap-y-1">
-                      {letters.map((letter) => (
-                        <div key={letter}>
-                          <p className="font-sans text-[9px] tracking-[0.3em] text-[#C4A882] uppercase mt-3 mb-1 first:mt-0">{letter}</p>
-                          {grouped[letter].map((b) => (
-                            <Link key={b.slug} href={`/?marka=${b.slug}`} onClick={() => setMarkaOpen(false)}
-                              className="block py-0.5 font-sans text-[13px] text-[#6B6B6B] hover:text-[#C4A882] transition-colors truncate">
-                              {b.name}
-                            </Link>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
 
             {/* Divider */}
             <span className="w-px h-5 bg-[#E8E4DE] mx-1" />
@@ -271,25 +217,6 @@ export default function SiteHeader({
                 {item.label}
               </Link>
             ))}
-            <details className="border-b border-[#F0EDE8]">
-              <summary className="py-3 font-sans text-sm tracking-[0.1em] uppercase text-[#1A1A1A] cursor-pointer list-none flex items-center justify-between">
-                Markalar
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 text-[#C4A882]">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
-                </svg>
-              </summary>
-              <div className="pb-3 max-h-56 overflow-y-auto grid grid-cols-2 gap-x-4">
-                {brands.map((b) => (
-                  <Link key={b.slug} href={`/?marka=${b.slug}`}
-                    className="py-1.5 font-sans text-sm text-[#6B6B6B] hover:text-[#C4A882] transition-colors truncate">
-                    {b.name}
-                  </Link>
-                ))}
-              </div>
-            </details>
-            <Link href="/?kategori=ozel-koleksiyon" className="py-3 font-sans text-sm tracking-[0.1em] uppercase text-[#C4A882] border-b border-[#F0EDE8] transition-colors">
-              Özel Koleksiyon
-            </Link>
             {user && (
               <>
                 <Link href="/hesabim" className="py-3 font-sans text-sm tracking-[0.1em] uppercase text-[#1A1A1A] hover:text-[#C4A882] border-b border-[#F0EDE8] transition-colors">
