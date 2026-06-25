@@ -12,6 +12,7 @@ import {
 import { createOrder } from "@/lib/actions/order";
 import { createCustomer } from "@/lib/actions/customer";
 import { createProduct } from "@/lib/actions/product";
+import { createCustomerDebt } from "@/lib/actions/debt";
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING:   "Beklemede",
@@ -795,6 +796,7 @@ export default function SiparislerClient({
               <th className="px-4 py-3">Müşteri</th>
               <th className="px-4 py-3">Ürünler</th>
               <th className="px-4 py-3">Tutar</th>
+              <th className="px-4 py-3">İndirimli</th>
               <th className="px-4 py-3">Durum</th>
               <th className="px-4 py-3">Ödeme</th>
               <th className="px-4 py-3">Teslimat</th>
@@ -835,6 +837,12 @@ export default function SiparislerClient({
                         <span className="text-gray-500 ml-1">{(item.price * item.qty).toLocaleString("tr-TR")}₺</span>
                       </div>
                     ))}
+                  </div>
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <div className="text-xs text-gray-500">Toplam</div>
+                  <div className="font-medium text-gray-800 text-sm">
+                    {order.items.reduce((s, i) => s + i.qty * i.price, 0).toLocaleString("tr-TR")} ₺
                   </div>
                 </td>
                 <td className="px-4 py-3">
@@ -923,6 +931,7 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
   const [status, setStatus]               = useState(order.status);
   const [deliveryMethod, setDeliveryMethod] = useState(order.deliveryMethod);
   const [discount, setDiscount]           = useState(String(order.discount || ""));
+  const [alinanTutar, setAlinanTutar]     = useState("");
   const [note, setNote]                   = useState(order.note ?? "");
   const [manualTotal, setManualTotal]     = useState(String(order.total));
   const [totalEdited, setTotalEdited]     = useState(() => {
@@ -1006,6 +1015,17 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
           note.trim() || null,
           { customerId: order.source === "manuel" ? customerId : undefined, discount: discountAmt, status, deliveryMethod }
         );
+        // Alınan tutar girilmişse ve net tutardan azsa borç kaydı oluştur
+        const alinanAmt = alinanTutar.trim() ? Number(alinanTutar) : null;
+        if (alinanAmt !== null && alinanAmt < netTotal && customerId) {
+          await createCustomerDebt({
+            customerId,
+            orderId: order.id,
+            description: `Sipariş #${order.orderNo} — kalan borç`,
+            totalAmount: netTotal,
+            initialPayment: alinanAmt,
+          });
+        }
         router.refresh();
         onClose();
       } catch (e) {
@@ -1218,6 +1238,23 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
                 <span className="font-semibold text-[#2c1810] text-base">{netTotal.toLocaleString("tr-TR")} ₺</span>
               </div>
             )}
+            {/* Alınan Tutar */}
+            <div className="border-t border-[#e8ddd6] pt-3">
+              <label className="block text-[10px] tracking-widest uppercase text-[#8b6f5e] mb-1.5">
+                Alınan Tutar (₺) <span className="normal-case text-[#b8a89e]">— boş bırakılırsa tam ödeme sayılır</span>
+              </label>
+              <input type="number" min="0" value={alinanTutar} onChange={(e) => setAlinanTutar(e.target.value)}
+                placeholder={`${netTotal.toLocaleString("tr-TR")} (tam ödeme)`}
+                className="w-full border border-[#d4c5ba] rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-[#8b6f5e] bg-white" />
+              {alinanTutar && Number(alinanTutar) < netTotal && customerId && (
+                <p className="text-[10px] text-orange-600 mt-1">
+                  ⚠ {(netTotal - Number(alinanTutar)).toLocaleString("tr-TR")} ₺ borç alacak/borç ekranına kaydedilecek.
+                </p>
+              )}
+              {alinanTutar && Number(alinanTutar) < netTotal && !customerId && (
+                <p className="text-[10px] text-gray-400 mt-1">Borç kaydı için müşteri seçilmeli.</p>
+              )}
+            </div>
           </div>
 
           {/* Not */}

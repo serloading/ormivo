@@ -22,14 +22,21 @@ export default function AdminUrunlerClient({ products, categories, brands }: { p
   const [kategori, setKategori] = useState("");
   const [marka, setMarka] = useState("");
   const [durum, setDurum] = useState("");
+  const [stokSort, setStokSort] = useState("");
 
-  const filtered = products.filter((p) => {
-    const s = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.slug.includes(search.toLowerCase());
-    const k = !kategori || p.category?.slug === kategori;
-    const m = !marka || p.brand?.slug === marka;
-    const d = durum === "" ? true : durum === "aktif" ? p.isActive : !p.isActive;
-    return s && k && m && d;
-  });
+  const filtered = products
+    .filter((p) => {
+      const s = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.slug.includes(search.toLowerCase());
+      const k = !kategori || p.category?.slug === kategori;
+      const m = !marka || p.brand?.slug === marka;
+      const d = durum === "" ? true : durum === "aktif" ? p.isActive : !p.isActive;
+      return s && k && m && d;
+    })
+    .sort((a, b) => {
+      if (stokSort === "artan") return a.stock - b.stock;
+      if (stokSort === "azalan") return b.stock - a.stock;
+      return 0;
+    });
 
   function handleToggle(id: string, current: boolean) {
     startTransition(async () => { await toggleProductActive(id, !current); router.refresh(); });
@@ -72,8 +79,14 @@ export default function AdminUrunlerClient({ products, categories, brands }: { p
           <option value="aktif">Aktif</option>
           <option value="pasif">Pasif</option>
         </select>
-        {(search || kategori || marka || durum) && (
-          <button onClick={() => { setSearch(""); setKategori(""); setMarka(""); setDurum(""); }}
+        <select value={stokSort} onChange={(e) => setStokSort(e.target.value)}
+          className="border border-[#d4c5ba] rounded-sm px-3 py-2 text-sm text-[#5c4033] focus:outline-none focus:border-[#8b6f5e] bg-[#faf8f6]">
+          <option value="">Stok Sırala</option>
+          <option value="artan">Stok: Az → Çok</option>
+          <option value="azalan">Stok: Çok → Az</option>
+        </select>
+        {(search || kategori || marka || durum || stokSort) && (
+          <button onClick={() => { setSearch(""); setKategori(""); setMarka(""); setDurum(""); setStokSort(""); }}
             className="text-xs text-[#8b6f5e] hover:text-[#2c1810] px-2">Temizle</button>
         )}
       </div>
