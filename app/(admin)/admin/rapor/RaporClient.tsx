@@ -4,45 +4,42 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 
 interface SoldItem {
-  productId: string | null; name: string; qty: number; revenue: number;
+  productId: string | null; name: string; qty: number;
+  originalPrice: number; salePrice: number; costPrice: number;
   categoryId: string | null; categoryName: string | null;
   brandId: string | null; brandName: string | null;
   orderDate: string; source: "web" | "manuel";
+  hasCargoFee: boolean;
 }
-interface FinanceSummary { gelir: number; kargoGider: number; orderDate: string; }
-interface UrunMaliyet { amount: number; date: string; }
 interface TopCustomer { name: string; orderCount: number; totalSpend: number; }
 
 interface Props {
   soldItems: SoldItem[];
-  financeSummary: FinanceSummary[];
-  urunMaliyeti: UrunMaliyet[];
   categories: { id: string; name: string }[];
   brands: { id: string; name: string }[];
   topCustomers: TopCustomer[];
+  cargoFee: number;
 }
 
 const MONTHS = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
-type ProductSort = "qty" | "revenue";
 type CustomerSort = "orderCount" | "totalSpend";
 
-export default function RaporClient({ soldItems, financeSummary, urunMaliyeti, categories, brands, topCustomers }: Props) {
+export default function RaporClient({ soldItems, categories, brands, topCustomers, cargoFee }: Props) {
   const [monthFilter, setMonthFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [brandFilter, setBrandFilter] = useState("");
   const [showAllProducts, setShowAllProducts] = useState(false);
   const [showAllCustomers, setShowAllCustomers] = useState(false);
-  const [productSort, setProductSort] = useState<ProductSort>("qty");
   const [customerSort, setCustomerSort] = useState<CustomerSort>("orderCount");
 
   const availableMonths = useMemo(() => {
     const set = new Set<string>();
-    [...soldItems.map((i) => i.orderDate), ...financeSummary.map((f) => f.orderDate)].forEach((d) => {
-      const dt = new Date(d);
+    soldItems.forEach((i) => {
+      const dt = new Date(i.orderDate);
       set.add(`${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`);
     });
     return Array.from(set).sort().reverse();
-  }, [soldItems, financeSummary]);
+  }, [soldItems]);
 
   function inMonth(dateStr: string) {
     if (!monthFilter) return true;
@@ -55,18 +52,56 @@ export default function RaporClient({ soldItems, financeSummary, urunMaliyeti, c
     if (categoryFilter && i.categoryId !== categoryFilter) return false;
     if (brandFilter && i.brandId !== brandFilter) return false;
     return true;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [soldItems, monthFilter, categoryFilter, brandFilter]);
 
+  // Finans özeti hesapla (sipariş bazlı, her sipariş için kargo bir kere sayılsın)
+  const finans = useMemo(() => {
+    // Kargo: aynı siparişten birden fazla item gelebilir — benzersiz (orderDate+source+hasCargoFee) mantığı
+    // Sipariş bazlı kargo için sold items'ı siparişe grupla
+    // Basit yaklaşım: hasCargoFee olan her item grubunu (orderDate+source) bir kere say
+    const cargoOrders = new Set<string>();
+    let originalTotal = 0;
+    let saleTotal = 0;
+    let costTotal = 0;
+    let kargoGider = 0;
+
+    // Filtrelenmemiş (kargo için tüm siparişler, sadece ay filtrelenir)
+    const forCargo = soldItems.filter((i) => inMonth(i.orderDate));
+    for (const item of forCargo) {
+      if (item.hasCargoFee) {
+        const key = `${item.source}-${item.orderDate}`;
+        if (!cargoOrders.has(key)) {
+          cargoOrders.add(key);
+          kargoGider += cargoFee;
+        }
+      }
+    }
+
+    // Finans: filtrelenmiş items üzerinden (kategori/marka filtresi varken bile)
+    for (const item of filteredItems) {
+      originalTotal += item.originalPrice;
+      saleTotal += item.salePrice;
+      costTotal += item.costPrice;
+    }
+
+    const indirim = originalTotal - saleTotal;
+    const netKar = saleTotal - costTotal - kargoGider;
+
+    return { originalTotal, indirim, saleTotal, costTotal, kargoGider, netKar };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredItems, soldItems, monthFilter, cargoFee]);
+
   const productTotals = useMemo(() => {
-    const map = new Map<string, { name: string; qty: number; revenue: number; categoryName: string | null; brandName: string | null }>();
+    const map = new Map<string, { name: string; qty: number; categoryName: string | null; brandName: string | null }>();
     for (const item of filteredItems) {
       const key = item.productId ?? item.name;
       const ex = map.get(key);
-      if (ex) { ex.qty += item.qty; ex.revenue += item.revenue; }
-      else map.set(key, { name: item.name, qty: item.qty, revenue: item.revenue, categoryName: item.categoryName, brandName: item.brandName });
+      if (ex) { ex.qty += item.qty; }
+      else map.set(key, { name: item.name, qty: item.qty, categoryName: item.categoryName, brandName: item.brandName });
     }
-    return Array.from(map.values()).sort((a, b) => productSort === "qty" ? b.qty - a.qty : b.revenue - a.revenue);
-  }, [filteredItems, productSort]);
+    return Array.from(map.values()).sort((a, b) => b.qty - a.qty);
+  }, [filteredItems]);
 
   const sortedCustomers = useMemo(() =>
     [...topCustomers].sort((a, b) => customerSort === "orderCount" ? b.orderCount - a.orderCount : b.totalSpend - a.totalSpend),
@@ -76,17 +111,19 @@ export default function RaporClient({ soldItems, financeSummary, urunMaliyeti, c
   const topProducts  = showAllProducts  ? productTotals   : productTotals.slice(0, 10);
   const visibleCusts = showAllCustomers ? sortedCustomers : sortedCustomers.slice(0, 10);
 
-  // Finans özeti — doğrudan siparişlerden
-  const filteredFinance = financeSummary.filter((f) => inMonth(f.orderDate));
-  const gelir      = filteredFinance.reduce((s, f) => s + f.gelir, 0);
-  const kargoGider = filteredFinance.reduce((s, f) => s + f.kargoGider, 0);
-  const urunGider  = urunMaliyeti.filter((f) => inMonth(f.date)).reduce((s, f) => s + f.amount, 0);
-  const kar = gelir - kargoGider - urunGider;
-
   const fmt = (n: number) => Math.round(n).toLocaleString("tr-TR", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   const monthLabel = monthFilter
     ? `${MONTHS[parseInt(monthFilter.split("-")[1]) - 1]} ${monthFilter.split("-")[0]}`
     : "Tüm Zamanlar";
+
+  const summaryCards = [
+    { label: "Orijinal Fiyat",    value: finans.originalTotal, sub: "İndirim öncesi toplam",  cls: "text-gray-700 bg-white border-gray-200" },
+    { label: "İndirim",           value: -finans.indirim,       sub: "Uygulanan indirimler",   cls: "text-orange-700 bg-orange-50 border-orange-200" },
+    { label: "Satış Tutarı",      value: finans.saleTotal,      sub: "Gerçek tahsilat",        cls: "text-green-700 bg-green-50 border-green-200" },
+    { label: "Ürün Maliyeti",     value: -finans.costTotal,     sub: "Alış maliyeti toplamı",  cls: "text-red-700 bg-red-50 border-red-200" },
+    { label: "Kargo Maliyeti",    value: -finans.kargoGider,    sub: `${finans.kargoGider / cargoFee | 0} kargo × ${cargoFee}₺`, cls: "text-red-700 bg-red-50 border-red-200" },
+    { label: "Net Kâr",           value: finans.netKar,         sub: "Satış − Maliyet − Kargo", cls: finans.netKar >= 0 ? "text-green-800 bg-green-100 border-green-300" : "text-red-700 bg-red-50 border-red-200" },
+  ];
 
   return (
     <div className="space-y-10 max-w-6xl">
@@ -125,17 +162,15 @@ export default function RaporClient({ soldItems, financeSummary, urunMaliyeti, c
         )}
       </div>
 
-      {/* Finans Özeti */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: "Satış Geliri",     value: gelir,      cls: "text-green-700 bg-green-50 border-green-200" },
-          { label: "Kargo Giderleri",  value: kargoGider, cls: "text-orange-700 bg-orange-50 border-orange-200" },
-          { label: "Ürün Maliyetleri", value: urunGider,  cls: "text-orange-700 bg-orange-50 border-orange-200" },
-          { label: "Net Kâr",          value: kar,        cls: kar >= 0 ? "text-green-700 bg-green-50 border-green-200" : "text-red-600 bg-red-50 border-red-200" },
-        ].map((s) => (
-          <div key={s.label} className={`border rounded-sm p-5 ${s.cls.split(" ").slice(1).join(" ")}`}>
-            <p className="text-[11px] uppercase tracking-widest text-[#8b6f5e] mb-2">{s.label}</p>
-            <p className={`text-2xl font-light ${s.cls.split(" ")[0]}`}>{fmt(s.value)} ₺</p>
+      {/* Finans Özeti — 6 kart */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+        {summaryCards.map((s) => (
+          <div key={s.label} className={`border rounded-sm p-4 ${s.cls.split(" ").slice(1).join(" ")}`}>
+            <p className="text-[10px] uppercase tracking-widest text-[#8b6f5e] mb-1">{s.label}</p>
+            <p className={`text-xl font-light ${s.cls.split(" ")[0]}`}>
+              {s.value < 0 ? "-" : ""}{fmt(Math.abs(s.value))} ₺
+            </p>
+            <p className="text-[10px] text-[#b8a89e] mt-1">{s.sub}</p>
           </div>
         ))}
       </div>
@@ -145,16 +180,7 @@ export default function RaporClient({ soldItems, financeSummary, urunMaliyeti, c
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <div>
             <Link href="/admin/urunler" className="text-base font-semibold text-[#2c1810] hover:text-[#8b6f5e] transition-colors">En Çok Satan Ürünler →</Link>
-            <p className="text-xs text-[#8b6f5e] mt-0.5">{productTotals.length} farklı ürün · {Math.round(filteredItems.reduce((s, i) => s + i.qty, 0))} adet satıldı</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-[#8b6f5e]">Sırala:</span>
-            {(["qty", "revenue"] as ProductSort[]).map((v) => (
-              <button key={v} onClick={() => setProductSort(v)}
-                className={`px-3 py-1.5 text-xs rounded border transition-colors ${productSort === v ? "bg-[#2c1810] text-white border-[#2c1810]" : "border-[#d4c5ba] text-[#8b6f5e] hover:bg-[#f5f0eb]"}`}>
-                {v === "qty" ? "Satış Adedi" : "Ciro"}
-              </button>
-            ))}
+            <p className="text-xs text-[#8b6f5e] mt-0.5">{productTotals.length} farklı ürün · {filteredItems.reduce((s, i) => s + i.qty, 0)} adet satıldı</p>
           </div>
         </div>
         {productTotals.length === 0 ? (
@@ -171,7 +197,6 @@ export default function RaporClient({ soldItems, financeSummary, urunMaliyeti, c
                   <th className="px-4 py-3">Kategori</th>
                   <th className="px-4 py-3">Marka</th>
                   <th className="px-4 py-3 text-right">Satış Adedi</th>
-                  <th className="px-4 py-3 text-right">Ciro</th>
                 </tr>
               </thead>
               <tbody>
@@ -182,7 +207,6 @@ export default function RaporClient({ soldItems, financeSummary, urunMaliyeti, c
                     <td className="px-4 py-3 text-[#8b6f5e] text-xs">{item.categoryName ?? "—"}</td>
                     <td className="px-4 py-3 text-[#8b6f5e] text-xs">{item.brandName ?? "—"}</td>
                     <td className="px-4 py-3 text-right"><span className="font-semibold text-indigo-600">{item.qty}</span><span className="text-[#b8a89e] text-xs ml-1">adet</span></td>
-                    <td className="px-4 py-3 text-right font-medium text-green-700">{fmt(item.revenue)} ₺</td>
                   </tr>
                 ))}
               </tbody>
