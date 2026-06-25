@@ -171,10 +171,8 @@ export default async function UrunDetayPage({
 
             {/* Stok */}
             <p className="flex items-center gap-2 font-sans text-xs mb-7">
-              <span className={`w-2 h-2 rounded-full shrink-0 ${inStock ? "bg-green-500" : "bg-red-400"}`} />
-              <span className={inStock ? "text-green-700" : "text-red-500"}>
-                {inStock ? "Stokta Var" : "Tükendi"}
-              </span>
+              <span className="w-2 h-2 rounded-full shrink-0 bg-green-500" />
+              <span className="text-green-700">Sipariş Alınıyor</span>
             </p>
 
             {/* Ayraç */}
@@ -195,9 +193,9 @@ export default async function UrunDetayPage({
             {/* Alt bilgi çubukları */}
             <div className="grid grid-cols-3 gap-3 border-t border-[#E8E4DE] pt-7">
               {[
-                { icon: "🚚", label: "Aynı Gün Kargo" },
+                { icon: "🚚", label: "2-3 İş Gününde Kargo" },
                 { icon: "📦", label: "Özel Ambalaj" },
-                { icon: "✓",  label: "Orijinal Ürün" },
+                { icon: "✓",  label: "İthal Ürün" },
               ].map(({ icon, label }) => (
                 <div key={label} className="flex flex-col items-center gap-1.5 text-center">
                   <span className="text-lg">{icon}</span>

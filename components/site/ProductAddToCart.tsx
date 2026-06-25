@@ -36,13 +36,7 @@ export default function ProductAddToCart({ productId, loggedIn, inStock }: Props
 
       {/* Sepete Ekle */}
       <div className="relative w-full h-14">
-        {inStock ? (
-          <AddToCartButton productId={productId} loggedIn={loggedIn} large quantity={qty} />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-[#E8E4DE] font-sans text-[11px] tracking-[0.35em] uppercase text-[#9A9A9A]">
-            Tükendi
-          </div>
-        )}
+        <AddToCartButton productId={productId} loggedIn={loggedIn} large quantity={qty} />
       </div>
     </div>
   );

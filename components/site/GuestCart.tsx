@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { placeOrder } from "@/lib/actions/order-site";
+import { validateCoupon } from "@/lib/actions/coupon";
 
 interface GuestItem { productId: string; qty: number; }
 interface ProductInfo { id: string; name: string; price: number; images: string[] | null; brand?: string | null; }
@@ -15,6 +16,11 @@ export default function GuestCart() {
   const [showForm, setShowForm]   = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
+  const [couponInput, setCouponInput]   = useState("");
+  const [couponError, setCouponError]   = useState("");
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [appliedCoupon, setAppliedCoupon]   = useState("");
+  const [, startCouponT] = useTransition();
 
   useEffect(() => {
     const cart: GuestItem[] = JSON.parse(localStorage.getItem("guest_cart") ?? "[]");
@@ -76,7 +82,21 @@ export default function GuestCart() {
     product: products.find((p) => p.id === item.productId),
   }));
 
-  const total = enriched.reduce((s, i) => s + (i.product?.price ?? 0) * i.qty, 0);
+  const itemsTotal = enriched.reduce((s, i) => s + (i.product?.price ?? 0) * i.qty, 0);
+  const total = Math.max(0, itemsTotal - couponDiscount);
+
+  function applyCoupon() {
+    if (!couponInput.trim()) return;
+    setCouponError("");
+    startCouponT(async () => {
+      const result = await validateCoupon(couponInput, itemsTotal);
+      if (!result.valid) { setCouponError(result.error ?? "Geçersiz kupon."); return; }
+      setCouponDiscount(result.discount ?? 0);
+      setAppliedCoupon(couponInput.toUpperCase().trim());
+      setCouponInput("");
+    });
+  }
+  function removeCoupon() { setAppliedCoupon(""); setCouponDiscount(0); setCouponInput(""); }
 
   if (loading) {
     return <div className="py-32 text-center font-sans text-sm text-[#9A9A9A]">Yükleniyor...</div>;
@@ -140,9 +160,56 @@ export default function GuestCart() {
               </div>
             ))}
           </div>
-          <div className="border-t border-[#E8E4DE] pt-4 mb-6 flex justify-between font-sans text-sm font-semibold text-[#1A1A1A]">
-            <span>Toplam</span>
-            <span>{total.toLocaleString("tr-TR")} ₺</span>
+
+          {/* Kupon */}
+          {!appliedCoupon ? (
+            <div className="border-t border-[#E8E4DE] pt-4 mb-4">
+              <p className="font-sans text-[10px] tracking-[0.15em] uppercase text-[#9A9A9A] mb-2">İndirim Kodu</p>
+              <div className="flex gap-2">
+                <input
+                  value={couponInput}
+                  onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), applyCoupon())}
+                  placeholder="KUPON KODU"
+                  className="flex-1 border border-[#E8E4DE] px-3 py-2 font-sans text-xs outline-none focus:border-[#C4A882] uppercase tracking-widest transition-colors"
+                />
+                <button type="button" onClick={applyCoupon} disabled={!couponInput.trim()}
+                  className="bg-[#1A1A1A] text-white font-sans text-[10px] tracking-widest uppercase px-3 py-2 hover:bg-[#C4A882] disabled:opacity-40 transition-colors">
+                  Uygula
+                </button>
+              </div>
+              {couponError && <p className="font-sans text-xs text-red-500 mt-1">{couponError}</p>}
+            </div>
+          ) : (
+            <div className="border-t border-[#E8E4DE] pt-4 mb-4 flex items-center justify-between">
+              <div>
+                <p className="font-sans text-[10px] uppercase text-green-600 tracking-widest">Kupon uygulandı</p>
+                <p className="font-mono text-xs font-bold text-[#1A1A1A]">{appliedCoupon}</p>
+              </div>
+              <div className="text-right">
+                <p className="font-sans text-sm font-semibold text-green-600">−{couponDiscount.toLocaleString("tr-TR")} ₺</p>
+                <button type="button" onClick={removeCoupon} className="font-sans text-[10px] text-[#9A9A9A] hover:text-red-500">Kaldır</button>
+              </div>
+            </div>
+          )}
+
+          <div className="border-t border-[#E8E4DE] pt-4 mb-6 space-y-1">
+            {couponDiscount > 0 && (
+              <div className="flex justify-between font-sans text-xs text-[#6B6B6B]">
+                <span>Ara toplam</span>
+                <span>{itemsTotal.toLocaleString("tr-TR")} ₺</span>
+              </div>
+            )}
+            {couponDiscount > 0 && (
+              <div className="flex justify-between font-sans text-xs text-green-600">
+                <span>İndirim ({appliedCoupon})</span>
+                <span>−{couponDiscount.toLocaleString("tr-TR")} ₺</span>
+              </div>
+            )}
+            <div className="flex justify-between font-sans text-sm font-semibold text-[#1A1A1A]">
+              <span>Toplam</span>
+              <span>{total.toLocaleString("tr-TR")} ₺</span>
+            </div>
           </div>
 
           {!showForm ? (

@@ -1,9 +1,9 @@
 const ITEMS = [
   "Ücretsiz Kargo",
-  "2 Gün İçinde Teslim",
-  "500+ Ürün",
-  "Premium Markalar",
-  "Orjinal & Sertifikalı",
+  "2-3 İş Gününde Teslim",
+  "900+ Ürün",
+  "PREMIUM Markalar",
+  "İthal & Sertifikalı",
   "Güvenli Alışveriş",
 ];
 

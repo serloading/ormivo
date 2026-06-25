@@ -11,7 +11,7 @@ const KATEGORILER = [
   { href: "/?kategori=kadin",             label: "Kadın"           },
   { href: "/?kategori=erkek",             label: "Erkek"           },
   { href: "/?kategori=ozel-koleksiyon",   label: "Özel Koleksiyon" },
-  { href: "/?kategori=unisex",            label: "Unisex"          },
+  { href: "/?kategori=unisex",            label: "UNISEX"          },
 ];
 
 export default function SiteHeader({
