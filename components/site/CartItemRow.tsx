@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useTransition } from "react";
 import { updateCartItem, removeFromCart } from "@/lib/actions/cart";
 
@@ -45,13 +46,13 @@ export default function CartItemRow({ item }: CartItemRowProps) {
       <div className="flex-1 min-w-0 flex flex-col justify-between">
         <div>
           {item.product.brand?.name && (
-            <p className="font-sans text-[9px] tracking-[0.2em] text-[#C4A882] uppercase mb-0.5">
+            <p className="font-sans text-[9px] tracking-[0.2em] text-[#C4A882] mb-0.5" lang="en" style={{ textTransform: 'uppercase' }}>
               {item.product.brand.name}
             </p>
           )}
-          <p className="font-sans text-sm text-[#1A1A1A] leading-snug line-clamp-2">
+          <Link href={`/urunler/${item.product.slug}`} className="font-sans text-sm text-[#1A1A1A] leading-snug line-clamp-2 hover:text-[#C4A882] transition-colors">
             {item.product.name}
-          </p>
+          </Link>
           <p className="font-sans text-sm font-semibold text-[#1A1A1A] mt-1">
             {(price * item.quantity).toLocaleString("tr-TR")} ₺
           </p>

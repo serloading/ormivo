@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 
 interface SoldItem {
   productId: string | null; name: string; qty: number; revenue: number;
@@ -143,7 +144,7 @@ export default function RaporClient({ soldItems, financeSummary, urunMaliyeti, c
       <div>
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <div>
-            <h2 className="text-base font-semibold text-[#2c1810]">En Çok Satan Ürünler</h2>
+            <Link href="/admin/urunler" className="text-base font-semibold text-[#2c1810] hover:text-[#8b6f5e] transition-colors">En Çok Satan Ürünler →</Link>
             <p className="text-xs text-[#8b6f5e] mt-0.5">{productTotals.length} farklı ürün · {filteredItems.reduce((s, i) => s + i.qty, 0)} adet satıldı</p>
           </div>
           <div className="flex items-center gap-2">
@@ -201,8 +202,8 @@ export default function RaporClient({ soldItems, financeSummary, urunMaliyeti, c
       <div>
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <div>
-            <h2 className="text-base font-semibold text-[#2c1810]">En Çok Alışveriş Yapan Müşteriler</h2>
-            <p className="text-xs text-[#8b6f5e] mt-0.5">Tüm zamanlar</p>
+            <Link href="/admin/musteriler" className="text-base font-semibold text-[#2c1810] hover:text-[#8b6f5e] transition-colors">En Çok Alışveriş Yapan Müşteriler →</Link>
+            <p className="text-xs text-[#8b6f5e] mt-0.5">Tüm zamanlar · <Link href="/admin/siparisler" className="hover:underline">Siparişlere git →</Link></p>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-[#8b6f5e]">Sırala:</span>

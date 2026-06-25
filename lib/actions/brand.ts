@@ -10,7 +10,10 @@ export type BrandFormData = {
 };
 
 export async function getBrands() {
-  return prisma.brand.findMany({ orderBy: { name: "asc" } });
+  return prisma.brand.findMany({
+    orderBy: { name: "asc" },
+    include: { _count: { select: { products: { where: { deletedAt: null, isActive: true } } } } },
+  });
 }
 
 export async function createBrand(data: BrandFormData) {

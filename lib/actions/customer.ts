@@ -2,8 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { logActivity } from "@/lib/actions/activity-log";
-import { auth } from "@/lib/auth";
 
 export type CustomerFormData = {
   name: string;

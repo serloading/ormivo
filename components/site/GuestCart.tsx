@@ -7,7 +7,7 @@ import { placeOrder } from "@/lib/actions/order-site";
 import { validateCoupon } from "@/lib/actions/coupon";
 
 interface GuestItem { productId: string; qty: number; }
-interface ProductInfo { id: string; name: string; price: number; images: string[] | null; brand?: string | null; }
+interface ProductInfo { id: string; name: string; slug: string; price: number; images: string[] | null; brand?: string | null; }
 
 export default function GuestCart() {
   const [items, setItems]         = useState<GuestItem[]>([]);
@@ -127,8 +127,8 @@ export default function GuestCart() {
               )}
             </div>
             <div className="flex-1 min-w-0">
-              {product?.brand && <p className="font-sans text-[9px] tracking-[0.2em] text-[#C4A882] uppercase mb-0.5">{product.brand}</p>}
-              <p className="font-sans text-sm text-[#1A1A1A] leading-snug line-clamp-2">{product?.name ?? productId}</p>
+              {product?.brand && <p className="font-sans text-[9px] tracking-[0.2em] text-[#C4A882] mb-0.5" lang="en" style={{ textTransform: 'uppercase' }}>{product.brand}</p>}
+              <Link href={product?.slug ? `/urunler/${product.slug}` : "#"} className="font-sans text-sm text-[#1A1A1A] leading-snug line-clamp-2 hover:text-[#C4A882] transition-colors">{product?.name ?? productId}</Link>
               <p className="font-sans text-sm font-semibold text-[#1A1A1A] mt-1">
                 {((product?.price ?? 0) * qty).toLocaleString("tr-TR")} ₺
               </p>

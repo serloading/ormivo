@@ -9,14 +9,15 @@ export async function POST(req: NextRequest) {
 
   const products = await prisma.product.findMany({
     where: { id: { in: safeIds }, isActive: true },
-    select: { id: true, name: true, price: true, images: true, brand: { select: { name: true } } },
+    select: { id: true, name: true, slug: true, price: true, images: true, brand: { select: { name: true } } },
   });
 
-  type BatchProduct = { id: string; name: string; price: unknown; images: unknown; brand: { name: string } | null };
+  type BatchProduct = { id: string; name: string; slug: string; price: unknown; images: unknown; brand: { name: string } | null };
   return NextResponse.json(
     (products as BatchProduct[]).map((p) => ({
       id:     p.id,
       name:   p.name,
+      slug:   p.slug,
       price:  Number(p.price),
       images: p.images,
       brand:  p.brand?.name ?? null,
