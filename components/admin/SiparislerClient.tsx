@@ -156,7 +156,7 @@ export default function SiparislerClient({
                   <td className="px-5 py-4">
                     <p className="text-[#2c1810]">{o.customer.name}</p>
                     {o.customer.phone && (
-                      <a href={`https://wa.me/9${o.customer.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="text-xs text-[#8b6f5e] hover:text-green-600">{o.customer.phone}</a>
+                      <a href={`https://wa.me/${(function(p){const d=p.replace(/\D/g,"");return d.startsWith("90")?d:d.startsWith("0")?"9"+d:"90"+d;})(o.customer.phone)}`} target="_blank" rel="noopener noreferrer" className="text-xs text-[#8b6f5e] hover:text-green-600">{o.customer.phone}</a>
                     )}
                   </td>
                   <td className="px-5 py-4 text-[#5c4033] max-w-[160px]">

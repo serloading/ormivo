@@ -920,7 +920,7 @@ function OrderSummaryModal({ order, onClose }: { order: OrderRow; onClose: () =>
   const indirim = originalTotal - indirimliTutar;
 
   const phone = order.recipientPhone || order.memberPhone || null;
-  const cleanPhone = phone ? phone.replace(/\D/g, "").replace(/^0/, "90") : null;
+  const cleanPhone = phone ? (() => { const d = phone.replace(/\D/g, ""); return d.startsWith("90") ? d : d.startsWith("0") ? "9" + d : "90" + d; })() : null;
 
   const lines: string[] = [
     `Sayın ${order.recipientName ?? "Müşteri"},`,

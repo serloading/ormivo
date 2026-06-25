@@ -20,6 +20,13 @@ const PAYMENT_LABELS: Record<string, string> = {
 
 const PREDEFINED_TAGS = ["B2B", "Toptan", "Sadık", "Kurumsal", "Sorunlu"];
 
+function toWaPhone(phone: string): string {
+  const d = phone.replace(/\D/g, "");
+  if (d.startsWith("90")) return d;
+  if (d.startsWith("0"))  return "9" + d;
+  return "90" + d;
+}
+
 type CustomerData = {
   id: string; name: string; phone: string | null; email: string | null;
   city: string | null; address: string | null; note: string | null;
@@ -177,7 +184,7 @@ export default function MusteriProfilClient({
                 ))}
               </div>
               {customer.phone && (
-                <a href={`https://wa.me/9${customer.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer"
+                <a href={`https://wa.me/${toWaPhone(customer.phone)}`} target="_blank" rel="noopener noreferrer"
                   className="block w-full text-center bg-[#2c1810] text-[#f5f0eb] text-xs tracking-widest uppercase py-2.5 hover:bg-[#3d2418] transition-colors mt-4">
                   WhatsApp&apos;tan Yaz
                 </a>
