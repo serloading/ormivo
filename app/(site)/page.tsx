@@ -122,7 +122,7 @@ export default async function HomePage({
 
   const categoryItems = [
     { href: href("kategori", ""),                  active: !kategori,                      label: "Tümü"            },
-    ...sortedCategories.filter((c) => c.slug !== "unisex").map((c) => ({ href: href("kategori", c.slug), active: kategori === c.slug, label: c.name })),
+    ...sortedCategories.filter((c) => c.slug !== "unisex" && c.slug !== "ozel-koleksiyon").map((c) => ({ href: href("kategori", c.slug), active: kategori === c.slug, label: c.name })),
     { href: href("kategori", "ozel-koleksiyon"),   active: kategori === "ozel-koleksiyon", label: "Özel Koleksiyon" },
     ...sortedCategories.filter((c) => c.slug === "unisex").map((c) => ({ href: href("kategori", c.slug), active: kategori === c.slug, label: c.name })),
   ];

@@ -165,6 +165,7 @@ function PaymentEditor({ order }: { order: OrderRow }) {
 function DeliveryEditor({ order }: { order: OrderRow }) {
   const [pending, startTransition] = useTransition();
   const [cur, setCur] = useState(order.deliveryMethod);
+  useEffect(() => { setCur(order.deliveryMethod); }, [order.deliveryMethod]);
 
   return (
     <PortalDropdown
@@ -420,12 +421,17 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, categ
   function saveNewCustomer() {
     if (!newCust.name.trim()) return;
     startCustT(async () => {
-      const result = await createCustomer({ name: newCust.name.trim(), phone: newCust.phone.trim() || undefined });
-      const newCustomer: Customer = { id: result.id, name: newCust.name.trim(), phone: newCust.phone.trim() || null };
-      setCustomers((prev) => [...prev, newCustomer].sort((a, b) => a.name.localeCompare(b.name)));
-      setCustomerId(result.id);
-      setNewCust({ name: "", phone: "" });
-      setShowNewCustomer(false);
+      try {
+        const result = await createCustomer({ name: newCust.name.trim(), phone: newCust.phone.trim() || undefined });
+        if (!result?.id) throw new Error("Müşteri ID alınamadı.");
+        const newCustomer: Customer = { id: result.id, name: newCust.name.trim(), phone: newCust.phone.trim() || null };
+        setCustomers((prev) => [...prev, newCustomer].sort((a, b) => a.name.localeCompare(b.name)));
+        setCustomerId(result.id);
+        setNewCust({ name: "", phone: "" });
+        setShowNewCustomer(false);
+      } catch (e) {
+        setError("Müşteri eklenemedi: " + (e instanceof Error ? e.message : "Bilinmeyen hata"));
+      }
     });
   }
 
@@ -918,7 +924,10 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
   const [discount, setDiscount]           = useState(String(order.discount || ""));
   const [note, setNote]                   = useState(order.note ?? "");
   const [manualTotal, setManualTotal]     = useState(String(order.total));
-  const [totalEdited, setTotalEdited]     = useState(false);
+  const [totalEdited, setTotalEdited]     = useState(() => {
+    const initialAuto = order.items.reduce((s, i) => s + i.qty * i.price, 0);
+    return Math.abs(Number(order.total) - initialAuto) > 0.01;
+  });
   const [pending, startSave]              = useTransition();
   const [error, setError]                 = useState("");
 
@@ -949,12 +958,17 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
   function saveNewCustomer() {
     if (!newCust.name.trim()) return;
     startCustT(async () => {
-      const result = await createCustomer({ name: newCust.name.trim(), phone: newCust.phone.trim() || undefined });
-      const c: Customer = { id: result.id, name: newCust.name.trim(), phone: newCust.phone.trim() || null };
-      setCustomers((prev) => [...prev, c].sort((a, b) => a.name.localeCompare(b.name)));
-      setCustomerId(result.id);
-      setNewCust({ name: "", phone: "" });
-      setShowNewCust(false);
+      try {
+        const result = await createCustomer({ name: newCust.name.trim(), phone: newCust.phone.trim() || undefined });
+        if (!result?.id) throw new Error("Müşteri ID alınamadı.");
+        const c: Customer = { id: result.id, name: newCust.name.trim(), phone: newCust.phone.trim() || null };
+        setCustomers((prev) => [...prev, c].sort((a, b) => a.name.localeCompare(b.name)));
+        setCustomerId(result.id);
+        setNewCust({ name: "", phone: "" });
+        setShowNewCust(false);
+      } catch (e) {
+        setError("Müşteri eklenemedi: " + (e instanceof Error ? e.message : "Bilinmeyen hata"));
+      }
     });
   }
 
