@@ -40,6 +40,27 @@ export async function login(formData: FormData) {
   if (!ok)  return { error: "Telefon numarası veya şifre hatalı." };
 
   await createSession({ userId: user.id, phone: user.phone, name: user.name });
+  return { success: true, mustChangePassword: user.mustChangePassword };
+}
+
+export async function changePassword(formData: FormData) {
+  const { getSession } = await import("@/lib/session");
+  const session = await getSession();
+  if (!session) return { error: "Oturum açık değil." };
+
+  const newPassword = (formData.get("password") as string);
+  const confirm     = (formData.get("confirm")   as string);
+
+  if (!newPassword || newPassword.length < 8)
+    return { error: "Şifre en az 8 karakter olmalı." };
+  if (newPassword !== confirm)
+    return { error: "Şifreler eşleşmiyor." };
+
+  const hash = await bcrypt.hash(newPassword, 12);
+  await prisma.siteUser.update({
+    where: { id: session.userId },
+    data: { passwordHash: hash, mustChangePassword: false },
+  });
   return { success: true };
 }
 

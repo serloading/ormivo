@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateCustomer, updateCustomerSegment, updateCustomerTags, addCustomerNote, deleteCustomerNote } from "@/lib/actions/customer";
+import { updateCustomer, updateCustomerSegment, updateCustomerTags, addCustomerNote, deleteCustomerNote, createSiteUserForCustomer } from "@/lib/actions/customer";
 import { SEGMENTS, SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/customer-constants";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -182,6 +182,7 @@ export default function MusteriProfilClient({
                   WhatsApp&apos;tan Yaz
                 </a>
               )}
+              <SiteHesapButonu customerId={customer.id} phone={customer.phone} />
             </>
           )}
         </div>
@@ -316,6 +317,35 @@ export default function MusteriProfilClient({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function SiteHesapButonu({ customerId, phone }: { customerId: string; phone: string | null }) {
+  const [msg, setMsg] = useState("");
+  const [pending, start] = useTransition();
+
+  if (!phone) return (
+    <p className="text-[10px] text-[#8b6f5e] text-center mt-3">Telefon numarası eklenince site hesabı oluşturulabilir.</p>
+  );
+
+  function handleCreate() {
+    start(async () => {
+      const r = await createSiteUserForCustomer(customerId);
+      setMsg(r.error ? `Hata: ${r.error}` : "Site hesabı oluşturuldu. Müşteri telefonu ve varsayılan şifre ile giriş yapabilir.");
+    });
+  }
+
+  return (
+    <div className="mt-3">
+      {msg ? (
+        <p className="text-[11px] text-center text-green-700 bg-green-50 border border-green-200 px-3 py-2 rounded">{msg}</p>
+      ) : (
+        <button onClick={handleCreate} disabled={pending}
+          className="block w-full text-center border border-[#c4a882] text-[#8b6f5e] text-xs tracking-widest uppercase py-2.5 hover:bg-[#f5ede4] transition-colors disabled:opacity-50">
+          {pending ? "Oluşturuluyor..." : "Site Hesabı Oluştur"}
+        </button>
+      )}
     </div>
   );
 }

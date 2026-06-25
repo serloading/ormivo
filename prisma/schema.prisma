@@ -152,14 +152,15 @@ enum FinanceType {
 // â”€â”€ Site KullanÄ±cÄ±larÄ± â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 model SiteUser {
-  id           String      @id @default(cuid())
-  phone        String      @unique
-  name         String?
-  passwordHash String
-  createdAt    DateTime    @default(now())
-  cart         Cart?
-  addresses    Address[]
-  siteOrders   SiteOrder[]
+  id                 String      @id @default(cuid())
+  phone              String      @unique
+  name               String?
+  passwordHash       String
+  mustChangePassword Boolean     @default(false)
+  createdAt          DateTime    @default(now())
+  cart               Cart?
+  addresses          Address[]
+  siteOrders         SiteOrder[]
 }
 
 model Address {

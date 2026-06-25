@@ -15,6 +15,8 @@ export default function GirisPage() {
       const result = await login(fd);
       if (result.error) {
         setError(result.error);
+      } else if (result.mustChangePassword) {
+        window.location.href = "/sifre-degistir";
       } else {
         window.location.href = "/";
       }

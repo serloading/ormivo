@@ -1,9 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/actions/activity-log";
 import { auth } from "@/lib/auth";
+
+// Varsayılan şifre: admin tarafından oluşturulan müşterilere atanır
+const DEFAULT_PASSWORD = "Ormivo2025!@#";
 
 export type CustomerFormData = {
   name: string;
@@ -50,6 +54,19 @@ export async function createCustomer(data: CustomerFormData) {
   try {
     const customerNo = await generateCustomerNo();
     const customer = await prisma.customer.create({ data: { ...data, customerNo, tags: [] } });
+
+    // Telefon varsa otomatik SiteUser oluştur (müşteri siteye girebilsin)
+    if (data.phone) {
+      const normalizedPhone = data.phone.trim().replace(/\s/g, "");
+      const existing = await prisma.siteUser.findUnique({ where: { phone: normalizedPhone } });
+      if (!existing) {
+        const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 12);
+        await prisma.siteUser.create({
+          data: { phone: normalizedPhone, name: data.name, passwordHash, mustChangePassword: true },
+        });
+      }
+    }
+
     revalidatePath("/admin/musteriler");
     revalidatePath("/admin/siparisler");
     return { success: true, id: customer.id, error: null };
@@ -58,6 +75,21 @@ export async function createCustomer(data: CustomerFormData) {
     console.error("[createCustomer] HATA:", msg);
     return { success: false, id: null, error: msg };
   }
+}
+
+export async function createSiteUserForCustomer(customerId: string) {
+  const customer = await prisma.customer.findUnique({ where: { id: customerId }, select: { name: true, phone: true } });
+  if (!customer?.phone) return { error: "Müşteri telefon numarası yok." };
+
+  const phone = customer.phone.trim().replace(/\s/g, "");
+  const existing = await prisma.siteUser.findUnique({ where: { phone } });
+  if (existing) return { error: "Bu telefon numarasıyla zaten hesap var." };
+
+  const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 12);
+  await prisma.siteUser.create({
+    data: { phone, name: customer.name, passwordHash, mustChangePassword: true },
+  });
+  return { success: true };
 }
 
 export async function backfillCustomerNos() {

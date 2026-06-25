@@ -41,6 +41,7 @@ export default async function SiparislerPage({
   const unified = [
     ...siteOrders.map((o) => ({
       id:            o.id,
+      customerId:    null,
       source:        "web" as const,
       orderNo:       o.orderNo,
       status:        o.status,
@@ -68,6 +69,7 @@ export default async function SiparislerPage({
       orderNo:       o.orderNo,
       status:        o.status,
       createdAt:     o.createdAt.toISOString(),
+      customerId:    o.customerId ?? null,
       recipientName: o.customer?.name ?? "Silinmiş Müşteri",
       recipientPhone: o.customer?.phone ?? null,
       addressLine:   null,

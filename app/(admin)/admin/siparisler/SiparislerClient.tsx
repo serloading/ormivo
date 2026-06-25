@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createPortal } from "react-dom";
 import {
   updateSiteOrderStatus, updateManuelOrderStatus, updateTrackingNo, updatePaymentStatus,
@@ -43,7 +44,7 @@ const DELIVERY_COLORS: Record<string, string> = {
 };
 
 interface OrderRow {
-  id: string; source: "web" | "manuel"; orderNo: string; status: string;
+  id: string; customerId: string | null; source: "web" | "manuel"; orderNo: string; status: string;
   paymentStatus: string; deliveryMethod: string; createdAt: string;
   recipientName: string | null; recipientPhone: string | null;
   addressLine: string | null; city: string | null; district: string | null;
@@ -825,7 +826,10 @@ export default function SiparislerClient({
                   </span>
                 </td>
                 <td className="px-4 py-3 min-w-[160px]">
-                  <div className="text-sm font-medium text-gray-700">{order.recipientName}</div>
+                  {order.customerId
+                    ? <Link href={`/admin/musteriler/${order.customerId}`} className="text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:underline">{order.recipientName}</Link>
+                    : <div className="text-sm font-medium text-gray-700">{order.recipientName}</div>
+                  }
                   {order.city && <div className="text-[10px] text-gray-400">{[order.district, order.city].filter(Boolean).join(", ")}</div>}
                   {order.note && <div className="text-[10px] text-orange-500 mt-0.5 max-w-[160px]" title={order.note}>Not: {order.note}</div>}
                 </td>
