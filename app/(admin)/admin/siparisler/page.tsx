@@ -29,7 +29,10 @@ export default async function SiparislerPage({
     prisma.order.findMany({
       where: activeFilter,
       orderBy: { createdAt: "desc" },
-      include: { customer: { select: { name: true, phone: true } } },
+      include: {
+        customer: { select: { name: true, phone: true } },
+        cargo: { select: { trackingNo: true, company: true } },
+      },
     }),
     prisma.customer.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, phone: true } }),
     prisma.product.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true, price: true, stock: true } }),
@@ -79,8 +82,8 @@ export default async function SiparislerPage({
       total:         Number(o.total),
       discount:      0,
       note:          o.note,
-      trackingNo:    null,
-      cargoCompany:  null,
+      trackingNo:    o.cargo?.trackingNo ?? null,
+      cargoCompany:  o.cargo?.company ?? null,
       paymentStatus:  o.paymentStatus ?? "PENDING",
       deliveryMethod: o.deliveryMethod ?? "PICKUP",
       memberName:    null,

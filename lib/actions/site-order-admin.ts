@@ -125,7 +125,6 @@ export async function updateTrackingNo(orderId: string, trackingNo: string, carg
     data: {
       trackingNo:   trackingNo.trim()   || null,
       cargoCompany: cargoCompany.trim() || null,
-      status:       trackingNo.trim()   ? "SHIPPED" : undefined,
     },
   });
   revalidatePath("/admin/siparisler");
@@ -133,13 +132,6 @@ export async function updateTrackingNo(orderId: string, trackingNo: string, carg
 }
 
 export async function updateManuelOrderTracking(orderId: string, trackingNo: string, cargoCompany: string) {
-  await prisma.order.update({
-    where: { id: orderId },
-    data: {
-      note: undefined,
-      status: trackingNo.trim() ? "SHIPPED" : undefined,
-    },
-  });
   // Kargo bilgisini note olarak değil, CargoTracking üzerinden saklayabiliriz
   // Şimdilik Order.note alanına eklemek yerine CargoTracking upsert edelim
   const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId }, select: { customerId: true } });
