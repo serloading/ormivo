@@ -1197,7 +1197,8 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
         if (alinanAmt !== null && alinanAmt < netTotal && customerId) {
           await createCustomerDebt({
             customerId,
-            orderId: order.id,
+            // orderId sadece manuel siparişlerde (Order tablosu) kullanılabilir
+            orderId: order.source === "manuel" ? order.id : undefined,
             description: `Sipariş #${order.orderNo} — kalan borç`,
             totalAmount: netTotal,
             initialPayment: alinanAmt,

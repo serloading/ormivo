@@ -11,6 +11,11 @@ export async function register(formData: FormData) {
   if (!phone || !password)
     return { error: "Telefon numarası ve şifre gerekli." };
 
+  // Telefon numarası doğrulama: sadece rakam, 10-11 hane, @ içermemeli
+  const digits = phone.replace(/\D/g, "");
+  if (phone.includes("@") || digits.length < 10 || digits.length > 11)
+    return { error: "Geçerli bir telefon numarası girin (örn: 05XX XXX XX XX)." };
+
   if (password.length < 6)
     return { error: "Şifre en az 6 karakter olmalı." };
 

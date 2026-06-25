@@ -26,10 +26,13 @@ export default function SiteHeader({
   const pathname = usePathname();
   const router   = useRouter();
 
-  const [mobileOpen, setMobileOpen]   = useState(false);
-  const [userOpen,   setUserOpen]     = useState(false);
-  const [searchQ,    setSearchQ]      = useState("");
-  const [guestCount, setGuestCount]   = useState(0);
+  const [mobileOpen,   setMobileOpen]   = useState(false);
+  const [userOpen,     setUserOpen]     = useState(false);
+  const [searchQ,      setSearchQ]      = useState("");
+  const [mobileSearch, setMobileSearch] = useState("");
+  const [searchOpen,   setSearchOpen]   = useState(false);
+  const [guestCount,   setGuestCount]   = useState(0);
+  const mobileSearchRef = useRef<HTMLInputElement>(null);
 
   const userRef  = useRef<HTMLDivElement>(null);
 
@@ -115,6 +118,17 @@ export default function SiteHeader({
             {/* Divider */}
             <span className="w-px h-5 bg-[#E8E4DE] mx-1" />
 
+            {/* Search butonu (desktop) */}
+            <button
+              onClick={() => { setSearchOpen((v) => !v); setTimeout(() => mobileSearchRef.current?.focus(), 50); }}
+              className="p-2 text-[#4A4A4A] hover:text-[#C4A882] hover:bg-[#FAF7F3] rounded transition-colors"
+              aria-label="Ara"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+                <circle cx="11" cy="11" r="7" /><path d="m21 21-4.35-4.35" />
+              </svg>
+            </button>
+
             {/* Sepet */}
             <Link href="/sepet" className="relative p-2 text-[#4A4A4A] hover:text-[#C4A882] hover:bg-[#FAF7F3] rounded transition-colors" aria-label="Sepet">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
@@ -180,10 +194,31 @@ export default function SiteHeader({
             )}
           </div>
 
-          {/* ── MOBİL: hamburger ── */}
-          <div className="md:hidden flex items-center gap-2 ml-auto">
+          {/* ── MOBİL: arama + sepet + hamburger ── */}
+          <div className="md:hidden flex items-center gap-1 ml-auto">
+            {/* Mobil arama butonu */}
             <button
-              onClick={() => setMobileOpen((v) => !v)}
+              onClick={() => { setSearchOpen((v) => !v); setMobileOpen(false); setTimeout(() => mobileSearchRef.current?.focus(), 80); }}
+              className="p-2 text-[#4A4A4A]"
+              aria-label="Ara"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+                <circle cx="11" cy="11" r="7" /><path d="m21 21-4.35-4.35" />
+              </svg>
+            </button>
+            {/* Mobil sepet ikonu */}
+            <Link href="/sepet" className="relative p-2 text-[#4A4A4A]" aria-label="Sepet">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+              </svg>
+              {totalCart > 0 && (
+                <span className="absolute top-0.5 right-0.5 bg-[#C4A882] text-white text-[8px] font-sans font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                  {totalCart > 9 ? "9+" : totalCart}
+                </span>
+              )}
+            </Link>
+            <button
+              onClick={() => { setMobileOpen((v) => !v); setSearchOpen(false); }}
               className="p-2 flex flex-col gap-[5px]"
               aria-label="Menü"
             >
@@ -194,21 +229,34 @@ export default function SiteHeader({
           </div>
         </div>
 
-        {/* ── MOBİL MENU ── */}
-        <div className={`md:hidden overflow-hidden transition-all duration-300 ${mobileOpen ? "max-h-[600px] border-t border-[#E8E4DE]" : "max-h-0"} bg-white`}>
-          {/* Arama */}
-          <div className="px-4 py-3 border-b border-[#E8E4DE]">
+        {/* ── AÇILIR ARAMA PANELI (hem mobil hem desktop search butonuna bağlı) ── */}
+        {searchOpen && (
+          <div className="border-t border-[#E8E4DE] bg-white px-4 py-3">
             <form onSubmit={(e) => {
               e.preventDefault();
-              const v = (e.currentTarget.querySelector("input") as HTMLInputElement).value;
-              if (v) { router.push(`/?q=${encodeURIComponent(v)}`); setMobileOpen(false); }
-            }} className="flex items-center bg-[#F5F1EC] border border-[#E8E4DE] px-3 py-2.5 gap-2">
+              if (mobileSearch.trim()) { router.push(`/?q=${encodeURIComponent(mobileSearch.trim())}`); setSearchOpen(false); setMobileSearch(""); }
+            }} className="flex items-center bg-[#F5F1EC] border border-[#C4A882] px-4 py-2.5 gap-3 max-w-2xl mx-auto">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4 text-[#C4A882] shrink-0">
                 <circle cx="11" cy="11" r="7" /><path d="m21 21-4.35-4.35" />
               </svg>
-              <input placeholder="Parfüm veya marka ara…" className="flex-1 bg-transparent font-sans text-sm text-[#1A1A1A] placeholder-[#B8B4AE] outline-none" />
+              <input
+                ref={mobileSearchRef}
+                value={mobileSearch}
+                onChange={(e) => setMobileSearch(e.target.value)}
+                placeholder="Parfüm veya marka ara…"
+                className="flex-1 bg-transparent font-sans text-sm text-[#1A1A1A] placeholder-[#B8B4AE] outline-none"
+              />
+              {mobileSearch && (
+                <button type="button" onClick={() => setMobileSearch("")} className="text-[#B8B4AE] hover:text-[#1A1A1A] text-lg leading-none">×</button>
+              )}
+              <button type="button" onClick={() => setSearchOpen(false)} className="text-[#B8B4AE] hover:text-[#1A1A1A] text-xs ml-1">Kapat</button>
             </form>
           </div>
+        )}
+
+        {/* ── MOBİL MENU ── */}
+        <div className={`md:hidden overflow-hidden transition-all duration-300 ${mobileOpen ? "max-h-[600px] border-t border-[#E8E4DE]" : "max-h-0"} bg-white`}>
+          {/* Arama (mobil menü içi — kaldırıldı, üstteki search butonu kullanılıyor) */}
           {/* Linkler */}
           <nav className="px-4 py-2 flex flex-col">
             {KATEGORILER.map((item) => (
