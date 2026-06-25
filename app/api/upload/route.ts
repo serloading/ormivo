@@ -4,7 +4,7 @@ import path from "path";
 import { auth } from "@/lib/auth";
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
+const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/jpg", "image/svg+xml"];
 
 export async function POST(req: NextRequest) {
   const session = await auth();

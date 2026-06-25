@@ -12,7 +12,7 @@ type Product = {
   scentNotes?: string | null;
   price: number | string; comparePrice?: number | string | null;
   costPrice?: number | string | null; costPriceUsd?: number | string | null;
-  stock: number; isActive: boolean; isOzelKoleksiyon?: boolean; images: string[];
+  stock: number; isActive: boolean; isOzelKoleksiyon?: boolean; isBestSeller?: boolean; images: string[];
   categoryId?: string | null; brandId?: string | null;
 };
 
@@ -47,6 +47,7 @@ export default function ProductForm({ product, categories, brands }: Props) {
     stock: product?.stock?.toString() ?? "0",
     isActive: product?.isActive ?? true,
     isOzelKoleksiyon: product?.isOzelKoleksiyon ?? false,
+    isBestSeller: product?.isBestSeller ?? false,
   });
 
   const [costCurrency, setCostCurrency] = useState<"TRY" | "USD">("TRY");
@@ -114,6 +115,7 @@ export default function ProductForm({ product, categories, brands }: Props) {
       stock: parseInt(form.stock) || 0,
       isActive: form.isActive,
       isOzelKoleksiyon: form.isOzelKoleksiyon,
+      isBestSeller: form.isBestSeller,
       images,
     };
     if (isEdit && product) {
@@ -195,6 +197,10 @@ export default function ProductForm({ product, categories, brands }: Props) {
               <label className="flex items-center gap-3 cursor-pointer">
                 <input type="checkbox" checked={form.isOzelKoleksiyon} onChange={(e) => setForm((p) => ({ ...p, isOzelKoleksiyon: e.target.checked }))} className="w-4 h-4 accent-[#2c1810]" />
                 <span className="text-sm text-[#5c4033]">Özel Koleksiyon</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={form.isBestSeller} onChange={(e) => setForm((p) => ({ ...p, isBestSeller: e.target.checked }))} className="w-4 h-4 accent-[#2c1810]" />
+                <span className="text-sm text-[#5c4033]">En Çok Satan</span>
               </label>
             </div>
           </div>

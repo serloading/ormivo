@@ -69,7 +69,7 @@ export default async function UrunlerPage({
 
   type UrunCat   = { id: string; name: string; slug: string };
   type UrunBrand = { id: string; name: string; slug: string };
-  type UrunProduct = { id: string; slug: string; name: string; price: unknown; comparePrice: unknown; images: string[]; stock: number; brand?: { name: string } | null; category?: { name: string } | null };
+  type UrunProduct = { id: string; slug: string; name: string; price: unknown; comparePrice: unknown; images: string[]; stock: number; isBestSeller: boolean; brand?: { name: string } | null; category?: { name: string } | null };
 
   const typedCats    = categories as UrunCat[];
   const typedBrands  = brands     as UrunBrand[];
@@ -251,8 +251,11 @@ export default async function UrunlerPage({
                         {!inStock && (
                           <div className="absolute top-2 right-2 bg-[#1A1A1A]/80 text-white font-sans text-[8px] tracking-[0.18em] uppercase px-2 py-1 pointer-events-none">Tükendi</div>
                         )}
-                        {discount && inStock && (
-                          <div className="absolute top-2 left-2 bg-[#C4A882] text-white font-sans text-[8px] tracking-[0.1em] uppercase px-2 py-1 pointer-events-none">-%{discount}</div>
+                        {compare && inStock && (
+                          <div className="absolute top-2 left-2 bg-[#C4A882] text-white font-sans text-[8px] tracking-[0.1em] uppercase px-2 py-1 pointer-events-none">%20 İndirim</div>
+                        )}
+                        {product.isBestSeller && inStock && (
+                          <div className="absolute top-2 right-2 bg-[#1A1A1A] text-[#C4A882] font-sans text-[8px] tracking-[0.1em] uppercase px-2 py-1 pointer-events-none">★ En Çok Satan</div>
                         )}
                         <AddToCartButton productId={product.id} loggedIn={loggedIn} />
                       </div>

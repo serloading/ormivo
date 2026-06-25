@@ -18,6 +18,7 @@ export type ProductFormData = {
   stock: number;
   isActive: boolean;
   isOzelKoleksiyon?: boolean;
+  isBestSeller?: boolean;
   images: string[];
 };
 

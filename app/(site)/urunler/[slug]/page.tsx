@@ -8,6 +8,7 @@ import ProductGallery from "@/components/site/ProductGallery";
 import ProductTabs from "@/components/site/ProductTabs";
 import ProductAddToCart from "@/components/site/ProductAddToCart";
 import AddToCartButton from "@/components/site/AddToCartButton";
+import FomoIndicators from "@/components/site/FomoIndicators";
 
 // 494 ürünü build'de aynı anda render etmek connection pool'u aşıyor.
 // Her istek sunucuda anlık render edilir; fiyat/stok değişimleri de anında yansır.
@@ -186,6 +187,9 @@ export default async function UrunDetayPage({
                 {product.description}
               </p>
             )}
+
+            {/* FOMO göstergeleri */}
+            <FomoIndicators />
 
             {/* Adet + Sepete Ekle */}
             <div className="mb-8">
