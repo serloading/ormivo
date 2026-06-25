@@ -725,6 +725,7 @@ export default function SiparislerClient({
   const [sourceFilter, setSourceFilter] = useState("");
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [editOrder, setEditOrder] = useState<OrderRow | null>(null);
+  const [summaryOrder, setSummaryOrder] = useState<OrderRow | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [, startBulkT] = useTransition();
   const router = useRouter();
@@ -815,7 +816,7 @@ export default function SiparislerClient({
                   <input type="checkbox" checked={selected.has(order.id)} onChange={() => toggleSelect(order.id)} className="rounded" />
                 </td>
                 <td className="px-3 py-3 whitespace-nowrap">
-                  <div className="font-mono text-[11px] font-semibold text-gray-700">#{order.orderNo}</div>
+                  <button onClick={() => setSummaryOrder(order)} className="font-mono text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline text-left">#{order.orderNo}</button>
                   <div className="text-[10px] text-gray-400 mt-0.5">
                     {new Date(order.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "2-digit" })}
                   </div>
@@ -898,7 +899,156 @@ export default function SiparislerClient({
           onClose={() => setEditOrder(null)}
         />
       )}
+      {summaryOrder && (
+        <OrderSummaryModal order={summaryOrder} onClose={() => setSummaryOrder(null)} />
+      )}
     </div>
+  );
+}
+
+// ---- Order Summary Modal ----
+function OrderSummaryModal({ order, onClose }: { order: OrderRow; onClose: () => void }) {
+  const originalTotal = order.items.reduce((s, i) => s + i.qty * i.price, 0);
+  const indirimliTutar = order.source === "web" ? order.total - order.discount : order.total;
+  const indirim = originalTotal - indirimliTutar;
+
+  const phone = order.recipientPhone || order.memberPhone || null;
+  const cleanPhone = phone ? phone.replace(/\D/g, "").replace(/^0/, "90") : null;
+
+  const lines: string[] = [
+    `Sayın ${order.recipientName ?? "Müşteri"},`,
+    ``,
+    `#${order.orderNo} numaralı siparişinizin özeti:`,
+    ``,
+    ...order.items.map((i) => `• ${i.name} ×${i.qty} = ${(i.price * i.qty).toLocaleString("tr-TR")} ₺`),
+    ``,
+  ];
+  if (indirim > 0) {
+    lines.push(`Orijinal Tutar: ${originalTotal.toLocaleString("tr-TR")} ₺`);
+    lines.push(`İndirim: -${indirim.toLocaleString("tr-TR")} ₺`);
+  }
+  lines.push(`Toplam: ${indirimliTutar.toLocaleString("tr-TR")} ₺`);
+  lines.push(`Durum: ${STATUS_LABELS[order.status] ?? order.status}`);
+  if (order.cargoCompany || order.trackingNo) {
+    lines.push(`Kargo: ${[order.cargoCompany, order.trackingNo].filter(Boolean).join(" — ")}`);
+  }
+  lines.push(``, `İyi günler dileriz, Ormivo`);
+
+  const message = lines.join("\n");
+  const waUrl = cleanPhone
+    ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`
+    : `https://wa.me/?text=${encodeURIComponent(message)}`;
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div>
+            <p className="text-[10px] tracking-[0.3em] uppercase text-[#C4A882]">Sipariş Özeti</p>
+            <h2 className="font-mono text-lg font-bold text-gray-800">#{order.orderNo}</h2>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+        </div>
+
+        <div className="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
+          {/* Müşteri */}
+          <div>
+            <p className="text-[9px] tracking-widest uppercase text-gray-400 mb-1">Müşteri</p>
+            <p className="text-sm font-medium text-gray-800">{order.recipientName}</p>
+            {phone && <p className="text-xs text-gray-500">{phone}</p>}
+            {order.addressLine && <p className="text-xs text-gray-500 mt-0.5">{[order.addressLine, order.district, order.city].filter(Boolean).join(", ")}</p>}
+          </div>
+
+          {/* Ürünler */}
+          <div>
+            <p className="text-[9px] tracking-widest uppercase text-gray-400 mb-2">Ürünler</p>
+            <div className="space-y-1.5">
+              {order.items.map((item, i) => (
+                <div key={i} className="flex justify-between text-sm">
+                  <span className="text-gray-700">{item.name} <span className="text-gray-400">×{item.qty}</span></span>
+                  <span className="text-gray-800 font-medium">{(item.price * item.qty).toLocaleString("tr-TR")} ₺</span>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-gray-100 mt-3 pt-3 space-y-1">
+              {indirim > 0 && (
+                <>
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>Orijinal Tutar</span>
+                    <span>{originalTotal.toLocaleString("tr-TR")} ₺</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-orange-600">
+                    <span>İndirim</span>
+                    <span>-{indirim.toLocaleString("tr-TR")} ₺</span>
+                  </div>
+                </>
+              )}
+              <div className="flex justify-between text-sm font-bold text-green-800">
+                <span>Toplam</span>
+                <span>{indirimliTutar.toLocaleString("tr-TR")} ₺</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Durum */}
+          <div className="flex gap-4">
+            <div>
+              <p className="text-[9px] tracking-widest uppercase text-gray-400 mb-1">Durum</p>
+              <span className={`text-[10px] tracking-wide uppercase px-2 py-0.5 rounded border ${STATUS_COLORS[order.status] ?? "bg-gray-50 text-gray-600 border-gray-200"}`}>
+                {STATUS_LABELS[order.status] ?? order.status}
+              </span>
+            </div>
+            <div>
+              <p className="text-[9px] tracking-widest uppercase text-gray-400 mb-1">Ödeme</p>
+              <span className={`text-[10px] tracking-wide uppercase px-2 py-0.5 rounded border ${PAYMENT_COLORS[order.paymentStatus] ?? "bg-gray-50 text-gray-600 border-gray-200"}`}>
+                {PAYMENT_LABELS[order.paymentStatus] ?? order.paymentStatus}
+              </span>
+            </div>
+            <div>
+              <p className="text-[9px] tracking-widest uppercase text-gray-400 mb-1">Teslimat</p>
+              <span className={`text-[10px] tracking-wide uppercase px-2 py-0.5 rounded border ${DELIVERY_COLORS[order.deliveryMethod] ?? "bg-gray-50 text-gray-600 border-gray-200"}`}>
+                {DELIVERY_LABELS[order.deliveryMethod] ?? order.deliveryMethod}
+              </span>
+            </div>
+          </div>
+
+          {/* Kargo */}
+          {(order.cargoCompany || order.trackingNo) && (
+            <div>
+              <p className="text-[9px] tracking-widest uppercase text-gray-400 mb-1">Kargo</p>
+              <p className="text-sm text-gray-700">{[order.cargoCompany, order.trackingNo].filter(Boolean).join(" — ")}</p>
+            </div>
+          )}
+
+          {/* Not */}
+          {order.note && (
+            <div>
+              <p className="text-[9px] tracking-widest uppercase text-gray-400 mb-1">Not</p>
+              <p className="text-sm text-gray-600 italic">{order.note}</p>
+            </div>
+          )}
+        </div>
+
+        {/* WhatsApp Button */}
+        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50">
+          {!phone && (
+            <p className="text-[10px] text-gray-400 mb-2">Müşteri telefon numarası kayıtlı değil — WhatsApp açılır, alıcıyı kendiniz seçebilirsiniz.</p>
+          )}
+          <a
+            href={waUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full bg-[#25D366] hover:bg-[#1ebe5d] text-white font-medium text-sm py-3 rounded-lg transition-colors"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+            </svg>
+            WhatsApp ile Gönder{phone ? ` (${phone})` : ""}
+          </a>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }
 
