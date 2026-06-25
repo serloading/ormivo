@@ -237,7 +237,7 @@ export default async function HomePage({
                         <AddToCartButton productId={p.id} loggedIn={loggedIn} />
                       </div>
                       <div className="p-2.5 flex flex-col flex-1">
-                        {p.brand?.name && <p className="font-sans text-[8px] tracking-[0.2em] text-[#C4A882] uppercase mb-0.5">{p.brand.name}</p>}
+                        {p.brand?.name && <p className="font-sans text-[8px] tracking-[0.2em] text-[#C4A882] mb-0.5">{p.brand.name.toLocaleUpperCase("tr-TR")}</p>}
                         <Link href={`/urunler/${p.slug}`}>
                           <h3 className="font-serif text-xs leading-snug text-[#1A1A1A] hover:text-[#C4A882] transition-colors line-clamp-2 mb-1.5">{p.name}</h3>
                         </Link>

@@ -7,7 +7,7 @@ import {
   updateSiteOrderStatus, updateManuelOrderStatus, updateTrackingNo, updatePaymentStatus,
   updateDeliveryMethod, updateSiteOrderDiscount,
   updateManuelOrderPayment, updateManuelOrderTotal, updateManuelOrderDelivery,
-  updateOrderItems, deleteOrderById,
+  updateOrderItems, deleteOrderById, updateManuelOrderTracking,
 } from "@/lib/actions/site-order-admin";
 import { createOrder } from "@/lib/actions/order";
 import { createCustomer } from "@/lib/actions/customer";
@@ -792,12 +792,12 @@ export default function SiparislerClient({
               <th className="px-3 py-3 w-8">
                 <input type="checkbox" checked={selected.size === filtered.length && filtered.length > 0} onChange={toggleAll} className="rounded" />
               </th>
-              <th className="px-4 py-3">Sipariş</th>
-              <th className="px-4 py-3">Müşteri</th>
+              <th className="px-3 py-3">Sipariş</th>
+              <th className="px-4 py-3 min-w-[160px]">Müşteri</th>
               <th className="px-4 py-3">Ürünler</th>
-              <th className="px-4 py-3">Tutar</th>
-              <th className="px-4 py-3">İndirim</th>
-              <th className="px-4 py-3">İndirimli Tutar</th>
+              <th className="px-3 py-3">Tutar</th>
+              <th className="px-3 py-3">İndirim</th>
+              <th className="px-3 py-3 bg-green-50">İndirimli Tutar</th>
               <th className="px-4 py-3">Durum</th>
               <th className="px-4 py-3">Ödeme</th>
               <th className="px-4 py-3">Teslimat</th>
@@ -814,20 +814,19 @@ export default function SiparislerClient({
                 <td className="px-3 py-3">
                   <input type="checkbox" checked={selected.has(order.id)} onChange={() => toggleSelect(order.id)} className="rounded" />
                 </td>
-                <td className="px-4 py-3 whitespace-nowrap">
-                  <div className="font-mono text-xs font-semibold text-gray-700">#{order.orderNo}</div>
+                <td className="px-3 py-3 whitespace-nowrap">
+                  <div className="font-mono text-[11px] font-semibold text-gray-700">#{order.orderNo}</div>
                   <div className="text-[10px] text-gray-400 mt-0.5">
                     {new Date(order.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "2-digit" })}
                   </div>
                   <span className={`inline-block mt-1 text-[9px] tracking-widest uppercase px-1.5 py-0.5 rounded font-medium ${order.source === "web" ? "bg-purple-50 text-purple-600 border border-purple-200" : "bg-gray-100 text-gray-500 border border-gray-200"}`}>
-                    {order.source === "web" ? "Web" : "Manuel"}
+                    {order.source === "web" ? "Web" : "M"}
                   </span>
                 </td>
-                <td className="px-4 py-3">
-                  <div className="text-xs font-medium text-gray-700">{order.recipientName}</div>
-                  {order.recipientPhone && <div className="text-[10px] text-gray-400">{order.recipientPhone}</div>}
+                <td className="px-4 py-3 min-w-[160px]">
+                  <div className="text-sm font-medium text-gray-700">{order.recipientName}</div>
                   {order.city && <div className="text-[10px] text-gray-400">{[order.district, order.city].filter(Boolean).join(", ")}</div>}
-                  {order.note && <div className="text-[10px] text-orange-500 mt-0.5 max-w-[140px]" title={order.note}>Not: {order.note}</div>}
+                  {order.note && <div className="text-[10px] text-orange-500 mt-0.5 max-w-[160px]" title={order.note}>Not: {order.note}</div>}
                 </td>
                 <td className="px-4 py-3">
                   <div className="space-y-0.5">
@@ -846,33 +845,31 @@ export default function SiparislerClient({
                     {order.items.reduce((s, i) => s + i.qty * i.price, 0).toLocaleString("tr-TR")} ₺
                   </div>
                 </td>
-                {/* İndirim */}
-                <td className="px-4 py-3 whitespace-nowrap">
-                  {order.source === "web" ? (
-                    <div>
-                      <DiscountEditor order={order} />
-                      {order.discount > 0 && (
-                        <div className="text-xs text-orange-600 font-medium mt-0.5">
-                          -{order.discount.toLocaleString("tr-TR")} ₺
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    order.discount > 0
-                      ? <span className="text-xs text-orange-600 font-medium">-{order.discount.toLocaleString("tr-TR")} ₺</span>
-                      : <span className="text-xs text-gray-300">—</span>
-                  )}
-                </td>
-                {/* İndirimli Tutar: net ödenecek */}
-                <td className="px-4 py-3 whitespace-nowrap">
-                  {order.source === "web" ? (
-                    <div className="font-bold text-gray-800 text-sm">
-                      {(order.total - order.discount).toLocaleString("tr-TR")} ₺
-                    </div>
-                  ) : (
-                    <TotalEditor order={order} />
-                  )}
-                </td>
+                {/* İndirim: otomatik hesaplanır (Tutar - İndirimli Tutar) */}
+                {(() => {
+                  const originalTotal = order.items.reduce((s, i) => s + i.qty * i.price, 0);
+                  const indirimliTutar = order.source === "web" ? order.total - order.discount : order.total;
+                  const indirim = originalTotal - indirimliTutar;
+                  return (
+                    <>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        {indirim > 0
+                          ? <span className="text-xs text-orange-600 font-medium">-{indirim.toLocaleString("tr-TR")} ₺</span>
+                          : <span className="text-xs text-gray-300">—</span>
+                        }
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap bg-green-50">
+                        {order.source === "web" ? (
+                          <div className="font-bold text-green-800 text-sm">
+                            {indirimliTutar.toLocaleString("tr-TR")} ₺
+                          </div>
+                        ) : (
+                          <TotalEditor order={order} />
+                        )}
+                      </td>
+                    </>
+                  );
+                })()}
                 <td className="px-4 py-3"><StatusEditor order={order} /></td>
                 <td className="px-4 py-3"><PaymentEditor order={order} /></td>
                 <td className="px-4 py-3"><DeliveryEditor order={order} /></td>
@@ -945,6 +942,8 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
   const [deliveryMethod, setDeliveryMethod] = useState(order.deliveryMethod);
   const [discount, setDiscount]           = useState(String(order.discount || ""));
   const [alinanTutar, setAlinanTutar]     = useState("");
+  const [editTrackingNo, setEditTrackingNo]   = useState(order.trackingNo ?? "");
+  const [editCargoCompany, setEditCargoCompany] = useState(order.cargoCompany ?? "");
   const [note, setNote]                   = useState(order.note ?? "");
   const [manualTotal, setManualTotal]     = useState(String(order.total));
   const [totalEdited, setTotalEdited]     = useState(() => {
@@ -1028,6 +1027,14 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
           note.trim() || null,
           { customerId: order.source === "manuel" ? customerId : undefined, discount: discountAmt, status, deliveryMethod }
         );
+        // Kargo bilgisi güncelle
+        if (editTrackingNo.trim() || editCargoCompany.trim()) {
+          if (order.source === "web") {
+            await updateTrackingNo(order.id, editTrackingNo, editCargoCompany);
+          } else {
+            await updateManuelOrderTracking(order.id, editTrackingNo, editCargoCompany);
+          }
+        }
         // Alınan tutar girilmişse ve net tutardan azsa borç kaydı oluştur
         const alinanAmt = alinanTutar.trim() ? Number(alinanTutar) : null;
         if (alinanAmt !== null && alinanAmt < netTotal && customerId) {
@@ -1267,6 +1274,29 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
               {alinanTutar && Number(alinanTutar) < netTotal && !customerId && (
                 <p className="text-[10px] text-gray-400 mt-1">Borç kaydı için müşteri seçilmeli.</p>
               )}
+            </div>
+          </div>
+
+          {/* Kargo */}
+          <div className="border border-[#e8ddd6] rounded-sm p-4 bg-[#faf8f6] space-y-3">
+            <p className="text-[10px] tracking-widest uppercase text-[#8b6f5e]">Kargo Bilgisi</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] tracking-widest uppercase text-[#8b6f5e] mb-1.5">Kargo Firması</label>
+                <select value={editCargoCompany} onChange={(e) => setEditCargoCompany(e.target.value)}
+                  className="w-full border border-[#d4c5ba] rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-[#8b6f5e] bg-white">
+                  <option value="">Seçiniz</option>
+                  {["Yurtiçi Kargo", "MNG Kargo", "Aras Kargo", "PTT Kargo", "Sürat Kargo", "DHL", "UPS"].map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] tracking-widest uppercase text-[#8b6f5e] mb-1.5">Takip Numarası</label>
+                <input type="text" value={editTrackingNo} onChange={(e) => setEditTrackingNo(e.target.value)}
+                  placeholder="Takip kodu girin..."
+                  className="w-full border border-[#d4c5ba] rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-[#8b6f5e] bg-white" />
+              </div>
             </div>
           </div>
 
