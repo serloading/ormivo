@@ -94,7 +94,8 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
         setModal(false);
       } catch (err) {
         console.error("Müşteri kaydedilemedi:", err);
-        alert("Kayıt sırasında hata oluştu. Lütfen tekrar deneyin.");
+        const msg = err instanceof Error ? err.message : String(err);
+        alert("Kayıt sırasında hata oluştu:\n" + msg);
       }
     });
   }
