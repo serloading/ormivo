@@ -275,21 +275,24 @@ function TrackingForm({ order }: { order: OrderRow }) {
   const [company, setCompany] = useState(order.cargoCompany ?? "");
   const [pending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
-
-  if (order.source === "manuel") return null;
+  const router = useRouter();
 
   function handleSave() {
     startTransition(async () => {
-      await updateTrackingNo(order.id, trackingNo, company);
+      if (order.source === "web") {
+        await updateTrackingNo(order.id, trackingNo, company);
+      } else {
+        await updateManuelOrderTracking(order.id, trackingNo, company);
+      }
       setSaved(true);
-      setTimeout(() => { setSaved(false); setOpen(false); }, 1200);
+      setTimeout(() => { setSaved(false); setOpen(false); router.refresh(); }, 1000);
     });
   }
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium whitespace-nowrap">
-        {order.trackingNo
+      <button onClick={() => setOpen(true)} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium whitespace-nowrap text-left">
+        {order.trackingNo || order.cargoCompany
           ? <><div className="text-[10px] text-gray-500">{order.cargoCompany}</div><div>{order.trackingNo}</div></>
           : "Takip Ekle"}
       </button>
