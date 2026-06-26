@@ -20,13 +20,13 @@ export default async function HesabimPage() {
   const session = await getSession();
   if (!session) redirect("/giris");
 
-  const [user, orders, favorites] = await Promise.all([
+  const [user, orders, allOrders, favorites] = await Promise.all([
     prisma.siteUser.findUnique({
       where:   { id: session.userId },
       include: { addresses: { orderBy: { isDefault: "desc" } } },
     }),
     prisma.siteOrder.findMany({
-      where:   { userId: session.userId },
+      where:   { userId: session.userId, status: { not: "CANCELLED" } },
       orderBy: { createdAt: "desc" },
       take:    20,
       select: {
@@ -35,12 +35,26 @@ export default async function HesabimPage() {
         trackingNo: true, cargoCompany: true,
       },
     }),
+    // Özet kartlar için tüm siparişler (iptal edilmeyenler)
+    prisma.siteOrder.findMany({
+      where:  { userId: session.userId, status: { not: "CANCELLED" } },
+      select: { items: true, total: true, discount: true },
+    }),
     prisma.favorite.findMany({
       where:   { userId: session.userId },
       include: { product: { include: { brand: true } } },
       orderBy: { createdAt: "desc" },
     }),
   ]);
+
+  // Özet hesapla
+  type OrderItem = { qty?: number; quantity?: number; price: number };
+  const totalOriginal = allOrders.reduce((sum, o) => {
+    const items = o.items as OrderItem[];
+    return sum + items.reduce((s, i) => s + (i.qty ?? i.quantity ?? 1) * i.price, 0);
+  }, 0);
+  const totalDiscount = allOrders.reduce((sum, o) => sum + Number(o.discount ?? 0), 0);
+  const totalPaid     = allOrders.reduce((sum, o) => sum + Number(o.total), 0);
 
   if (!user) redirect("/giris");
 
@@ -133,8 +147,29 @@ export default async function HesabimPage() {
             </div>
           </div>
 
-          {/* Sağ: Siparişler */}
-          <div className="md:col-span-2">
+          {/* Sağ: Özet + Siparişler */}
+          <div className="md:col-span-2 space-y-4">
+
+            {/* Alışveriş özeti kartları */}
+            {allOrders.length > 0 && (
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-white border border-[#E8E4DE] p-4 text-center">
+                  <p className="font-sans text-[8px] tracking-[0.3em] uppercase text-[#9A9A9A] mb-1.5">Toplam Alışveriş</p>
+                  <p className="font-serif text-lg text-[#1A1A1A]">{totalOriginal.toLocaleString("tr-TR")} ₺</p>
+                </div>
+                <div className="bg-white border border-[#E8E4DE] p-4 text-center">
+                  <p className="font-sans text-[8px] tracking-[0.3em] uppercase text-[#9A9A9A] mb-1.5">Kazandığın İndirim</p>
+                  <p className="font-serif text-lg text-[#C4A882]">
+                    {totalDiscount > 0 ? `${totalDiscount.toLocaleString("tr-TR")} ₺` : "—"}
+                  </p>
+                </div>
+                <div className="bg-white border border-[#E8E4DE] p-4 text-center">
+                  <p className="font-sans text-[8px] tracking-[0.3em] uppercase text-[#9A9A9A] mb-1.5">Toplam Ödediğin</p>
+                  <p className="font-serif text-lg text-[#1A1A1A] font-medium">{totalPaid.toLocaleString("tr-TR")} ₺</p>
+                </div>
+              </div>
+            )}
+
             <HesabimSiparisler orders={orders} userPhone={user.phone} />
           </div>
         </div>
