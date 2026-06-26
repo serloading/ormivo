@@ -86,18 +86,19 @@ export default function AdminUrunlerClient({
 
   function cancelEdit() { setEditCell(null); setEditValue(""); }
 
-  async function commitEdit() {
+  async function commitEdit(overrideValue?: string) {
     if (!editCell || saving) return;
     setSaving(true);
     const field = editCell.field;
+    const val   = overrideValue ?? editValue;
     let data: Record<string, unknown> = {};
-    if (field === "price")     data = { price: parseFloat(editValue) || 0 };
-    if (field === "costPrice") data = { costPrice: parseFloat(editValue) || 0 };
-    if (field === "stock")     data = { stock: parseInt(editValue) || 0 };
-    if (field === "name")      data = { name: editValue };
-    if (field === "slug")      data = { slug: editValue.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") };
-    if (field === "brandId")   data = { brandId: editValue || undefined };
-    if (field === "categoryId") data = { categoryId: editValue || undefined };
+    if (field === "price")     data = { price: parseFloat(val) || 0 };
+    if (field === "costPrice") data = { costPrice: parseFloat(val) || 0 };
+    if (field === "stock")     data = { stock: parseInt(val) || 0 };
+    if (field === "name")      data = { name: val };
+    if (field === "slug")      data = { slug: val.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") };
+    if (field === "brandId")   data = { brandId: val || undefined };
+    if (field === "categoryId") data = { categoryId: val || undefined };
     await updateProduct(editCell.id, data as never);
     setSaving(false);
     setEditCell(null);
@@ -221,8 +222,7 @@ export default function AdminUrunlerClient({
         <select
           ref={editRef as React.RefObject<HTMLSelectElement>}
           value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onBlur={commitEdit}
+          onChange={(e) => { setEditValue(e.target.value); commitEdit(e.target.value); }}
           onKeyDown={(e) => { if (e.key === "Escape") cancelEdit(); }}
           className="border border-[#8b6f5e] rounded px-2 py-1 text-xs focus:outline-none bg-white"
           disabled={saving}
