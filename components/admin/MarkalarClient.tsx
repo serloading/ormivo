@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createBrand, updateBrand, deleteBrand } from "@/lib/actions/brand";
@@ -152,7 +153,11 @@ export default function MarkalarClient({ brands }: { brands: Brand[] }) {
                   </td>
                   <td className="px-6 py-4 font-medium text-[#2c1810]">{b.name}</td>
                   <td className="px-6 py-4 text-[#8b6f5e] text-xs">{b.slug}</td>
-                  <td className="px-6 py-4 text-[#5c4033] font-medium">{b._count?.products ?? 0} ürün</td>
+                  <td className="px-6 py-4">
+                    <Link href={`/markalar/${b.slug}`} target="_blank" className="text-sm font-medium text-[#2c1810] hover:underline">
+                      {b._count?.products ?? 0} ürün
+                    </Link>
+                  </td>
                   <td className="px-6 py-4 text-right whitespace-nowrap">
                     <button onClick={() => openEdit(b)} className="text-xs text-[#8b6f5e] hover:text-[#2c1810] transition-colors mr-4">Duzenle</button>
                     <button onClick={() => handleDelete(b.id)} className="text-xs text-red-400 hover:text-red-600 transition-colors">Sil</button>

@@ -10,7 +10,10 @@ export type CategoryFormData = {
 };
 
 export async function getCategories() {
-  return prisma.category.findMany({ orderBy: { name: "asc" } });
+  return prisma.category.findMany({
+    orderBy: { name: "asc" },
+    include: { _count: { select: { products: { where: { deletedAt: null, isActive: true } } } } },
+  });
 }
 
 export async function createCategory(data: CategoryFormData) {

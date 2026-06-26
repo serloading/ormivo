@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Modal from "./Modal";
 import { Field, TextareaField, SubmitRow } from "./FormField";
 import { createCategory, updateCategory, deleteCategory } from "@/lib/actions/category";
 
-type Category = { id: string; name: string; slug: string; description: string | null };
+type Category = { id: string; name: string; slug: string; description: string | null; _count: { products: number } };
 
 function toSlug(t: string) {
   return t.toLowerCase().replace(/ğ/g,"g").replace(/ü/g,"u").replace(/ş/g,"s").replace(/ı/g,"i").replace(/ö/g,"o").replace(/ç/g,"c").replace(/[^a-z0-9\s-]/g,"").replace(/\s+/g,"-").replace(/-+/g,"-").trim();
@@ -57,7 +58,7 @@ export default function KategorilerClient({ categories }: { categories: Category
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[#e8ddd6] bg-[#faf8f6]">
-              {["Kategori", "Slug", "Açıklama", ""].map((h) => (
+              {["Kategori", "Slug", "Açıklama", "Ürün", ""].map((h) => (
                 <th key={h} className="text-left px-6 py-4 text-xs tracking-widest text-[#8b6f5e] uppercase font-medium">{h}</th>
               ))}
             </tr>
@@ -68,6 +69,11 @@ export default function KategorilerClient({ categories }: { categories: Category
                 <td className="px-6 py-4 font-medium text-[#2c1810]">{cat.name}</td>
                 <td className="px-6 py-4 text-[#8b6f5e]">/{cat.slug}</td>
                 <td className="px-6 py-4 text-[#5c4033]">{cat.description || "—"}</td>
+                <td className="px-6 py-4">
+                  <Link href={`/urunler?kategori=${cat.slug}`} target="_blank" className="text-sm font-medium text-[#2c1810] hover:underline">
+                    {cat._count.products} ürün
+                  </Link>
+                </td>
                 <td className="px-6 py-4 text-right whitespace-nowrap">
                   <button onClick={() => openEdit(cat)} className="text-xs text-[#8b6f5e] hover:text-[#2c1810] mr-4">Düzenle</button>
                   <button onClick={() => handleDelete(cat.id)} className="text-xs text-red-400 hover:text-red-600">Sil</button>
