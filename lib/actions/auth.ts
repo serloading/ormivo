@@ -27,7 +27,7 @@ export async function register(formData: FormData) {
     data: { phone, passwordHash },
   });
 
-  await createSession({ userId: user.id, phone: user.phone, name: user.name });
+  await createSession({ userId: user.id, phone: user.phone, name: user.name, segment: user.segment ?? null });
   return { success: true };
 }
 
@@ -44,7 +44,7 @@ export async function login(formData: FormData) {
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok)  return { error: "Telefon numarası veya şifre hatalı." };
 
-  await createSession({ userId: user.id, phone: user.phone, name: user.name });
+  await createSession({ userId: user.id, phone: user.phone, name: user.name, segment: user.segment ?? null });
   return { success: true, mustChangePassword: user.mustChangePassword };
 }
 

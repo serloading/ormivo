@@ -10,9 +10,10 @@ function getSecret(): Uint8Array {
 }
 
 export interface SessionPayload {
-  userId: string;
-  phone:  string;
-  name:   string | null;
+  userId:  string;
+  phone:   string;
+  name:    string | null;
+  segment: string | null;
 }
 
 export async function createSession(payload: SessionPayload) {

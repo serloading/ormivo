@@ -130,8 +130,12 @@ export async function deleteCustomer(id: string) {
 }
 
 export async function updateCustomerSegment(id: string, segment: string | null) {
-  const prev = await prisma.customer.findUnique({ where: { id }, select: { segment: true, name: true } });
+  const prev = await prisma.customer.findUnique({ where: { id }, select: { segment: true, name: true, phone: true } });
   await prisma.customer.update({ where: { id }, data: { segment } });
+  // Aynı telefona sahip SiteUser'a da segmenti yansıt
+  if (prev?.phone) {
+    await prisma.siteUser.updateMany({ where: { phone: prev.phone }, data: { segment } });
+  }
   await logActivity({
     action:   "CUSTOMER_SEGMENT_CHANGED",
     entity:   "CUSTOMER",
@@ -175,5 +179,18 @@ export async function deleteCustomerNote(noteId: string, customerId: string) {
     detail:   { noteId },
   });
   revalidatePath(`/admin/musteriler/${customerId}`);
+  return { success: true };
+}
+
+/** Admin: müşterinin telefon numarasıyla eşleşen SiteUser'a segment ata */
+export async function setSiteUserSegment(customerId: string, segment: string | null) {
+  const customer = await prisma.customer.findUnique({ where: { id: customerId }, select: { phone: true } });
+  if (!customer?.phone) return { error: "Müşterinin telefon numarası yok." };
+
+  const siteUser = await prisma.siteUser.findFirst({ where: { phone: customer.phone } });
+  if (!siteUser) return { error: "Bu telefona ait site üyesi bulunamadı." };
+
+  await prisma.siteUser.update({ where: { id: siteUser.id }, data: { segment } });
+  revalidatePath("/admin/musteriler");
   return { success: true };
 }

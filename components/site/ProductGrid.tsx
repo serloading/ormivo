@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link  from "next/link";
 import AddToCartButton  from "./AddToCartButton";
 import FavoriteButton   from "./FavoriteButton";
+import { getSegmentPrice, SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/segment";
 
 interface Product {
   id:           string;
@@ -22,6 +23,7 @@ interface Props {
   total:           number;
   loggedIn:        boolean;
   favoritedIds?:   string[];
+  userSegment?:    string | null;
   filters: {
     kategori: string;
     marka:    string;
@@ -30,7 +32,7 @@ interface Props {
   };
 }
 
-export default function ProductGrid({ initialProducts, total, loggedIn, favoritedIds = [], filters }: Props) {
+export default function ProductGrid({ initialProducts, total, loggedIn, favoritedIds = [], userSegment, filters }: Props) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [loading,  setLoading]  = useState(false);
   const [hasMore,  setHasMore]  = useState(initialProducts.length < total);
@@ -153,14 +155,29 @@ export default function ProductGrid({ initialProducts, total, loggedIn, favorite
                   </h3>
                 </Link>
                 <div className="flex items-center justify-between gap-1 mt-auto">
-                  <p className="font-sans text-xs md:text-sm font-semibold text-[#1A1A1A]">
-                    {price.toLocaleString("tr-TR")} ₺
-                    {compare && (
-                      <span className="ml-1.5 text-[10px] font-normal text-[#C4A882] line-through">
-                        {compare.toLocaleString("tr-TR")} ₺
-                      </span>
-                    )}
-                  </p>
+                  {(() => {
+                    const segPrice = getSegmentPrice(price, userSegment);
+                    return segPrice ? (
+                      <div className="flex flex-col gap-0.5 min-w-0">
+                        <span className={`font-sans text-[8px] px-1 py-px rounded font-semibold self-start ${SEGMENT_COLORS[userSegment!]}`}>
+                          {SEGMENT_LABELS[userSegment!]}
+                        </span>
+                        <div className="flex items-baseline gap-1">
+                          <span className="font-sans text-xs font-semibold text-[#C4A882]">{segPrice.toLocaleString("tr-TR")} ₺</span>
+                          <span className="font-sans text-[10px] text-[#9A9A9A] line-through">{price.toLocaleString("tr-TR")} ₺</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="font-sans text-xs md:text-sm font-semibold text-[#1A1A1A]">
+                        {price.toLocaleString("tr-TR")} ₺
+                        {compare && (
+                          <span className="ml-1.5 text-[10px] font-normal text-[#C4A882] line-through">
+                            {compare.toLocaleString("tr-TR")} ₺
+                          </span>
+                        )}
+                      </p>
+                    );
+                  })()}
                   {inStock && (
                     <span className="md:hidden">
                       <AddToCartButton productId={product.id} loggedIn={loggedIn} mini />

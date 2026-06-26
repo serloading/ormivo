@@ -158,6 +158,7 @@ model SiteUser {
   name               String?
   passwordHash       String
   mustChangePassword Boolean     @default(false)
+  segment            String?     // BRONZE | SILVER | GOLD | null
   createdAt          DateTime    @default(now())
   cart               Cart?
   addresses          Address[]

@@ -9,6 +9,7 @@ import Link               from "next/link";
 import AddToCartButton    from "@/components/site/AddToCartButton";
 import FavoriteButton    from "@/components/site/FavoriteButton";
 import { getUserFavoriteIds } from "@/lib/actions/favorite";
+import { getSegmentPrice, SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/segment";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Ormivo — Parfüm Kataloğu" };
@@ -73,8 +74,9 @@ export default async function HomePage({
     ...(q        ? { name:     { contains: q, mode: "insensitive" as const } } : {}),
   };
 
-  const session  = await getSession();
-  const loggedIn = !!session;
+  const session    = await getSession();
+  const loggedIn   = !!session;
+  const userSegment = session?.segment ?? null;
 
   const [rawProducts, categories, brands, topSellers, favoritedIds] = await Promise.all([
     prisma.product.findMany({
@@ -250,10 +252,25 @@ export default async function HomePage({
                           <h3 className="font-serif text-xs leading-snug text-[#1A1A1A] hover:text-[#C4A882] transition-colors line-clamp-2 mb-1.5">{p.name}</h3>
                         </Link>
                         <div className="flex items-center justify-between gap-1 mt-auto">
-                          <div className="flex items-baseline gap-1">
-                            <span className="font-sans text-xs font-medium text-[#1A1A1A]">{price.toLocaleString("tr-TR")} ₺</span>
-                            {compare && <span className="font-sans text-[10px] text-[#C4A882] line-through">{compare.toLocaleString("tr-TR")} ₺</span>}
-                          </div>
+                          {(() => {
+                            const segPrice = getSegmentPrice(price, userSegment);
+                            return segPrice ? (
+                              <div className="flex flex-col gap-0.5">
+                                <span className={`font-sans text-[9px] px-1.5 py-0.5 rounded font-semibold ${SEGMENT_COLORS[userSegment!]}`}>
+                                  {SEGMENT_LABELS[userSegment!]}
+                                </span>
+                                <div className="flex items-baseline gap-1">
+                                  <span className="font-sans text-xs font-semibold text-[#C4A882]">{segPrice.toLocaleString("tr-TR")} ₺</span>
+                                  <span className="font-sans text-[10px] text-[#9A9A9A] line-through">{price.toLocaleString("tr-TR")} ₺</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-baseline gap-1">
+                                <span className="font-sans text-xs font-medium text-[#1A1A1A]">{price.toLocaleString("tr-TR")} ₺</span>
+                                {compare && <span className="font-sans text-[10px] text-[#C4A882] line-through">{compare.toLocaleString("tr-TR")} ₺</span>}
+                              </div>
+                            );
+                          })()}
                           {p.stock > 0 && (
                             <span className="md:hidden">
                               <AddToCartButton productId={p.id} loggedIn={loggedIn} mini />
@@ -275,6 +292,7 @@ export default async function HomePage({
             total={allProducts.length}
             loggedIn={loggedIn}
             favoritedIds={favoritedIds}
+            userSegment={userSegment}
             filters={{ kategori, marka, q, sirala }}
           />
         </div>

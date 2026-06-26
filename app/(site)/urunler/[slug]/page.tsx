@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import ProductGallery from "@/components/site/ProductGallery";
+import { getSegmentPrice, SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/segment";
 import ProductTabs from "@/components/site/ProductTabs";
 import ProductAddToCart from "@/components/site/ProductAddToCart";
 import AddToCartButton from "@/components/site/AddToCartButton";
@@ -55,8 +56,9 @@ export default async function UrunDetayPage({
 }) {
   const { slug } = await params;
 
-  const session = await getSession();
-  const loggedIn = !!session;
+  const session     = await getSession();
+  const loggedIn    = !!session;
+  const userSegment = session?.segment ?? null;
 
   const product = await prisma.product.findFirst({
     where: { slug, deletedAt: null, isActive: true },
@@ -154,16 +156,35 @@ export default async function UrunDetayPage({
             </h1>
 
             {/* Fiyat */}
-            <div className="flex items-baseline gap-4 mb-3">
-              <span className="font-serif text-3xl text-[#1A1A1A]">
-                {price.toLocaleString("tr-TR")} ₺
-              </span>
-              {compare && (
-                <span className="font-sans text-lg text-[#C4A882] line-through">
-                  {compare.toLocaleString("tr-TR")} ₺
-                </span>
-              )}
-            </div>
+            {(() => {
+              const segPrice = getSegmentPrice(price, userSegment);
+              return segPrice ? (
+                <div className="mb-3 space-y-1.5">
+                  <span className={`inline-block font-sans text-[11px] px-2.5 py-1 rounded font-semibold ${SEGMENT_COLORS[userSegment!]}`}>
+                    {SEGMENT_LABELS[userSegment!]} Fiyatı
+                  </span>
+                  <div className="flex items-baseline gap-4">
+                    <span className="font-serif text-3xl text-[#C4A882] font-medium">
+                      {segPrice.toLocaleString("tr-TR")} ₺
+                    </span>
+                    <span className="font-sans text-lg text-[#9A9A9A] line-through">
+                      {price.toLocaleString("tr-TR")} ₺
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-baseline gap-4 mb-3">
+                  <span className="font-serif text-3xl text-[#1A1A1A]">
+                    {price.toLocaleString("tr-TR")} ₺
+                  </span>
+                  {compare && (
+                    <span className="font-sans text-lg text-[#C4A882] line-through">
+                      {compare.toLocaleString("tr-TR")} ₺
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Stok */}
             <p className="flex items-center gap-2 font-sans text-xs mb-7">
