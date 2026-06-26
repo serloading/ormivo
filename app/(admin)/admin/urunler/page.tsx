@@ -19,7 +19,7 @@ export default async function AdminUrunlerPage() {
           + Ürün Ekle
         </Link>
       </div>
-      <AdminUrunlerClient products={products as never} categories={categories} brands={brands} />
+      <AdminUrunlerClient products={products} categories={categories} brands={brands} />
     </div>
   );
 }

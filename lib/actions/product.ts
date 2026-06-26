@@ -24,7 +24,7 @@ export type ProductFormData = {
 };
 
 export async function getProducts() {
-  return prisma.product.findMany({
+  const rows = await prisma.product.findMany({
     where: { deletedAt: null },
     select: {
       id: true, productNo: true, name: true, slug: true,
@@ -35,6 +35,12 @@ export async function getProducts() {
     },
     orderBy: { name: "asc" },
   });
+  return rows.map((p) => ({
+    ...p,
+    price:        Number(p.price),
+    comparePrice: p.comparePrice != null ? Number(p.comparePrice) : null,
+    costPrice:    p.costPrice    != null ? Number(p.costPrice)    : null,
+  }));
 }
 
 export async function getProductBySlug(slug: string) {
