@@ -240,18 +240,6 @@ export default function SiteHeader({
                 {item.label}
               </Link>
             ))}
-            {user && (
-              <>
-                <Link href="/hesabim" className="py-3 font-sans text-sm tracking-[0.1em] uppercase text-[#1A1A1A] hover:text-[#C4A882] border-b border-[#F0EDE8] transition-colors">
-                  Hesabım
-                </Link>
-                <form action="/api/auth/logout" method="POST">
-                  <button type="submit" className="w-full text-left py-3 font-sans text-sm tracking-[0.1em] uppercase text-[#9A9A9A] hover:text-red-500 border-b border-[#F0EDE8] transition-colors">
-                    Çıkış Yap
-                  </button>
-                </form>
-              </>
-            )}
           </nav>
         </div>
       </header>

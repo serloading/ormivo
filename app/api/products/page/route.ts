@@ -29,12 +29,21 @@ export async function GET(req: NextRequest) {
   const offset   = Math.max(0, parseInt(sp.get("offset") ?? "0", 10));
   const limit    = Math.min(50, Math.max(1, parseInt(sp.get("limit") ?? "15", 10)));
 
+  // Kategori filtresi: primary + extraCategoryIds
+  let kategoriFilt = {};
+  if (kategori) {
+    const cat = await prisma.category.findFirst({ where: { slug: kategori }, select: { id: true } });
+    kategoriFilt = cat
+      ? { OR: [{ category: { slug: kategori } }, { extraCategoryIds: { has: cat.id } }] }
+      : { category: { slug: kategori } };
+  }
+
   const where = {
     deletedAt: null,
     isActive:  true,
-    ...(kategori ? { category: { slug: kategori } } : {}),
-    ...(marka    ? { brand:    { slug: marka    } } : {}),
-    ...(q        ? { name:     { contains: q, mode: "insensitive" as const } } : {}),
+    ...kategoriFilt,
+    ...(marka ? { brand: { slug: marka } } : {}),
+    ...(q     ? { name:  { contains: q, mode: "insensitive" as const } } : {}),
   };
 
   const orderBy =

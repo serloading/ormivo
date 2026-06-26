@@ -310,7 +310,7 @@ export default function LoggedInCart({
                     </div>
                   </div>
                   <div className="p-3 flex flex-col flex-1">
-                    {p.brand?.name && <p className="font-sans text-[8px] tracking-[0.2em] text-[#C4A882] mb-1">{p.brand.name.toLocaleUpperCase("tr-TR")}</p>}
+                    {p.brand?.name && <p className="font-sans text-[8px] tracking-[0.2em] text-[#C4A882] mb-1">{p.brand.name}</p>}
                     <Link href={`/urunler/${p.slug}`}>
                       <h3 className="font-serif text-xs leading-snug text-[#1A1A1A] hover:text-[#C4A882] line-clamp-2 mb-2">{p.name}</h3>
                     </Link>

@@ -41,8 +41,9 @@ model Product {
   costPrice    Decimal?   @db.Decimal(10, 2)
   costPriceUsd Decimal?   @db.Decimal(10, 2)
   images       String[]
-  categoryId   String?
-  category     Category?  @relation(fields: [categoryId], references: [id])
+  categoryId        String?
+  category          Category?  @relation(fields: [categoryId], references: [id])
+  extraCategoryIds  String[]
   brandId      String?
   brand        Brand?     @relation(fields: [brandId], references: [id])
   scentNotes         String?

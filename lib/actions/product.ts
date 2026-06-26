@@ -14,6 +14,7 @@ export type ProductFormData = {
   costPrice?: number;
   costPriceUsd?: number;
   categoryId?: string;
+  extraCategoryIds?: string[];
   brandId?: string;
   stock: number;
   isActive: boolean;
@@ -25,7 +26,13 @@ export type ProductFormData = {
 export async function getProducts() {
   return prisma.product.findMany({
     where: { deletedAt: null },
-    include: { category: true, brand: true },
+    select: {
+      id: true, productNo: true, name: true, slug: true,
+      price: true, comparePrice: true, costPrice: true,
+      stock: true, isActive: true, images: true, extraCategoryIds: true,
+      category: { select: { id: true, name: true, slug: true } },
+      brand:    { select: { id: true, name: true, slug: true } },
+    },
     orderBy: { name: "asc" },
   });
 }
@@ -135,5 +142,19 @@ export async function updateProductStock(id: string, stock: number) {
   await prisma.product.update({ where: { id }, data: { stock } });
   revalidatePath("/admin/stok");
   revalidatePath("/admin/urunler");
+  return { success: true };
+}
+
+export async function bulkUpdateProducts(ids: string[], data: Partial<ProductFormData>) {
+  await prisma.product.updateMany({ where: { id: { in: ids } }, data });
+  revalidatePath("/admin/urunler");
+  revalidatePath("/urunler");
+  return { success: true };
+}
+
+export async function updateProductImages(id: string, images: string[]) {
+  await prisma.product.update({ where: { id }, data: { images } });
+  revalidatePath("/admin/urunler");
+  revalidatePath("/urunler");
   return { success: true };
 }

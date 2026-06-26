@@ -5,15 +5,6 @@ import BorcAlacakClient from "@/components/admin/BorcAlacakClient";
 export const metadata = { title: "Borç/Alacak — Ormivo Admin" };
 
 export default async function BorcAlacakPage() {
-  // Aktif CustomerDebt'leri çek: telefon eşleşmesi + orderId eşleşmesi için
-  const activeDebts = await prisma.customerDebt.findMany({
-    where:  { status: { not: "ODENDI" } },
-    select: { orderId: true, customer: { select: { phone: true } } },
-  });
-
-  // B2B sipariş ID'leri (bu siparişler zaten CustomerDebt'e bağlı)
-  const debtOrderIds = new Set(activeDebts.map((d) => d.orderId).filter(Boolean) as string[]);
-
   // Telefon normalizasyonu: sadece rakamlar, başındaki 90/0 kaldır
   function normPhone(p: string | null | undefined): string {
     if (!p) return "";
@@ -22,6 +13,20 @@ export default async function BorcAlacakPage() {
     if (digits.startsWith("0"))  return digits.slice(1);
     return digits;
   }
+
+  // Tüm CustomerDebt'leri çek (ödenmiş dahil) — orderId eşleşmesi için
+  const allDebtsForOrders = await prisma.customerDebt.findMany({
+    where:  { orderId: { not: null } },
+    select: { orderId: true },
+  });
+  // B2B sipariş ID'leri (borç kaydı oluşturulmuş tüm siparişler — ödenmiş olsa bile tekrar görünmemeli)
+  const debtOrderIds = new Set(allDebtsForOrders.map((d) => d.orderId).filter(Boolean) as string[]);
+
+  // Aktif (ödenmemiş) borçlar — web sipariş telefon filtresi için
+  const activeDebts = await prisma.customerDebt.findMany({
+    where:  { status: { not: "ODENDI" } },
+    select: { orderId: true, customer: { select: { phone: true } } },
+  });
   const activeDebtPhones = new Set(activeDebts.map((d) => normPhone(d.customer.phone)).filter(Boolean));
 
   const [customerDebts, supplierDebts, customers, orders, stats, pendingSiteOrders, pendingB2BOrders] = await Promise.all([

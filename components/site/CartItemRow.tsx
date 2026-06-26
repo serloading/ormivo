@@ -49,7 +49,7 @@ export default function CartItemRow({ item }: CartItemRowProps) {
             <Link href={`/?marka=${item.product.brand.slug}`}
               className="font-sans text-[9px] tracking-[0.2em] text-[#C4A882] mb-0.5 hover:text-[#8B6F4E] transition-colors block"
               >
-              {item.product.brand.name.toLocaleUpperCase("tr-TR")}
+              {item.product.brand.name}
             </Link>
           )}
           <Link href={`/urunler/${item.product.slug}`} className="font-sans text-sm text-[#1A1A1A] leading-snug line-clamp-2 hover:text-[#C4A882] transition-colors">

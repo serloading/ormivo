@@ -9,10 +9,10 @@ const CARGO_FEE = 200;
 export default async function RaporPage() {
   const [siteOrders, b2bOrders, categories, brands, products] = await Promise.all([
     prisma.siteOrder.findMany({
-      select: { items: true, total: true, discount: true, paymentStatus: true, deliveryMethod: true, createdAt: true, status: true, recipientName: true },
+      select: { id: true, items: true, total: true, discount: true, paymentStatus: true, deliveryMethod: true, createdAt: true, status: true, recipientName: true },
     }),
     prisma.order.findMany({
-      select: { items: true, total: true, paymentStatus: true, deliveryMethod: true, createdAt: true, customer: { select: { id: true, name: true } } },
+      select: { id: true, items: true, total: true, paymentStatus: true, deliveryMethod: true, createdAt: true, customer: { select: { id: true, name: true } } },
     }),
     prisma.category.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prisma.brand.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
@@ -32,6 +32,7 @@ export default async function RaporPage() {
     brandId: string | null; brandName: string | null;
     orderDate: string; source: "web" | "manuel";
     hasCargoFee: boolean;
+    orderId: string;
   };
 
   const soldItems: SoldItem[] = [];
@@ -63,6 +64,7 @@ export default async function RaporPage() {
         orderDate:    order.createdAt.toISOString(),
         source:       "web",
         hasCargoFee:  order.deliveryMethod === "CARGO",
+        orderId:      order.id,
       });
     }
 
@@ -72,9 +74,6 @@ export default async function RaporPage() {
     if (existing) { existing.orderCount += 1; existing.totalSpend += Math.round(saleTotal); }
     else customerMap.set(key, { name: order.recipientName ?? "Bilinmiyor", orderCount: 1, totalSpend: Math.round(saleTotal) });
   }
-
-  // track which orders we already counted for cargo
-  const cargoOrders = new Set<number>();
 
   for (const order of b2bOrders) {
     if (order.paymentStatus !== "PAID" && order.paymentStatus !== "FREE") continue;
@@ -105,6 +104,7 @@ export default async function RaporPage() {
         orderDate:    order.createdAt.toISOString(),
         source:       "manuel",
         hasCargoFee:  order.deliveryMethod === "CARGO",
+        orderId:      order.id,
       });
     }
 

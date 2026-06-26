@@ -126,7 +126,7 @@ export default async function UrunDetayPage({
                 href={`/urunler?kategori=${product.category.slug}`}
                 className="font-sans text-[10px] tracking-[0.4em] text-[#C4A882] hover:text-[#8B6F4E] transition-colors mb-3 block"
               >
-                {product.category.name.toLocaleUpperCase("tr-TR")}
+                {product.category.name}
               </Link>
             )}
 
@@ -144,7 +144,7 @@ export default async function UrunDetayPage({
                   </div>
                 ) : (
                   <span className="font-sans text-[11px] tracking-[0.35em] text-[#9A9A9A] group-hover:text-[#C4A882] transition-colors">
-                    {product.brand.name.toLocaleUpperCase("tr-TR")}
+                    {product.brand.name}
                   </span>
                 )}
               </Link>
@@ -273,7 +273,7 @@ export default async function UrunDetayPage({
                       {r.brand?.name && (
                         <Link href={`/?marka=${r.brand.slug}`}
                           className="font-sans text-[8px] tracking-[0.2em] text-[#C4A882] hover:text-[#8B6F4E] mb-1 block transition-colors">
-                          {r.brand.name.toLocaleUpperCase("tr-TR")}
+                          {r.brand.name}
                         </Link>
                       )}
                       <Link href={`/urunler/${r.slug}`}>

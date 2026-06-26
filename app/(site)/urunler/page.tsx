@@ -43,11 +43,18 @@ export default async function UrunlerPage({
   const marka    = sp.marka    ?? "";
   const sirala   = sp.sirala   ?? "";
 
+  // Kategori filtresi: hem primary (category.slug) hem extra (extraCategoryIds has id)
+  const kategoriFilt = kategori ? await (async () => {
+    const cat = await prisma.category.findFirst({ where: { slug: kategori }, select: { id: true } });
+    if (!cat) return { category: { slug: kategori } };
+    return { OR: [{ category: { slug: kategori } }, { extraCategoryIds: { has: cat.id } }] };
+  })() : {};
+
   const where = {
     deletedAt: null,
     isActive: true,
-    ...(kategori ? { category: { slug: kategori } } : {}),
-    ...(marka    ? { brand:    { slug: marka    } } : {}),
+    ...kategoriFilt,
+    ...(marka ? { brand: { slug: marka } } : {}),
   };
 
   const orderBy =
@@ -268,7 +275,7 @@ export default async function UrunlerPage({
                         {product.brand?.name && (
                           <Link href={`/?marka=${product.brand.slug}`}
                             className="font-sans text-[8px] md:text-[9px] tracking-[0.22em] text-[#C4A882] hover:text-[#8B6F4E] mb-1 block transition-colors">
-                            {product.brand.name.toLocaleUpperCase("tr-TR")}
+                            {product.brand.name}
                           </Link>
                         )}
                         <Link href={`/urunler/${product.slug}`}>

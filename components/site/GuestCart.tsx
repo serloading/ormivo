@@ -127,7 +127,7 @@ export default function GuestCart() {
               )}
             </Link>
             <div className="flex-1 min-w-0">
-              {product?.brand && <p className="font-sans text-[9px] tracking-[0.2em] text-[#C4A882] mb-0.5">{(product.brand as string).toLocaleUpperCase("tr-TR")}</p>}
+              {product?.brand && <p className="font-sans text-[9px] tracking-[0.2em] text-[#C4A882] mb-0.5">{product.brand as string}</p>}
               <Link href={product?.slug ? `/urunler/${product.slug}` : "#"} className="font-sans text-sm text-[#1A1A1A] leading-snug line-clamp-2 hover:text-[#C4A882] transition-colors">{product?.name ?? productId}</Link>
               <p className="font-sans text-sm font-semibold text-[#1A1A1A] mt-1">
                 {((product?.price ?? 0) * qty).toLocaleString("tr-TR")} ₺

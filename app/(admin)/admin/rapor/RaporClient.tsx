@@ -10,6 +10,7 @@ interface SoldItem {
   brandId: string | null; brandName: string | null;
   orderDate: string; source: "web" | "manuel";
   hasCargoFee: boolean;
+  orderId: string;
 }
 interface TopCustomer { name: string; orderCount: number; totalSpend: number; }
 
@@ -70,7 +71,7 @@ export default function RaporClient({ soldItems, categories, brands, topCustomer
     const forCargo = soldItems.filter((i) => inMonth(i.orderDate));
     for (const item of forCargo) {
       if (item.hasCargoFee) {
-        const key = `${item.source}-${item.orderDate}`;
+        const key = item.orderId;
         if (!cargoOrders.has(key)) {
           cargoOrders.add(key);
           kargoGider += cargoFee;

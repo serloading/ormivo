@@ -7,6 +7,7 @@ import AddressActions         from "./AddressActions";
 import HesabimProfileForm     from "./HesabimProfileForm";
 import HesabimSiparisler      from "./HesabimSiparisler";
 import FavoriteButton         from "@/components/site/FavoriteButton";
+import { SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/segment";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Hesabım — Ormivo" };
@@ -53,8 +54,8 @@ export default async function HesabimPage() {
     const items = o.items as OrderItem[];
     return sum + items.reduce((s, i) => s + (i.qty ?? i.quantity ?? 1) * i.price, 0);
   }, 0);
-  const totalDiscount = allOrders.reduce((sum, o) => sum + Number(o.discount ?? 0), 0);
   const totalPaid     = allOrders.reduce((sum, o) => sum + Number(o.total), 0);
+  const totalDiscount = Math.max(0, totalOriginal - totalPaid);
 
   if (!user) redirect("/giris");
 
@@ -74,7 +75,14 @@ export default async function HesabimPage() {
     <div className="bg-[#FAFAF7] min-h-screen">
       <div className="max-w-4xl mx-auto px-4 md:px-6 py-10">
         <div className="mb-8">
-          <h1 className="font-serif text-3xl text-[#1A1A1A] mb-1">Hesabım</h1>
+          <div className="flex items-center gap-3 mb-1">
+            <h1 className="font-serif text-3xl text-[#1A1A1A]">Hesabım</h1>
+            {session.segment && SEGMENT_LABELS[session.segment] && (
+              <span className={`font-sans text-[11px] px-2.5 py-1 rounded font-semibold ${SEGMENT_COLORS[session.segment]}`}>
+                {SEGMENT_LABELS[session.segment]}
+              </span>
+            )}
+          </div>
           <p className="font-sans text-sm text-[#9A9A9A]">{user.phone}</p>
         </div>
 
@@ -198,7 +206,7 @@ export default async function HesabimPage() {
                     </div>
                     <div className="p-2 flex flex-col flex-1">
                       {product.brand?.name && (
-                        <p className="font-sans text-[7px] tracking-[0.2em] text-[#C4A882] mb-0.5">{product.brand.name.toLocaleUpperCase("tr-TR")}</p>
+                        <p className="font-sans text-[7px] tracking-[0.2em] text-[#C4A882] mb-0.5">{product.brand.name}</p>
                       )}
                       <Link href={`/urunler/${product.slug}`}>
                         <h3 className="font-sans text-[11px] leading-snug text-[#1A1A1A] hover:text-[#C4A882] transition-colors line-clamp-2 mb-1">{product.name}</h3>

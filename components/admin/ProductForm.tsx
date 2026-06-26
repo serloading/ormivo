@@ -13,7 +13,7 @@ type Product = {
   price: number | string; comparePrice?: number | string | null;
   costPrice?: number | string | null; costPriceUsd?: number | string | null;
   stock: number; isActive: boolean; isOzelKoleksiyon?: boolean; isBestSeller?: boolean; images: string[];
-  categoryId?: string | null; brandId?: string | null;
+  categoryId?: string | null; extraCategoryIds?: string[]; brandId?: string | null;
 };
 
 type Props = { product?: Product; categories: Category[]; brands: Brand[] };
@@ -42,13 +42,25 @@ export default function ProductForm({ product, categories, brands }: Props) {
     comparePrice: product?.comparePrice?.toString() ?? "",
     costPrice: product?.costPrice?.toString() ?? "",
     costPriceUsd: product?.costPriceUsd?.toString() ?? "",
-    categoryId: product?.categoryId ?? "",
     brandId: product?.brandId ?? "",
     stock: product?.stock?.toString() ?? "0",
     isActive: product?.isActive ?? true,
     isOzelKoleksiyon: product?.isOzelKoleksiyon ?? false,
     isBestSeller: product?.isBestSeller ?? false,
   });
+
+  // Çoklu kategori: primary + extra birleştir, primary ilk sırada
+  const initCatIds = Array.from(new Set([
+    ...(product?.categoryId ? [product.categoryId] : []),
+    ...(product?.extraCategoryIds ?? []),
+  ]));
+  const [selectedCatIds, setSelectedCatIds] = useState<string[]>(initCatIds);
+
+  function toggleCat(id: string) {
+    setSelectedCatIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
 
   const [costCurrency, setCostCurrency] = useState<"TRY" | "USD">("TRY");
   const [usdRate, setUsdRate] = useState("38");
@@ -110,7 +122,8 @@ export default function ProductForm({ product, categories, brands }: Props) {
       comparePrice: form.comparePrice ? parseFloat(form.comparePrice) : undefined,
       costPrice: form.costPrice ? parseFloat(form.costPrice) : undefined,
       costPriceUsd: form.costPriceUsd ? parseFloat(form.costPriceUsd) : undefined,
-      categoryId: form.categoryId || undefined,
+      categoryId: selectedCatIds[0] || undefined,
+      extraCategoryIds: selectedCatIds.slice(1),
       brandId: form.brandId || undefined,
       stock: parseInt(form.stock) || 0,
       isActive: form.isActive,
@@ -257,13 +270,31 @@ export default function ProductForm({ product, categories, brands }: Props) {
           </div>
 
           <div className="bg-white border border-[#e8ddd6] rounded-sm p-6">
-            <h3 className="text-xs tracking-widest text-[#5c4033] uppercase mb-5">Kategori</h3>
-            <select value={form.categoryId} onChange={(e) => setForm((p) => ({ ...p, categoryId: e.target.value }))} className={inputCls}>
-              <option value="">Kategori secin</option>
+            <h3 className="text-xs tracking-widest text-[#5c4033] uppercase mb-5">
+              Kategoriler
+              <span className="ml-2 font-normal normal-case text-[#b8a89e]">(birden fazla seçilebilir)</span>
+            </h3>
+            <div className="space-y-2">
               {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                <label key={cat.id} className="flex items-center gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={selectedCatIds.includes(cat.id)}
+                    onChange={() => toggleCat(cat.id)}
+                    className="w-4 h-4 accent-[#8b6f5e]"
+                  />
+                  <span className="text-sm text-[#2c1810] group-hover:text-[#8b6f5e] transition-colors">
+                    {cat.name}
+                  </span>
+                  {selectedCatIds[0] === cat.id && (
+                    <span className="text-[10px] bg-[#f5f0eb] text-[#8b6f5e] px-1.5 py-0.5 rounded">Ana</span>
+                  )}
+                </label>
               ))}
-            </select>
+            </div>
+            {selectedCatIds.length === 0 && (
+              <p className="text-xs text-[#b8a89e] mt-2">En az bir kategori seçin.</p>
+            )}
           </div>
 
           <div className="bg-white border border-[#e8ddd6] rounded-sm p-6">

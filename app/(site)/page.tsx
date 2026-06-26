@@ -245,7 +245,7 @@ export default async function HomePage({
                       <div className="p-2.5 flex flex-col flex-1">
                         {p.brand && (
                           <Link href={`/?marka=${p.brand.slug}`} className="font-sans text-[8px] tracking-[0.2em] text-[#C4A882] hover:text-[#8B6F4E] mb-0.5 block transition-colors">
-                            {p.brand.name.toLocaleUpperCase("tr-TR")}
+                            {p.brand.name}
                           </Link>
                         )}
                         <Link href={`/urunler/${p.slug}`}>

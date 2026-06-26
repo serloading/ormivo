@@ -7,7 +7,7 @@ import { getBrands } from "@/lib/actions/brand";
 export default async function UrunDuzenlePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [product, categories, brands] = await Promise.all([
-    prisma.product.findUnique({ where: { id }, include: { category: true, brand: true } }),
+    prisma.product.findUnique({ where: { id } }),
     getCategories(),
     getBrands(),
   ]);

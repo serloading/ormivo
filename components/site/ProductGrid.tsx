@@ -146,7 +146,7 @@ export default function ProductGrid({ initialProducts, total, loggedIn, favorite
                 {product.brand && (
                   <Link href={`/?marka=${product.brand.slug}`} onClick={(e) => e.stopPropagation()}
                     className="font-sans text-[7px] tracking-[0.2em] text-[#C4A882] hover:text-[#8B6F4E] mb-0.5 truncate block transition-colors">
-                    {product.brand.name.toLocaleUpperCase("tr-TR")}
+                    {product.brand.name}
                   </Link>
                 )}
                 <Link href={`/urunler/${product.slug}`} className="block">
