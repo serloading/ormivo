@@ -13,7 +13,7 @@ import {
 import { createOrder } from "@/lib/actions/order";
 import { createCustomer } from "@/lib/actions/customer";
 import { createProduct } from "@/lib/actions/product";
-import { createCustomerDebt } from "@/lib/actions/debt";
+import { createCustomerDebt, addCustomerPayment } from "@/lib/actions/debt";
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING:   "Beklemede",
@@ -56,6 +56,7 @@ interface OrderRow {
 interface Customer { id: string; name: string; phone: string | null }
 interface ProductOption { id: string; name: string; price: number; stock: number }
 interface CatBrand { id: string; name: string }
+interface OrderDebt { id: string; totalAmount: number; paidAmount: number; description: string }
 
 // ---- Portal Dropdown ----
 // Renders the menu via portal so it floats above the table without z-index clipping
@@ -717,13 +718,14 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, categ
 // ---- Main Component ----
 
 export default function SiparislerClient({
-  orders, customers, products, categories, brands,
+  orders, customers, products, categories, brands, debtByOrderId,
 }: {
   orders: OrderRow[];
   customers: Customer[];
   products: ProductOption[];
   categories: CatBrand[];
   brands: CatBrand[];
+  debtByOrderId: Record<string, OrderDebt>;
 }) {
   const [filter, setFilter] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
@@ -903,6 +905,7 @@ export default function SiparislerClient({
           products={products}
           categories={categories}
           brands={brands}
+          existingDebt={debtByOrderId[editOrder.id] ?? null}
           onClose={() => setEditOrder(null)}
         />
       )}
@@ -1076,12 +1079,13 @@ function DeleteButton({ order }: { order: OrderRow }) {
 }
 
 // ---- Edit Order Modal ----
-function EditOrderModal({ order, customers: initCustomers, products: initProducts, categories, brands, onClose }: {
+function EditOrderModal({ order, customers: initCustomers, products: initProducts, categories, brands, existingDebt, onClose }: {
   order: OrderRow;
   customers: Customer[];
   products: ProductOption[];
   categories: CatBrand[];
   brands: CatBrand[];
+  existingDebt: OrderDebt | null;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -1098,6 +1102,7 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
   const [status, setStatus]               = useState(order.status);
   const [deliveryMethod, setDeliveryMethod] = useState(order.deliveryMethod);
   const [discount, setDiscount]           = useState(String(order.discount || ""));
+  // Mevcut borç kaydı varsa → ek ödeme modu; yoksa → yeni alınan tutar
   const [alinanTutar, setAlinanTutar]     = useState("");
   const [editTrackingNo, setEditTrackingNo]   = useState(order.trackingNo ?? "");
   const [editCargoCompany, setEditCargoCompany] = useState(order.cargoCompany ?? "");
@@ -1192,17 +1197,22 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
             await updateManuelOrderTracking(order.id, editTrackingNo, editCargoCompany);
           }
         }
-        // Alınan tutar girilmişse ve net tutardan azsa borç kaydı oluştur
+        // Alınan tutar / ek ödeme işlemi
         const alinanAmt = alinanTutar.trim() ? Number(alinanTutar) : null;
-        if (alinanAmt !== null && alinanAmt < netTotal && customerId) {
-          await createCustomerDebt({
-            customerId,
-            // orderId sadece manuel siparişlerde (Order tablosu) kullanılabilir
-            orderId: order.source === "manuel" ? order.id : undefined,
-            description: `Sipariş #${order.orderNo} — kalan borç`,
-            totalAmount: netTotal,
-            initialPayment: alinanAmt,
-          });
+        if (alinanAmt !== null && alinanAmt > 0) {
+          if (existingDebt) {
+            // Mevcut borç kaydına ek ödeme ekle
+            await addCustomerPayment({ debtId: existingDebt.id, amount: alinanAmt, note: "Sipariş düzenlemesinden ek ödeme" });
+          } else if (alinanAmt < netTotal && customerId) {
+            // Yeni borç kaydı oluştur
+            await createCustomerDebt({
+              customerId,
+              orderId: order.source === "manuel" ? order.id : undefined,
+              description: `Sipariş #${order.orderNo} — kalan borç`,
+              totalAmount: netTotal,
+              initialPayment: alinanAmt,
+            });
+          }
         }
         router.refresh();
         onClose();
@@ -1416,21 +1426,45 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
                 <span className="font-semibold text-[#2c1810] text-base">{netTotal.toLocaleString("tr-TR")} ₺</span>
               </div>
             )}
-            {/* Alınan Tutar */}
+            {/* Alınan Tutar / Ek Ödeme */}
             <div className="border-t border-[#e8ddd6] pt-3">
-              <label className="block text-[10px] tracking-widest uppercase text-[#8b6f5e] mb-1.5">
-                Alınan Tutar (₺) <span className="normal-case text-[#b8a89e]">— boş bırakılırsa tam ödeme sayılır</span>
-              </label>
-              <input type="number" min="0" value={alinanTutar} onChange={(e) => setAlinanTutar(e.target.value)}
-                placeholder={`${netTotal.toLocaleString("tr-TR")} (tam ödeme)`}
-                className="w-full border border-[#d4c5ba] rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-[#8b6f5e] bg-white" />
-              {alinanTutar && Number(alinanTutar) < netTotal && customerId && (
-                <p className="text-[10px] text-orange-600 mt-1">
-                  ⚠ {(netTotal - Number(alinanTutar)).toLocaleString("tr-TR")} ₺ borç alacak/borç ekranına kaydedilecek.
-                </p>
-              )}
-              {alinanTutar && Number(alinanTutar) < netTotal && !customerId && (
-                <p className="text-[10px] text-gray-400 mt-1">Borç kaydı için müşteri seçilmeli.</p>
+              {existingDebt ? (
+                // Mevcut borç kaydı var → ek ödeme modu
+                <div className="space-y-2">
+                  <div className="bg-orange-50 border border-orange-200 rounded-sm p-3 text-xs space-y-1">
+                    <p className="font-medium text-orange-800">Borç Kaydı Mevcut</p>
+                    <p className="text-orange-700">Toplam: {existingDebt.totalAmount.toLocaleString("tr-TR")} ₺ — Ödenen: {existingDebt.paidAmount.toLocaleString("tr-TR")} ₺ — <span className="font-semibold">Kalan: {(existingDebt.totalAmount - existingDebt.paidAmount).toLocaleString("tr-TR")} ₺</span></p>
+                  </div>
+                  <label className="block text-[10px] tracking-widest uppercase text-[#8b6f5e]">
+                    Ek Ödeme (₺) <span className="normal-case text-[#b8a89e]">— borç kaydına eklenecek</span>
+                  </label>
+                  <input type="number" min="0" value={alinanTutar} onChange={(e) => setAlinanTutar(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full border border-[#d4c5ba] rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-[#8b6f5e] bg-white" />
+                  {alinanTutar && Number(alinanTutar) > 0 && (
+                    <p className="text-[10px] text-green-700 mt-1">
+                      Kalan: {Math.max(0, existingDebt.totalAmount - existingDebt.paidAmount - Number(alinanTutar)).toLocaleString("tr-TR")} ₺
+                    </p>
+                  )}
+                </div>
+              ) : (
+                // Mevcut borç yok → yeni alınan tutar
+                <>
+                  <label className="block text-[10px] tracking-widest uppercase text-[#8b6f5e] mb-1.5">
+                    Alınan Tutar (₺) <span className="normal-case text-[#b8a89e]">— boş bırakılırsa tam ödeme sayılır</span>
+                  </label>
+                  <input type="number" min="0" value={alinanTutar} onChange={(e) => setAlinanTutar(e.target.value)}
+                    placeholder={`${netTotal.toLocaleString("tr-TR")} (tam ödeme)`}
+                    className="w-full border border-[#d4c5ba] rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-[#8b6f5e] bg-white" />
+                  {alinanTutar && Number(alinanTutar) < netTotal && customerId && (
+                    <p className="text-[10px] text-orange-600 mt-1">
+                      ⚠ {(netTotal - Number(alinanTutar)).toLocaleString("tr-TR")} ₺ borç alacak/borç ekranına kaydedilecek.
+                    </p>
+                  )}
+                  {alinanTutar && Number(alinanTutar) < netTotal && !customerId && (
+                    <p className="text-[10px] text-gray-400 mt-1">Borç kaydı için müşteri seçilmeli.</p>
+                  )}
+                </>
               )}
             </div>
           </div>

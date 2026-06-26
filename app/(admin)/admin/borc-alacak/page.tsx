@@ -5,13 +5,24 @@ import BorcAlacakClient from "@/components/admin/BorcAlacakClient";
 export const metadata = { title: "Borç/Alacak — Ormivo Admin" };
 
 export default async function BorcAlacakPage() {
-  // Aktif borcu olan müşterilerin telefonlarını bul (web alacaklardan çıkarmak için)
-  const activeDebtPhones = await prisma.customerDebt
-    .findMany({
-      where:  { status: { not: "ODENDI" } },
-      select: { customer: { select: { phone: true } } },
-    })
-    .then((rows) => new Set(rows.map((r) => r.customer.phone).filter(Boolean) as string[]));
+  // Aktif CustomerDebt'leri çek: telefon eşleşmesi + orderId eşleşmesi için
+  const activeDebts = await prisma.customerDebt.findMany({
+    where:  { status: { not: "ODENDI" } },
+    select: { orderId: true, customer: { select: { phone: true } } },
+  });
+
+  // B2B sipariş ID'leri (bu siparişler zaten CustomerDebt'e bağlı)
+  const debtOrderIds = new Set(activeDebts.map((d) => d.orderId).filter(Boolean) as string[]);
+
+  // Telefon normalizasyonu: sadece rakamlar, başındaki 90/0 kaldır
+  function normPhone(p: string | null | undefined): string {
+    if (!p) return "";
+    const digits = p.replace(/\D/g, "");
+    if (digits.startsWith("90")) return digits.slice(2);
+    if (digits.startsWith("0"))  return digits.slice(1);
+    return digits;
+  }
+  const activeDebtPhones = new Set(activeDebts.map((d) => normPhone(d.customer.phone)).filter(Boolean));
 
   const [customerDebts, supplierDebts, customers, orders, stats, pendingSiteOrders, pendingB2BOrders] = await Promise.all([
     prisma.customerDebt.findMany({
@@ -25,20 +36,23 @@ export default async function BorcAlacakPage() {
     prisma.customer.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, phone: true } }),
     prisma.order.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, orderNo: true }, take: 100 }),
     getDebtStats(),
+    // Web siparişler — müşterisi için aktif CustomerDebt varsa hariç tut
     prisma.siteOrder.findMany({
+      where: { paymentStatus: "PENDING", status: { not: "CANCELLED" } },
+      orderBy: { createdAt: "desc" },
+      include: { user: { select: { name: true, phone: true } } },
+    }).then((rows) => rows.filter((o) => {
+      const userPhone     = normPhone(o.user?.phone);
+      const recipientPhone = normPhone(o.recipientPhone);
+      return !activeDebtPhones.has(userPhone) && !activeDebtPhones.has(recipientPhone);
+    })),
+    // B2B manuel siparişler — CustomerDebt'e bağlı olanları hariç tut
+    prisma.order.findMany({
       where: {
         paymentStatus: "PENDING",
         status: { not: "CANCELLED" },
-        // Müşterisi için zaten CustomerDebt açılmışsa buraya alma
-        user: activeDebtPhones.size > 0
-          ? { phone: { notIn: Array.from(activeDebtPhones) } }
-          : undefined,
+        ...(debtOrderIds.size > 0 ? { id: { notIn: Array.from(debtOrderIds) } } : {}),
       },
-      orderBy: { createdAt: "desc" },
-      include: { user: { select: { name: true, phone: true } } },
-    }),
-    prisma.order.findMany({
-      where: { paymentStatus: "PENDING", status: { not: "CANCELLED" } },
       orderBy: { createdAt: "desc" },
       include: { customer: { select: { name: true, phone: true } } },
     }),

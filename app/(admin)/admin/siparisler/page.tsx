@@ -20,7 +20,7 @@ export default async function SiparislerPage({
       ? ({ status: statusFilter } as never)
       : ({ status: { notIn: ["DELIVERED", "CANCELLED"] } } as never);
 
-  const [siteOrders, b2bOrders, customers, products, categories, brands] = await Promise.all([
+  const [siteOrders, b2bOrders, customers, products, categories, brands, orderDebts] = await Promise.all([
     prisma.siteOrder.findMany({
       where: activeFilter,
       orderBy: { createdAt: "desc" },
@@ -38,6 +38,11 @@ export default async function SiparislerPage({
     prisma.product.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true, price: true, stock: true } }),
     prisma.category.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.brand.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    // B2B siparişlere bağlı CustomerDebt'ler (düzenleme modalı için)
+    prisma.customerDebt.findMany({
+      where: { orderId: { not: null }, status: { not: "ODENDI" } },
+      select: { id: true, orderId: true, totalAmount: true, paidAmount: true, description: true },
+    }),
   ]);
 
   // Normalize both into a single shape
@@ -91,5 +96,9 @@ export default async function SiparislerPage({
     })),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-  return <SiparislerClient orders={unified} customers={customers} products={products.map(p => ({ ...p, price: Number(p.price) }))} categories={categories} brands={brands} />;
+  const debtByOrderId = Object.fromEntries(
+    orderDebts.map((d) => [d.orderId!, { id: d.id, totalAmount: Number(d.totalAmount), paidAmount: Number(d.paidAmount), description: d.description }])
+  );
+
+  return <SiparislerClient orders={unified} customers={customers} products={products.map(p => ({ ...p, price: Number(p.price) }))} categories={categories} brands={brands} debtByOrderId={debtByOrderId} />;
 }
