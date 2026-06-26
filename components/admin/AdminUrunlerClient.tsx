@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition, useRef } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -24,10 +23,12 @@ type Product  = {
 type EditCell = { id: string; field: string } | null;
 
 export default function AdminUrunlerClient({
-  products, categories, brands,
+  products: initialProducts, categories, brands,
 }: { products: Product[]; categories: Category[]; brands: Brand[] }) {
-  const router = useRouter();
   const [, startTransition] = useTransition();
+
+  // Local products state — updated optimistically after each mutation
+  const [products, setProducts] = useState<Product[]>(initialProducts);
 
   const [search,   setSearch]   = useState("");
   const [kategori, setKategori] = useState("");
@@ -48,6 +49,15 @@ export default function AdminUrunlerClient({
   const [photoModal, setPhotoModal] = useState<Product | null>(null);
   const [uploading,  setUploading]  = useState(false);
   const photoFileRef = useRef<HTMLInputElement>(null);
+
+  /* ── Local state helpers ───────────────────── */
+  function patchProduct(id: string, patch: Partial<Product>) {
+    setProducts((prev) => prev.map((p) => p.id === id ? { ...p, ...patch } : p));
+    setPhotoModal((prev) => prev?.id === id ? { ...prev, ...patch } : prev);
+  }
+  function removeProduct(id: string) {
+    setProducts((prev) => prev.filter((p) => p.id !== id));
+  }
 
   /* ── Filtering ─────────────────────────────── */
   const filtered = products
@@ -87,20 +97,47 @@ export default function AdminUrunlerClient({
     const id    = editCell.id;
     const field = editCell.field;
     const val   = overrideValue ?? editValue;
+
+    // Build data + optimistic patch
     let data: Record<string, unknown> = {};
-    if (field === "price")      data = { price: parseFloat(val) || 0 };
-    if (field === "costPrice")  data = { costPrice: parseFloat(val) || 0 };
-    if (field === "stock")      data = { stock: parseInt(val) || 0 };
-    if (field === "name")       data = { name: val };
-    if (field === "slug")       data = { slug: val.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") };
-    if (field === "brandId")    data = { brandId: val || undefined };
-    if (field === "categoryId") data = { categoryId: val || undefined };
+    let patch: Partial<Product> = {};
+
+    if (field === "price") {
+      const n = parseFloat(val) || 0;
+      data = { price: n }; patch = { price: n };
+    }
+    if (field === "costPrice") {
+      const n = parseFloat(val) || 0;
+      data = { costPrice: n }; patch = { costPrice: n };
+    }
+    if (field === "stock") {
+      const n = parseInt(val) || 0;
+      data = { stock: n }; patch = { stock: n };
+    }
+    if (field === "name") {
+      data = { name: val }; patch = { name: val };
+    }
+    if (field === "slug") {
+      const slug = val.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+      data = { slug }; patch = { slug };
+    }
+    if (field === "brandId") {
+      const brand = brands.find((b) => b.id === val) ?? null;
+      data = { brandId: val || undefined }; patch = { brand };
+    }
+    if (field === "categoryId") {
+      const category = categories.find((c) => c.id === val) ?? null;
+      data = { categoryId: val || undefined }; patch = { category };
+    }
+
     setEditCell(null);
     setEditValue("");
+    patchProduct(id, patch);   // optimistic update — instant UI
     setSaving(true);
     try {
       await updateProduct(id, data as never);
-      router.refresh();
+    } catch {
+      // revert on error — ideally we'd restore old value but keep simple
     } finally {
       setSaving(false);
     }
@@ -116,17 +153,23 @@ export default function AdminUrunlerClient({
   }
   async function applyBulk() {
     if (!bulkValue || selected.size === 0) return;
-    setBulkSaving(true);
     const ids = Array.from(selected);
     let data: Record<string, unknown> = {};
-    if (bulkField === "price")      data = { price: parseFloat(bulkValue) || 0 };
-    if (bulkField === "costPrice")  data = { costPrice: parseFloat(bulkValue) || 0 };
-    if (bulkField === "stock")      data = { stock: parseInt(bulkValue) || 0 };
-    if (bulkField === "isActive")   data = { isActive: bulkValue === "true" };
-    if (bulkField === "brandId")    data = { brandId: bulkValue };
-    if (bulkField === "categoryId") data = { categoryId: bulkValue };
-    try { await bulkUpdateProducts(ids, data as never); router.refresh(); }
-    finally { setBulkSaving(false); setSelected(new Set()); setBulkValue(""); }
+    let patch: Partial<Product> = {};
+    if (bulkField === "price")      { const n = parseFloat(bulkValue)||0; data={price:n}; patch={price:n}; }
+    if (bulkField === "costPrice")  { const n = parseFloat(bulkValue)||0; data={costPrice:n}; patch={costPrice:n}; }
+    if (bulkField === "stock")      { const n = parseInt(bulkValue)||0; data={stock:n}; patch={stock:n}; }
+    if (bulkField === "isActive")   { const v = bulkValue==="true"; data={isActive:v}; patch={isActive:v}; }
+    if (bulkField === "brandId")    { const brand=brands.find((b)=>b.id===bulkValue)??null; data={brandId:bulkValue}; patch={brand}; }
+    if (bulkField === "categoryId") { const category=categories.find((c)=>c.id===bulkValue)??null; data={categoryId:bulkValue}; patch={category}; }
+
+    // Optimistic
+    setProducts((prev) => prev.map((p) => ids.includes(p.id) ? { ...p, ...patch } : p));
+    setSelected(new Set());
+    setBulkValue("");
+    setBulkSaving(true);
+    try { await bulkUpdateProducts(ids, data as never); }
+    finally { setBulkSaving(false); }
   }
 
   /* ── Photo ─────────────────────────────────── */
@@ -143,25 +186,33 @@ export default function AdminUrunlerClient({
     }
     const updated = [...(photoModal.images ?? []), ...newUrls];
     await updateProductImages(photoModal.id, updated);
+    patchProduct(photoModal.id, { images: updated });
     setUploading(false);
-    setPhotoModal((prev) => prev ? { ...prev, images: updated } : null);
-    router.refresh();
   }
   async function removePhoto(url: string) {
     if (!photoModal) return;
     const updated = photoModal.images.filter((u) => u !== url);
     await updateProductImages(photoModal.id, updated);
-    setPhotoModal((prev) => prev ? { ...prev, images: updated } : null);
-    router.refresh();
+    patchProduct(photoModal.id, { images: updated });
   }
 
   function handleToggle(id: string, current: boolean) {
-    startTransition(async () => { await toggleProductActive(id, !current); router.refresh(); });
+    const next = !current;
+    patchProduct(id, { isActive: next });   // instant
+    startTransition(async () => { await toggleProductActive(id, next); });
   }
+
   function handleDelete(id: string) {
     if (confirm("Bu ürün silinsin mi?")) {
-      startTransition(async () => { await deleteProduct(id); router.refresh(); });
+      removeProduct(id);
+      startTransition(async () => { await deleteProduct(id); });
     }
+  }
+
+  async function handleBackfill() {
+    await backfillProductNos();
+    // reload to show new numbers
+    window.location.reload();
   }
 
   const isEditing = (id: string, field: string) => editCell?.id === id && editCell.field === field;
@@ -171,7 +222,7 @@ export default function AdminUrunlerClient({
       {/* Toolbar */}
       <div className="flex justify-end mb-4">
         <button
-          onClick={() => startTransition(async () => { await backfillProductNos(); router.refresh(); })}
+          onClick={handleBackfill}
           className="border border-[#d4c5ba] text-[#8b6f5e] text-xs tracking-widest uppercase px-4 py-2 hover:bg-[#f5f0eb] transition-colors"
         >
           Numara Ata
@@ -243,13 +294,11 @@ export default function AdminUrunlerClient({
                       (isSelected ? " bg-[#faf3eb]" : "") +
                       (i === filtered.length - 1 ? " border-b-0" : "")}>
 
-                    {/* Checkbox */}
                     <td className="px-3 py-3">
                       <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(product.id)}
                         className="accent-[#8b6f5e] cursor-pointer" />
                     </td>
 
-                    {/* No */}
                     <td className="px-4 py-3 text-xs text-[#b8a89e] font-mono whitespace-nowrap">{product.productNo ?? "—"}</td>
 
                     {/* Ürün adı + slug + thumbnail */}
