@@ -1,7 +1,7 @@
 # Ormivo — Sistem Dokümantasyonu
 
 > Bu dosya, projeyi hiç görmemiş bir yapay zekanın sıfırdan devam edebilmesi için hazırlanmıştır.  
-> Son güncelleme: 2026-06-25
+> Son güncelleme: 2026-06-26
 
 ---
 
@@ -14,8 +14,7 @@
 
 **Canlı URL:** https://ormivo.vercel.app  
 **GitHub:** https://github.com/serloading/ormivo  
-**Deploy:** Vercel (production) — `vercel --prod --yes` komutu ile  
-**Git push sadece Preview'a gider**, production için CLI gerekir.
+**Deploy:** `git push origin main` → Vercel otomatik production deploy tetikler
 
 ---
 
@@ -23,25 +22,23 @@
 
 | Alan | Teknoloji |
 |------|-----------|
-| Framework | Next.js **16.2.9** (App Router, `"use server"`) |
-| UI | React 19.2.4, Tailwind CSS |
-| ORM | Prisma **7.8.0** (`@prisma/adapter-pg`) |
+| Framework | Next.js **16** (App Router, `"use server"`) |
+| UI | React 19, Tailwind CSS |
+| ORM | Prisma **7** (`@prisma/adapter-pg`) |
 | Veritabanı | PostgreSQL (Supabase, Singapore bölgesi) |
 | Kimlik Doğrulama | NextAuth (admin) + özel JWT (site kullanıcıları) |
-| Dosya Yükleme | `/api/upload` endpoint (Vercel Blob veya benzeri) |
-| Deploy | Vercel free plan — **100 deploy/gün limiti var** |
+| Dosya Yükleme | `/api/upload` endpoint (Vercel Blob) |
+| Deploy | Vercel — git push → otomatik production |
 
 ### Kritik Next.js 16 Farkları
-- Server Actions: `"use server"` dosya başında veya fonksiyon başında
 - `params` artık Promise: `const { slug } = await params;`
 - `searchParams` artık Promise: `const sp = await searchParams;`
-- Metadata `generateMetadata` async olabilir
+- Server Actions: `"use server"` dosya başında veya fonksiyon başında
 
 ### Prisma 7 Farkları
-- `prisma.config.ts` dosyası kullanılıyor (eskisi değil)
-- `prisma db push` schema değişikliklerini doğrudan uygular
-- `prisma migrate dev` shadow DB gerektirir — bazı sürümlerde hata verebilir, `db push` kullan
-- `prisma generate` sonrası Prisma client yenilenir
+- Bağlantı `prisma.config.ts` dosyasında — `schema.prisma`'da `url` yok
+- Schema değişikliği: `npx prisma db push` + `npx prisma generate`
+- `prisma migrate dev` kullanma — shadow DB gerektirir, `db push` kullan
 
 ---
 
@@ -52,7 +49,7 @@ ormivo-site/
 ├── app/
 │   ├── (admin)/admin/          # Admin panel sayfaları
 │   │   ├── dashboard/          # Genel özet
-│   │   ├── urunler/            # Ürün listesi + yeni + düzenle
+│   │   ├── urunler/            # Ürün listesi + yeni + [id]/duzenle
 │   │   ├── siparisler/         # Manuel siparişler (Order modeli)
 │   │   ├── site-siparisler/    # Web siparişleri (SiteOrder modeli)
 │   │   ├── musteriler/         # Müşteri CRM
@@ -66,359 +63,352 @@ ormivo-site/
 │   │   └── finans/             # Gelir/gider kayıtları
 │   ├── (site)/                 # Müşteri sitesi
 │   │   ├── page.tsx            # Ana sayfa (ürün kataloğu)
-│   │   ├── urunler/[slug]/     # Ürün detay sayfası
+│   │   ├── urunler/            # Ürün listesi + [slug] detay
 │   │   ├── sepet/              # Sepet sayfası
 │   │   ├── giris/              # Giriş yap
 │   │   ├── kayit/              # Kayıt ol
-│   │   ├── hesabim/            # Hesap yönetimi
+│   │   ├── hesabim/            # Hesap yönetimi (profil, siparişler, favoriler)
 │   │   └── siparis-tamamlandi/ # Sipariş onay sayfası
 │   ├── api/
 │   │   ├── upload/             # Dosya yükleme endpoint
-│   │   ├── products/           # Ürün pagination API
+│   │   ├── products/page/      # Ürün pagination API (infinite scroll için)
 │   │   └── auth/               # NextAuth + logout
-│   └── layout.tsx              # Root layout (fontlar, SessionProvider)
+│   └── layout.tsx
 ├── components/
 │   ├── admin/
-│   │   ├── AdminSidebar.tsx    # Admin sol menü
-│   │   ├── ProductForm.tsx     # Ürün ekleme/düzenleme formu
-│   │   ├── MusterilerClient.tsx # Müşteri listesi + CRM
-│   │   └── ...
+│   │   ├── AdminSidebar.tsx
+│   │   ├── AdminUrunlerClient.tsx   # Ürün listesi (inline edit, bulk, thumbnail)
+│   │   ├── ProductForm.tsx          # Ürün ekle/düzenle formu
+│   │   └── BorcAlacakClient.tsx
 │   └── site/
-│       ├── SiteHeader.tsx      # Site header (nav, arama, kullanıcı)
-│       ├── SiteFooter.tsx      # Footer
-│       ├── LoggedInCart.tsx    # Sepet (giriş yapmış)
-│       ├── GuestCart.tsx       # Sepet (misafir)
-│       ├── ProductTabs.tsx     # Ürün detay sekmeleri
-│       ├── ProductGrid.tsx     # Ürün grid + infinite scroll
-│       ├── HomeFilterClient.tsx # Mobil filtre
-│       └── ...
+│       ├── SiteHeader.tsx           # Header (desktop + mobil hamburger)
+│       ├── BottomNav.tsx            # Mobil alt navigasyon
+│       ├── ProductGrid.tsx          # Infinite scroll grid
+│       ├── LoggedInCart.tsx         # Sepet (giriş yapmış)
+│       ├── GuestCart.tsx            # Sepet (misafir)
+│       ├── FavoriteButton.tsx       # Favori kalp butonu (sağ alt köşe)
+│       └── HesabimSiparisler.tsx    # Hesabım sipariş listesi + WA butonu
 ├── lib/
-│   ├── prisma.ts               # Prisma client singleton
-│   ├── session.ts              # Site JWT session helper
-│   └── actions/                # Server Actions
+│   ├── prisma.ts
+│   ├── session.ts              # JWT: { userId, phone, name, segment }
+│   ├── segment.ts              # Segment sistemi (BRONZE/SILVER/GOLD)
+│   └── actions/
 │       ├── product.ts
-│       ├── order.ts            # Manuel sipariş actions
+│       ├── order.ts            # Manuel sipariş
 │       ├── order-site.ts       # Web sipariş (placeOrder)
 │       ├── site-order-admin.ts # Admin web sipariş düzenleme
 │       ├── customer.ts
 │       ├── cart.ts
+│       ├── debt.ts             # Borç/alacak + ödeme
 │       ├── coupon.ts
 │       ├── finance.ts
-│       ├── debt.ts
-│       └── ...
+│       └── auth.ts             # Site kullanıcı auth + updateSiteUserProfile
 └── prisma/
-    ├── schema.prisma           # Veritabanı şeması
-    └── prisma.config.ts        # Prisma yapılandırması
+    ├── schema.prisma
+    └── prisma.config.ts
 ```
 
 ---
 
-## 4. Veritabanı Şeması (Tüm Modeller)
+## 4. Veritabanı Şeması
 
 ### Brand
-```prisma
-model Brand {
-  id, name, slug (unique), logo?, products[], createdAt, updatedAt
-}
+```
+id, name, slug (unique), logo?, products[], createdAt, updatedAt
 ```
 
 ### Category
-```prisma
-model Category {
-  id, name, slug (unique), description?, image?,
-  parentId?, parent/children (self-relation),
-  products[], createdAt, updatedAt
-}
 ```
-**Mevcut kategoriler:** Kadın, Erkek, Unisex (slug: kadin, erkek, unisex)
+id, name, slug (unique), description?, image?,
+parentId? (self-relation), products[], createdAt, updatedAt
+```
+**Mevcut kategoriler:** Kadın (kadin), Erkek (erkek), Unisex (unisex), Özel Koleksiyon (ozel-koleksiyon)
 
 ### Product
-```prisma
-model Product {
-  id, productNo (PRD-0001 formatı, unique),
-  name, slug (unique), description?,
-  scentNotes?,          -- Koku notaları (yeni eklendi)
-  price Decimal(10,2),
-  comparePrice?, costPrice?, costPriceUsd?,
-  images String[],
-  categoryId?, brandId?,
-  isActive Boolean, isOzelKoleksiyon Boolean,
-  stock Int,
-  deletedAt?,           -- Soft delete
-  cartItems[], createdAt, updatedAt
-}
+```
+id, productNo (PRD-0001 unique),
+name, slug (unique), description?, scentNotes?,
+price Decimal, comparePrice?, costPrice?, costPriceUsd?,
+images String[],
+categoryId? → Category   (birincil kategori FK)
+extraCategoryIds String[] (ek kategori ID'leri — çoklu kategori için)
+brandId? → Brand,
+isActive Boolean, isOzelKoleksiyon Boolean, isBestSeller Boolean,
+stock Int, deletedAt? (soft delete),
+cartItems[], favorites[], createdAt, updatedAt
+```
+**Not:** `extraCategoryIds` site filtrelerinde OR mantığıyla kullanılır.
+
+### SiteUser
+```
+id, phone (unique), name?, passwordHash,
+segment? String  -- "BRONZE" | "SILVER" | "GOLD" | null
+cart?, addresses[], siteOrders[], favorites[], createdAt
 ```
 
-### Customer (admin müşteri)
-```prisma
-model Customer {
-  id, customerNo (MUS-0001 formatı),
-  name, phone?, email?, city?, address?, note?,
-  segment?,   -- "GOLD" | "SILVER" | "BRONZE" | null
-  tags []=,   -- ["B2B", "Toptan", "Sadık", "Kurumsal", "Sorunlu"]
-  orders[], siteOrders[], cargos[], debts[], notes[],
-  createdAt, updatedAt
-}
+### Customer (admin B2B müşteri)
+```
+id, customerNo (MUS-0001),
+name, phone?, email?, city?, address?, note?,
+segment? String  -- "GOLD" | "SILVER" | "BRONZE" | null
+tags String[]    -- ["B2B", "Toptan", "Sadık", "Kurumsal", "Sorunlu"]
+orders[], debts[], createdAt, updatedAt
+```
+**Not:** `updateCustomerSegment` çağrısı SiteUser.segment'i de senkronize eder (telefon eşleşmesiyle).
+
+### Order (manuel — admin girer)
+```
+id, orderNo (unique),
+customerId? → Customer,
+items Json  -- [{productId?, name, qty, price}]
+total Decimal, shippingFee?,
+status OrderStatus,          -- PENDING|CONFIRMED|SHIPPED|DELIVERED|CANCELLED
+paymentStatus String,        -- "PENDING"|"PAID"|"FREE"
+deliveryMethod String,       -- "CARGO"|"PICKUP"
+note?, trackingNo?, cargoCompany?,
+createdAt, updatedAt
 ```
 
-### Order (Manuel sipariş — admin tarafından girilir)
-```prisma
-model Order {
-  id, orderNo (unique),
-  customerId? → Customer,
-  items Json,           -- [{productId, name, qty, price}]
-  total Decimal(10,2),
-  shippingFee?,
-  status OrderStatus,   -- PENDING|CONFIRMED|SHIPPED|DELIVERED|CANCELLED
-  paymentStatus String, -- "PENDING"|"PAID"|"FREE"
-  deliveryMethod String,-- "CARGO"|"PICKUP"
-  note?,
-  cargo CargoTracking?,
-  createdAt, updatedAt
-}
+### SiteOrder (web — müşteri siteden verir)
 ```
-
-### SiteOrder (Web siparişi — müşteri siteden verir)
-```prisma
-model SiteOrder {
-  id, orderNo (unique, default cuid),
-  status OrderStatus,
-  userId? → SiteUser,
-  addressId? → Address,
-  recipientName?, recipientPhone?,
-  addressLine?, city?, district?,
-  items Json,           -- [{productId, name, qty, price}]
-  total Decimal(10,2),
-  customerId? → Customer,
-  trackingNo?, cargoCompany?,
-  note?,
-  paymentStatus String, -- "PENDING"|"PAID"|"FREE"
-  deliveryMethod String,-- "CARGO"|"PICKUP"
-  discount Decimal,     -- iskonto tutarı
-  couponCode?,          -- uygulanan kupon kodu
-  createdAt, updatedAt
-}
+id, orderNo,
+userId? → SiteUser,
+recipientName?, recipientPhone?, addressLine?, city?, district?,
+items Json, total Decimal, discount Decimal,
+couponCode?,
+status OrderStatus,
+paymentStatus String,        -- "PENDING"|"PAID"|"FREE"
+deliveryMethod String,       -- "CARGO"|"PICKUP"
+trackingNo?, cargoCompany?, note?,
+createdAt, updatedAt
 ```
-
-### SiteUser (Site müşteri hesabı)
-```prisma
-model SiteUser {
-  id, phone (unique), name?, passwordHash,
-  cart?, addresses[], siteOrders[], createdAt
-}
-```
-
-### CartItem
-```prisma
-model CartItem {
-  id, cartId → Cart, productId → Product,
-  quantity Int,
-  customPrice Decimal?,  -- Cross-sell indirimli fiyat için (yeni)
-  addedAt,
-  @@unique([cartId, productId])
-}
-```
-
-### Coupon (Yeni eklendi)
-```prisma
-model Coupon {
-  id, code (unique, büyük harf),
-  discountType String,  -- "PERCENT" | "FIXED"
-  discountValue Decimal,
-  minOrderTotal?,
-  maxUses?,
-  usedCount Int,
-  isActive Boolean,
-  expiresAt?,
-  createdAt
-}
-```
-
-### Finance (Gelir/gider)
-```prisma
-model Finance {
-  id, type FinanceType (INCOME|EXPENSE),
-  amount Decimal, description, category?,
-  date, createdAt, siteOrderId?
-}
-```
-**Not:** Rapor sayfasında gelir ve kargo giderleri Finance tablosundan değil, doğrudan siparişlerden hesaplanır. Finance tablosu sadece "Ürün Maliyeti" kategorisi için kullanılır.
 
 ### CustomerDebt + SupplierDebt
-Borç/alacak takibi için. Her ikisi de ödeme geçmişi tutar.
+```
+id, customerId/supplierName,
+orderId? (hangi siparişe bağlı),
+description, totalAmount, paidAmount,
+status String  -- "BEKLIYOR"|"KISMI"|"ODENDI"
+dueDate?, payments[], createdAt
+```
+
+### Coupon
+```
+id, code (unique, büyük harf),
+discountType String  -- "PERCENT"|"FIXED"
+discountValue Decimal, minOrderTotal?,
+maxUses?, usedCount Int, isActive Boolean, expiresAt?, createdAt
+```
+
+### Finance
+```
+id, type FinanceType (INCOME|EXPENSE),
+amount Decimal, description, category?, date, siteOrderId?, createdAt
+```
+**Not:** Raporda gelir/kargo direkt siparişlerden hesaplanır. Finance tablosu yalnızca "Ürün Maliyeti" için kullanılır.
+
+### Favorite
+```
+id, userId → SiteUser, productId → Product, createdAt
+@@unique([userId, productId])
+```
 
 ---
 
-## 5. Admin Paneli
+## 5. Segment Fiyatlandırma Sistemi
 
-**Giriş:** `/admin` → NextAuth ile → `ADMIN_EMAIL=admin@ormivo.com`
-
-### Sayfalar ve İşlevleri
-
-| Sayfa | Route | Açıklama |
-|-------|-------|----------|
-| Dashboard | `/admin/dashboard` | Özet istatistikler |
-| Ürünler | `/admin/urunler` | Liste, yeni ekle, düzenle, soft delete |
-| Siparişler | `/admin/siparisler` | Manuel siparişler (Order modeli) |
-| Web Siparişleri | `/admin/site-siparisler` | Siteden gelen siparişler (SiteOrder) |
-| Müşteriler | `/admin/musteriler` | CRM: segment, etiket, notlar, borç |
-| Markalar | `/admin/markalar` | Marka CRUD |
-| Kategoriler | `/admin/kategoriler` | Kategori CRUD |
-| Stok | `/admin/stok` | Stok güncelleme |
-| Kargo | `/admin/kargo` | Kargo takip numarası girişi |
-| Rapor | `/admin/rapor` | Satış geliri, kargo gideri, top ürünler, top müşteriler |
-| Borç/Alacak | `/admin/borc-alacak` | CustomerDebt + SupplierDebt takibi |
-| Kuponlar | `/admin/kuponlar` | Kupon kodu oluşturma/yönetme |
-
-### Sidebar Yapısı (AdminSidebar.tsx)
-```
-Ürün Yönetimi: Ürünler, Stok
-Sipariş Yönetimi: Siparişler, Web Siparişleri, Kargo
-Müşteri Yönetimi: Müşteriler
-Katalog: Markalar, Kategoriler
-Finans Yönetimi: Rapor, Borç/Alacak, Kupon Kodları
+`lib/segment.ts`:
+```typescript
+SEGMENT_DISCOUNTS = { BRONZE: 0.30, SILVER: 0.40, GOLD: 0.60 }
+SEGMENT_LABELS    = { BRONZE: "Bronz Üye", SILVER: "Gümüş Üye", GOLD: "Altın Üye" }
+SEGMENT_COLORS    = { BRONZE: "bg-amber-700 text-white", SILVER: "bg-slate-400 text-white", GOLD: "bg-yellow-500 text-white" }
+getSegmentPrice(basePrice, segment) → indirimli fiyat | null
 ```
 
-### Sipariş Düzenleme (EditOrderModal) — Önemli Notlar
-- `useManualTotal` checkbox yoktur — toplam her zaman direkt düzenlenebilir input
-- Ürün satırları değişince toplam otomatik güncellenir (useEffect ile)
-- Manuel override yapılırsa "↺ Otomatik hesapla" butonu çıkar
-- Her ürün satırında "Listede yoksa yeni ürün ekle" butonu var
-- Categories ve brands prop olarak üstten geçilmeli
-- `updateOrderItems(id, source, items, total, note, extra)` action'ı kullanılır
+- Giriş yapmış kullanıcı segment'e sahipse: tüm ürün kartlarında özel fiyat + rozet gösterilir
+- Diğer kullanıcılar normal fiyat görür
+- Session'a `segment` eklendi: `{ userId, phone, name, segment }`
+- Admin `updateCustomerSegment` → SiteUser.segment otomatik güncellenir
 
 ---
 
-## 6. Site (Vitrin)
+## 6. Admin Paneli
 
-### Ana Sayfa (`/`)
-- Sol sidebar: Kategori | Sıralama | Marka | En Çok Satanlar (filtre yok iken)
-- Filtre yokken üst kısımda "En Çok Satanlar" bölümü (top 10, satış adedine göre)
-- `seededShuffle()` ile günlük sabit karıştırma
-- `?kategori=`, `?marka=`, `?sirala=`, `?q=` URL parametreleri
+**Giriş:** `/admin` → NextAuth → `ADMIN_EMAIL=admin@ormivo.com`
 
-**Özel Koleksiyon filtresi:** `?kategori=ozel-koleksiyon` → `isOzelKoleksiyon: true` sorgusu  
-(Gerçek bir DB kategori slug değil, özel kod yolu)
+### Ürünler Sayfası (`/admin/urunler`)
+- **Thumbnail:** Ürün adı yanında 40×40 küçük resim (tıklayınca fotoğraf modalı)
+- **Fotoğraf modalı:** Mevcut resimleri görme/silme + yeni yükleme (listeden çıkmadan)
+- **Ürün adı:** Tıklayınca inline input ile düzenlenir
+- **Slug:** Ad altındaki gri yazı tıklanınca inline düzenlenir
+- **Sitede görüntüle:** Ad üzerinde hover → `↗` ikonu → yeni sekmede `/urunler/[slug]`
+- **Inline edit alanları:** Satış fiyatı, Geliş fiyatı, Stok, Marka, Kategori (hücreye tıkla → Enter/blur kaydet)
+- **Toplu seçim:** Her satırda checkbox, başlıkta "Tümünü Seç"
+- **Toplu düzenleme bar:** Altta çıkar → alan seç (fiyat/stok/marka/kategori/durum) → değer gir → Uygula
 
-**Kategori sırası:** Kadın, Erkek, Özel Koleksiyon, Unisex (Unisex her zaman sonda)
+### Ürün Düzenleme Sayfası (`/admin/urunler/[id]/duzenle`)
+- **Çoklu Kategori:** Checkbox listesi — birden fazla seçilebilir
+  - İlk seçilen = `categoryId` (birincil, "Ana" rozeti)
+  - Diğerleri = `extraCategoryIds[]`
+  - Sitenin filtrelerinde OR mantığıyla çalışır
+
+### Rapor Sayfası (`/admin/rapor`)
+- 6 özet kart: Orijinal Satış, İndirimli Satış, Gerçek Satış, Maliyet, Kargo (CARGO_FEE=200₺), Kâr
+- Ay filtresi + kategori/marka filtresi
+- Kargo deduplication: `orderId` bazlı (aynı siparişten birden fazla item gelse de 1 kez sayılır)
+- Sadece `paymentStatus === "PAID" || "FREE"` olan siparişler dahil edilir
+
+### Borç/Alacak (`/admin/borc-alacak`)
+- `pendingB2BOrders`: `CustomerDebt.orderId` ile eşleşen siparişler — borç ödenmiş olsa bile tekrar görünmez
+  - (Önceki bug: debt ODENDI olunca order pending listeye geri dönüyordu)
+- `pendingSiteOrders`: aktif (ödenmemiş) borcu olan müşterilerin telefonu eşleşirse hariç tutulur
+- Kısmi ödeme: `addCustomerPayment(debtId, amount)` → `paidAmount` artar
+- Sipariş düzenlemeden ek ödeme: `existingDebt` varsa `addCustomerPayment`, yoksa `createCustomerDebt`
+
+---
+
+## 7. Site (Vitrin)
 
 ### Header (`SiteHeader.tsx`)
-- Desktop nav: Kadın | Erkek | Özel Koleksiyon | Unisex | Markalar (dropdown) | Sepet | Kullanıcı
-- Mobil: Sadece hamburger menü (sepet ikonu yok — bottom nav kaldırıldı)
-- Mobil menü: Kadın, Erkek, Unisex, Markalar, Özel Koleksiyon, (Hesabım + Çıkış sadece giriş yapıldıysa)
-- **BottomNav tamamen kaldırıldı**
+- **Desktop:** Logo | Kadın | Erkek | Özel Koleksiyon | Unisex | Markalar dropdown | Arama | Sepet | Kullanıcı dropdown
+- **Mobil hamburger menü:** Kategori linkleri (Hesabım/Çıkış Yap/Giriş Yap linkleri **YOK** — BottomNav'da)
 
-### Ürün Detay Sayfası (`/urunler/[slug]`)
-- "Bunları da Beğenebilirsiniz" → sadece **aynı kategori** ürünleri (marka filtresi yok)
+### BottomNav (`components/site/BottomNav.tsx`)
+Mobil alt navigasyon — sıra:
+```
+Ana Sayfa | Favoriler | [Ara — merkez büyük buton] | Sepet | Hesabım
+```
+- Giriş yapılmamışken Hesabım → `/giris` yönlendirir
+
+### Ana Sayfa (`/`)
+- Filtre yokken üstte "En Çok Satanlar" bölümü (top 10)
+- `seededShuffle()` ile günlük sabit ürün sırası
+- URL parametreleri: `?kategori=`, `?marka=`, `?sirala=`, `?q=`
+- Özel Koleksiyon filtresi: `?kategori=ozel-koleksiyon` → `isOzelKoleksiyon: true`
+
+### Ürünler Sayfası (`/urunler`)
+- Sonsuz kaydırma (infinite scroll): `ProductGrid` + `/api/products/page` route
+- Kategori filtresi: `category.slug` VE `extraCategoryIds` OR sorgusu
+- Marka isimleri: DB'den geldiği gibi — **hiçbir uppercase dönüşümü yok**
+
+### Ürün Detay (`/urunler/[slug]`)
+- Segment fiyatı gösterimi (giriş yapmış üyeye rozet + indirimli fiyat)
+- "Bunları da Beğenebilirsiniz" → aynı kategori ürünleri
 - `ProductTabs`: Açıklama | Koku Notaları | Kullanım
-  - Koku Notaları: `scentNotes` alanından dinamik (satır satır gösterir)
-  - Boşsa "henüz eklenmemiş" mesajı
+- Marka logosu varsa logo, yoksa marka adı metin olarak
 
-### Sepet (`/sepet` → `LoggedInCart.tsx`)
-**Kupon Kodu:**
-- "İndirim Kodu" alanına girilir, "Uygula" butonu tıklanır
-- `validateCoupon(code, total)` server action ile doğrulanır
-- Geçerliyse toplam güncellenir, sipariş verilince `useCoupon(code)` çağrılır
+### Hesabım (`/hesabim`)
+- **Profil kartı:** İsim/telefon düzenleme + şifre değiştirme (`HesabimProfileForm`)
+- **Segment rozeti:** Başlık yanında Bronze/Silver/Gold badge (varsa)
+- **Özet kartlar (3 adet):**
+  - Toplam Alışveriş: `sum(items[].price × qty)` tüm siparişlerden
+  - Kazandığın İndirim: `totalOriginal - totalPaid` (gerçek fark)
+  - Toplam Ödediğin: `sum(order.total)`
+- **Siparişler:** Son 20 sipariş + "Özetimi Gönder" WhatsApp butonu
+- **Adresler, Borçlar, Favoriler** bölümleri
+- **Favoriler** (`#favoriler`): kalp ile eklenen ürünler, 5'li grid
 
-**Cross-sell (Cinsiyet Önerisi):**
-- Sepetteki ürünlerin kategorileri incelenir
-- Sadece kadın kategorisi varsa → erkek ürünleri %30 indirimli önerilir
-- Sadece erkek kategorisi varsa → kadın ürünleri %30 indirimli önerilir
-- Her ikisi de varsa → öneri yapılmaz
-- Kategori tespiti: `category.name.toLowerCase().includes("kad")` / `"erkek"`
-
----
-
-## 7. Rapor Sayfası
-
-### Gelir Hesaplama
-```typescript
-// PAID web siparişi: gelir = total - discount
-// PAID manuel sipariş: gelir = total
-// FREE sipariş: gelir = 0
-
-// Kargo gideri: deliveryMethod === "CARGO" ? 200 : 0
-const CARGO_FEE = 200;
-
-// Ürün maliyeti: Finance tablosundan (category = "Ürün Maliyeti")
-```
-
-### Ürün Satış Geliri (Orantısal Dağıtım)
-```typescript
-// Sipariş toplamı ile ürün fiyatları farklı olabilir (indirim yapıldıysa)
-const itemsSum = items.reduce((s, i) => s + i.price * i.qty, 0);
-const scale = itemsSum > 0 ? orderTotal / itemsSum : 1;
-revenue = Math.round(item.price * qty * scale); // Yuvarlama şartr
-```
+### Sepet
+- **Giriş yapmış:** `LoggedInCart` — kupon kodu, cross-sell önerisi
+- **Misafir:** `GuestCart` — localStorage tabanlı
+- **Cross-sell:** Sepette sadece kadın ürünleri varsa → erkek ürünleri %30 indirimli önerir (ve tersi)
+- **Kupon:** `validateCoupon(code, total)` → indirim tutarı hesaplanır
 
 ---
 
-## 8. Server Actions — Önemli Kurallar
+## 8. Server Actions Özeti
 
 ### `lib/actions/product.ts`
-- `createProduct(data)` → `productNo` otomatik (PRD-0001 formatı)
-- `updateProduct(id, data)` → partial update
-- `ProductFormData` tipine `scentNotes?: string` dahil
-
-### `lib/actions/customer.ts`
-- `createCustomer(data)` → `{ success: true, id: customer.id }` döner (id önemli!)
-- `updateCustomerSegment(id, segment | null)`
-- `updateCustomerTags(id, tags[])`
-
-### `lib/actions/order-site.ts` (placeOrder)
 ```typescript
-interface PlaceOrderInput {
-  recipientName, recipientPhone, addressLine, city,
-  district?, note?, guestItems?, saveAddress?,
-  couponCode?,    // kupon kodu
-  couponDiscount? // indirim tutarı
-}
-// Sipariş oluşturulunca Finance tablosuna ürün maliyeti kaydedilir
-// Kupon kullanılırsa usedCount artırılır
+getProducts()          // images + extraCategoryIds dahil
+createProduct(data)    // productNo otomatik (PRD-0001)
+updateProduct(id, data) // partial — fiyat değişince log + costExpense rebuild
+bulkUpdateProducts(ids[], data) // toplu güncelleme
+updateProductImages(id, images[]) // fotoğraf güncelleme
+toggleProductActive(id, isActive)
+deleteProduct(id)      // soft delete (deletedAt)
+ProductFormData tipi: { name, slug, description, scentNotes?, price, comparePrice?,
+  costPrice?, costPriceUsd?, categoryId?, extraCategoryIds?, brandId?,
+  stock, isActive, isOzelKoleksiyon?, isBestSeller?, images[] }
 ```
 
-### `lib/actions/site-order-admin.ts` (updateOrderItems)
+### `lib/actions/auth.ts`
+```typescript
+register(phone, password, name?)
+login(phone, password)
+updateSiteUserProfile({ name?, phone?, currentPassword?, newPassword? })
+// Session: { userId, phone, name, segment }
+```
+
+### `lib/actions/customer.ts`
+```typescript
+createCustomer(data) // { success: true, id: customer.id } — id önemli!
+updateCustomerSegment(id, segment) // SiteUser.segment de güncellenir
+updateCustomerTags(id, tags[])
+```
+
+### `lib/actions/debt.ts`
+```typescript
+createCustomerDebt({ customerId, orderId?, description, totalAmount, initialPayment?, dueDate? })
+addCustomerPayment({ debtId, amount, note? })
+deleteCustomerDebt(id)
+getDebtStats() // { totalReceivable, totalOwed, collectedMonth, overdue }
+```
+
+### `lib/actions/order-site.ts`
+```typescript
+placeOrder({ recipientName, recipientPhone, addressLine, city, district?,
+  note?, guestItems?, saveAddress?, couponCode?, couponDiscount? })
+```
+
+### `lib/actions/site-order-admin.ts`
 ```typescript
 updateOrderItems(id, source, items, total, note, extra?)
 // extra: { customerId?, discount?, status?, deliveryMethod? }
-// deliveryMethod !== undefined kontrolü (falsy değil, yokluk kontrolü)
+// deliveryMethod kontrolü: !== undefined (falsy değil!)
+updatePaymentStatus(orderId, paymentStatus)    // site order
+updateManuelOrderPayment(orderId, paymentStatus) // manuel order
 ```
-
-### `lib/actions/coupon.ts`
-- `validateCoupon(code, orderTotal)` → `{ valid, error?, discount?, coupon? }`
-- `useCoupon(code)` → usedCount+1
-- `createCoupon(data)` / `updateCoupon(id, data)` / `deleteCoupon(id)`
-- `getCoupons()` → tüm kuponlar
 
 ---
 
 ## 9. Önemli Teknik Notlar
 
 ### Sipariş Tipleri
-- **`Order`** = Admin panelden elle girilen siparişler
-- **`SiteOrder`** = Müşteri siteden kendi sipariş verenleri
-- Her ikisinin items alanı JSON'dur: `[{productId?, name, qty, price}]`
-- Rapor her ikisinden de hesaplar
+- `Order` = Admin panelden el ile girilen (B2B/manuel)
+- `SiteOrder` = Müşterinin siteden verdiği
+- Her ikisinin `items` JSON: `[{productId?, name, qty, price}]`
 
-### PaymentStatus Değerleri
+### PaymentStatus
 `"PENDING"` | `"PAID"` | `"FREE"`  
-FREE: ücretsiz/bedava sipariş — gelire sayılmaz ama kargo gideri olabilir
+FREE = ücretsiz — gelire sayılmaz ama kargo gideri olabilir
 
-### DeliveryMethod Değerleri
-`"CARGO"` | `"PICKUP"`
+### Kargo Maliyeti
+`CARGO_FEE = 200₺` — `deliveryMethod === "CARGO"` olan her sipariş için raporda gider sayılır  
+Deduplication: `orderId` bazlı Set (aynı sipariş birden fazla item'a sahipse tek sayılır)
 
-### Ürün Segment/Etiket Sistemi
-- **Segment:** `GOLD | SILVER | BRONZE | null` — müşteri yanında harf ikonu (G/S/B)
-- **Etiketler:** `["B2B", "Toptan", "Sadık", "Kurumsal", "Sorunlu"]` — ayrı sütunda badge
+### Marka İsimleri
+**Hiçbir yerde uppercase dönüşümü yapılmaz.** DB'den geldiği gibi gösterilir.  
+Etkilenen 9 dosya: ProductGrid, CartItemRow, GuestCart, LoggedInCart, page.tsx, urunler/page.tsx, urunler/[slug]/page.tsx, hesabim/page.tsx, urunler/[slug]/related.
 
-### Özel Koleksiyon
-`isOzelKoleksiyon: Boolean` alanı Product'ta. URL'de `?kategori=ozel-koleksiyon` ile filtrelenir. Gerçek bir kategori değil.
+### Çoklu Kategori (extraCategoryIds)
+- `Product.categoryId` = birincil FK (backwards compat)
+- `Product.extraCategoryIds String[]` = ek kategori ID'leri
+- Site filtreleme: `OR [{ category.slug: k }, { extraCategoryIds: { has: catId } }]`
+- Admin Düzenle sayfasında checkbox listesi — ilk seçilen "Ana" olur
 
 ### Soft Delete
-Ürünler gerçekten silinmez: `deletedAt: DateTime?` set edilir. Tüm sorgularda `where: { deletedAt: null }` şart.
+Ürünler silinmez: `deletedAt` set edilir. Tüm sorgularda `where: { deletedAt: null }`.
 
-### Font
-`Playfair Display` (serif başlıklar) + `Inter` (sans-serif metin), her ikisi de `latin` + `latin-ext` subset (Türkçe karakter desteği için).
+### FavoriteButton
+Konumu: kart görsel alanının **sağ altı** (`bottom-2 right-2`) — badge ile çakışmaması için.
+
+### Borç-Alacak Mantığı
+```
+pendingB2BOrders: id NOT IN allDebtOrderIds  (ödenmiş dahil TÜM debt orderId'leri)
+pendingSiteOrders: telefon NOT IN activeDebtPhones  (sadece ödenmemiş borçlar)
+```
+Sipariş bir kez borç kaydına bağlandıysa asla pending listesine geri dönmez.
 
 ---
 
@@ -426,31 +416,24 @@ FREE: ücretsiz/bedava sipariş — gelire sayılmaz ama kargo gideri olabilir
 
 ```bash
 DATABASE_URL=postgresql://...supabase.com:5432/postgres
-DIRECT_URL=postgresql://...supabase.com:5432/postgres
-NEXTAUTH_URL=http://localhost:3000  # production'da farklı
 NEXTAUTH_SECRET=...
-JWT_SECRET=...                       # site kullanıcı oturumları
+JWT_SECRET=...                   # site kullanıcı oturumları
 ADMIN_EMAIL=admin@ormivo.com
 ADMIN_PASSWORD_HASH=...
-BLOB_READ_WRITE_TOKEN=...            # görsel yükleme
+BLOB_READ_WRITE_TOKEN=...        # görsel yükleme
 ```
-
-**Prisma config:** `DATABASE_URL` transaction pooler (port 5432) üzerinden bağlanır.
 
 ---
 
-## 11. Deploy Süreci
+## 11. Deploy
 
 ```bash
-# Production deploy (GIT PUSH YETMEZ!)
-vercel --prod --yes
-
-# Veya git push sonra promote:
-git push origin main    # → Preview ortamına gider
-vercel promote <url>    # → Production'a taşır
+git add .
+git commit -m "..."
+git push origin main   # → Vercel otomatik production deploy
 ```
 
-**Limit:** Vercel free plan 100 deploy/gün. Limitde `vercel promote` kullan.
+`.next` klasörü: development cache — güvenle silinebilir, build'de yeniden oluşur. Boyutu 1GB'ı geçebilir (Turbopack cache + optimize edilmiş görseller).
 
 ---
 
@@ -458,35 +441,28 @@ vercel promote <url>    # → Production'a taşır
 
 | Hata | Çözüm |
 |------|-------|
-| `vercel` command not found | `npm install -g vercel` |
-| git push → sadece preview | `vercel --prod --yes` kullan |
-| 100 deploy limiti | Ertesi gün bekle veya `vercel promote` |
 | `prisma migrate dev` shadow DB hatası | `prisma db push` kullan |
-| PowerShell `git add app/(admin)/...` | Bash tool ile çalıştır |
+| Schema değişikliği sonrası TS hataları | `npx prisma generate` çalıştır |
+| PowerShell `git add app/(admin)/...` | Bash tool ile çalıştır (parantez sorunu) |
 | `createCustomer` ID yok | `result.id` kullan (`result.success` değil) |
 | Decimal değerler küsuratlı | `Math.round()` veya `Number()` ile dönüştür |
+| `.next` 1GB+ boyut | `.next` klasörünü sil — `npm run dev`'de yeniden oluşur |
 
 ---
 
-## 13. Kod Kalite Kuralları
+## 13. Renk Paleti & UI Kuralları
 
-- **Yorum yok** — iyi isimler yeterli
-- **Error handling sadece gerçek hata noktalarında** — iç fonksiyonlar için değil
-- **Stil:** Tailwind, renk paleti `#2c1810` (koyu kahve), `#8b6f5e` (orta), `#f5f0eb` (bej)
-- **Form state:** `useTransition` yetersizse `useState(false)` + `async/await`
-- **Server Actions:** Her zaman `"use server"` ile başlar, `revalidatePath` ile cache temizlenir
+```
+#2c1810  — koyu kahve (başlıklar, ana metin)
+#8b6f5e  — orta kahve (etiketler, ikincil)
+#f5f0eb  — bej (arka plan, hover)
+#e8ddd6  — açık border
+#b8a89e  — placeholder, pasif metin
+#C4A882  — altın (site accent)
+#1A1A1A  — site koyu metin
+```
 
----
-
-## 14. Son Yapılan Değişiklikler (2026-06-25)
-
-1. **EditOrderModal yeniden tasarımı** — auto-total sync, "listede yoksa yeni ürün ekle" butonu, warm brown UI
-2. **Rapor küsurat fix** — `Math.round()` ile revenue hesabı
-3. **Koku Notaları** — `Product.scentNotes` alanı, admin formda textarea, ürün sayfasında dinamik gösterim
-4. **Kategori bazlı öneriler** — "Bunları da Beğenebilirsiniz" artık sadece aynı kategoriden
-5. **Sepet cross-sell** — cinsiyet tespiti + %30 indirimli öneri (tek cinsiyet sepetinde)
-6. **Kupon sistemi** — `Coupon` modeli, admin CRUD sayfası, sepette uygulama, checkout'ta kayıt
-7. **Bottom Nav kaldırıldı** — mobil navigasyon header menüye taşındı
-8. **Header güncellemeleri** — Özel Koleksiyon header'a eklendi, mobil sepet ikonu + giriş/kayıt linki kaldırıldı
-9. **Filter güncelleme** — Özel Koleksiyon Unisex'ten önce gelecek şekilde eklendi
-10. **En Çok Satanlar** — ana sayfada üstte bölüm + sol sidebar'da numbered liste
+- Font: `Playfair Display` (serif) + `Inter` (sans) — `latin + latin-ext` subset
+- Tailwind `uppercase` class: sadece UI label'lar ve başlıklar için — **marka/ürün isimlerine uygulanmaz**
+- Yorum yazılmaz; iyi isimler yeterli
+- Error handling: sadece sistem sınırlarında (API, DB) — iç fonksiyonlarda değil
