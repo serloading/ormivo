@@ -30,16 +30,16 @@ const navGroups: NavGroup[] = [
   {
     group: "CRM",
     items: [
-      { href: "/admin/musteriler", label: "Müşteriler", icon: "◑" },
+      { href: "/admin/musteriler", label: "Müşteriler",   icon: "◑" },
+      { href: "/admin/kuponlar",   label: "Kupon & Ayarlar", icon: "%" },
     ],
   },
   {
     group: "Finans Yönetimi",
     items: [
-      { href: "/admin/rapor",            label: "Rapor",              icon: "◉" },
-      { href: "/admin/borc-alacak",      label: "Borç / Alacak",      icon: "₺" },
-      { href: "/admin/depo-siparisler",  label: "Depo Siparişleri",   icon: "▣" },
-      { href: "/admin/kuponlar",         label: "Kupon Kodları",      icon: "%" },
+      { href: "/admin/rapor",           label: "Rapor",            icon: "◉" },
+      { href: "/admin/borc-alacak",     label: "Borç / Alacak",    icon: "₺" },
+      { href: "/admin/depo-siparisler", label: "Depo Siparişleri", icon: "▣" },
     ],
   },
 ];

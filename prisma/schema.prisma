@@ -334,3 +334,11 @@ model DepoSiparis {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
+
+// ── Sistem Ayarları ──────────────────────────────────────────
+
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
