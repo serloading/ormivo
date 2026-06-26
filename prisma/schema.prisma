@@ -165,6 +165,7 @@ model SiteUser {
   addresses          Address[]
   siteOrders         SiteOrder[]
   favorites          Favorite[]
+  favoriteLists      FavoriteList[]
 }
 
 model Address {
@@ -239,6 +240,16 @@ model Favorite {
   createdAt DateTime @default(now())
 
   @@unique([userId, productId])
+}
+
+model FavoriteList {
+  id         String   @id @default(cuid())
+  userId     String
+  user       SiteUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  productIds String[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model Coupon {
