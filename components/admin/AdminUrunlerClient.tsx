@@ -189,7 +189,7 @@ export default function AdminUrunlerClient({
           type="number"
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}
-          onBlur={commitEdit}
+          onBlur={() => commitEdit()}
           onKeyDown={(e) => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") cancelEdit(); }}
           className={`w-24 border border-[#8b6f5e] rounded px-2 py-1 text-sm focus:outline-none ${cls ?? ""}`}
           disabled={saving}
@@ -347,7 +347,7 @@ export default function AdminUrunlerClient({
                                 type="text"
                                 value={editValue}
                                 onChange={(e) => setEditValue(e.target.value)}
-                                onBlur={commitEdit}
+                                onBlur={() => commitEdit()}
                                 onKeyDown={(e) => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") cancelEdit(); }}
                                 className="border border-[#8b6f5e] rounded px-2 py-1 text-sm w-48 focus:outline-none"
                                 disabled={saving}
@@ -379,7 +379,7 @@ export default function AdminUrunlerClient({
                                 type="text"
                                 value={editValue}
                                 onChange={(e) => setEditValue(e.target.value)}
-                                onBlur={commitEdit}
+                                onBlur={() => commitEdit()}
                                 onKeyDown={(e) => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") cancelEdit(); }}
                                 className="border border-[#8b6f5e] rounded px-2 py-0.5 text-xs w-44 focus:outline-none mt-0.5"
                                 disabled={saving}
