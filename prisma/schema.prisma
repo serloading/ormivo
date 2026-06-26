@@ -335,8 +335,6 @@ model DepoSiparis {
   updatedAt    DateTime @updatedAt
 }
 
-// ── Sistem Ayarları ──────────────────────────────────────────
-
 model Setting {
   key       String   @id
   value     String
