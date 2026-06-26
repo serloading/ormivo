@@ -72,3 +72,19 @@ export async function changePassword(formData: FormData) {
 export async function logout() {
   await deleteSession();
 }
+
+export async function updateSiteUserName(formData: FormData) {
+  const { getSession } = await import("@/lib/session");
+  const session = await getSession();
+  if (!session) return { error: "Oturum açık değil." };
+
+  const name = (formData.get("name") as string)?.trim();
+  if (!name || name.length < 2) return { error: "Ad en az 2 karakter olmalı." };
+  if (name.length > 60) return { error: "Ad en fazla 60 karakter olabilir." };
+
+  await prisma.siteUser.update({
+    where: { id: session.userId },
+    data: { name },
+  });
+  return { success: true };
+}

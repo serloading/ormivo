@@ -5,6 +5,14 @@ import BorcAlacakClient from "@/components/admin/BorcAlacakClient";
 export const metadata = { title: "Borç/Alacak — Ormivo Admin" };
 
 export default async function BorcAlacakPage() {
+  // Aktif borcu olan müşterilerin telefonlarını bul (web alacaklardan çıkarmak için)
+  const activeDebtPhones = await prisma.customerDebt
+    .findMany({
+      where:  { status: { not: "ODENDI" } },
+      select: { customer: { select: { phone: true } } },
+    })
+    .then((rows) => new Set(rows.map((r) => r.customer.phone).filter(Boolean) as string[]));
+
   const [customerDebts, supplierDebts, customers, orders, stats, pendingSiteOrders, pendingB2BOrders] = await Promise.all([
     prisma.customerDebt.findMany({
       include: { customer: true, order: true, payments: { orderBy: { paidAt: "desc" } } },
@@ -18,7 +26,14 @@ export default async function BorcAlacakPage() {
     prisma.order.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, orderNo: true }, take: 100 }),
     getDebtStats(),
     prisma.siteOrder.findMany({
-      where: { paymentStatus: "PENDING", status: { not: "CANCELLED" } },
+      where: {
+        paymentStatus: "PENDING",
+        status: { not: "CANCELLED" },
+        // Müşterisi için zaten CustomerDebt açılmışsa buraya alma
+        user: activeDebtPhones.size > 0
+          ? { phone: { notIn: Array.from(activeDebtPhones) } }
+          : undefined,
+      },
       orderBy: { createdAt: "desc" },
       include: { user: { select: { name: true, phone: true } } },
     }),

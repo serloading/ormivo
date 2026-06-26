@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import Link  from "next/link";
-import AddToCartButton from "./AddToCartButton";
+import AddToCartButton  from "./AddToCartButton";
+import FavoriteButton   from "./FavoriteButton";
 
 interface Product {
   id:           string;
@@ -13,13 +14,14 @@ interface Product {
   comparePrice: number | null;
   images:       string[];
   stock:        number;
-  brand:        { name: string } | null;
+  brand:        { name: string; slug: string } | null;
 }
 
 interface Props {
   initialProducts: Product[];
   total:           number;
   loggedIn:        boolean;
+  favoritedIds?:   string[];
   filters: {
     kategori: string;
     marka:    string;
@@ -28,7 +30,7 @@ interface Props {
   };
 }
 
-export default function ProductGrid({ initialProducts, total, loggedIn, filters }: Props) {
+export default function ProductGrid({ initialProducts, total, loggedIn, favoritedIds = [], filters }: Props) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [loading,  setLoading]  = useState(false);
   const [hasMore,  setHasMore]  = useState(initialProducts.length < total);
@@ -130,28 +132,41 @@ export default function ProductGrid({ initialProducts, total, loggedIn, filters 
                     -%{discount}
                   </span>
                 )}
+                <FavoriteButton
+                  productId={product.id}
+                  loggedIn={loggedIn}
+                  initialFavorited={favoritedIds.includes(product.id)}
+                />
                 <AddToCartButton productId={product.id} loggedIn={loggedIn} />
               </div>
 
               <div className="p-2 md:p-2.5 flex flex-col flex-1">
-                {product.brand?.name && (
-                  <p className="font-sans text-[7px] tracking-[0.2em] text-[#C4A882] uppercase mb-0.5 truncate">
-                    {product.brand.name}
-                  </p>
+                {product.brand && (
+                  <Link href={`/?marka=${product.brand.slug}`} onClick={(e) => e.stopPropagation()}
+                    className="font-sans text-[7px] tracking-[0.2em] text-[#C4A882] hover:text-[#8B6F4E] mb-0.5 truncate block transition-colors">
+                    {product.brand.name.toLocaleUpperCase("tr-TR")}
+                  </Link>
                 )}
                 <Link href={`/urunler/${product.slug}`} className="block">
                   <h3 className="font-sans text-[11px] md:text-xs leading-snug text-[#1A1A1A] hover:text-[#C4A882] transition-colors line-clamp-2 mb-1">
                     {product.name}
                   </h3>
                 </Link>
-                <p className="font-sans text-xs md:text-sm font-semibold text-[#1A1A1A] mt-auto">
-                  {price.toLocaleString("tr-TR")} ₺
-                  {compare && (
-                    <span className="ml-1.5 text-[10px] font-normal text-[#C4A882] line-through">
-                      {compare.toLocaleString("tr-TR")} ₺
+                <div className="flex items-center justify-between gap-1 mt-auto">
+                  <p className="font-sans text-xs md:text-sm font-semibold text-[#1A1A1A]">
+                    {price.toLocaleString("tr-TR")} ₺
+                    {compare && (
+                      <span className="ml-1.5 text-[10px] font-normal text-[#C4A882] line-through">
+                        {compare.toLocaleString("tr-TR")} ₺
+                      </span>
+                    )}
+                  </p>
+                  {inStock && (
+                    <span className="md:hidden">
+                      <AddToCartButton productId={product.id} loggedIn={loggedIn} mini />
                     </span>
                   )}
-                </p>
+                </div>
               </div>
             </article>
           );

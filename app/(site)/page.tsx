@@ -7,6 +7,8 @@ import CollapsibleList    from "@/components/site/CollapsibleList";
 import Image              from "next/image";
 import Link               from "next/link";
 import AddToCartButton    from "@/components/site/AddToCartButton";
+import FavoriteButton    from "@/components/site/FavoriteButton";
+import { getUserFavoriteIds } from "@/lib/actions/favorite";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Ormivo — Parfüm Kataloğu" };
@@ -74,7 +76,7 @@ export default async function HomePage({
   const session  = await getSession();
   const loggedIn = !!session;
 
-  const [rawProducts, categories, brands, topSellers] = await Promise.all([
+  const [rawProducts, categories, brands, topSellers, favoritedIds] = await Promise.all([
     prisma.product.findMany({
       where,
       include: { category: true, brand: true },
@@ -87,9 +89,10 @@ export default async function HomePage({
     prisma.brand.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, slug: true } }),
     // Sadece filtre yokken en çok satanları getir (ana sayfa görünümü)
     (kategori || marka || q || sirala) ? Promise.resolve([]) : getTopSellers(10),
+    getUserFavoriteIds(),
   ]);
 
-  type RawProduct = { id: string; slug: string; name: string; price: unknown; comparePrice: unknown; images: string[]; stock: number; brand: { name: string } | null };
+  type RawProduct = { id: string; slug: string; name: string; price: unknown; comparePrice: unknown; images: string[]; stock: number; brand: { name: string; slug: string } | null };
   type RawCategory = { id: string; name: string; slug: string };
   type RawBrand = { id: string; name: string; slug: string };
 
@@ -105,7 +108,7 @@ export default async function HomePage({
     comparePrice: p.comparePrice ? Number(p.comparePrice) : null,
     images:       p.images as string[],
     stock:        p.stock,
-    brand:        p.brand ? { name: p.brand.name } : null,
+    brand:        p.brand ? { name: p.brand.name, slug: p.brand.slug } : null,
   }));
 
   /* ── Sidebar link builder ── */
@@ -234,16 +237,28 @@ export default async function HomePage({
                         <span className="absolute top-2 right-2 z-10 bg-[#1A1A1A] text-[#C4A882] font-sans text-[10px] tracking-widest px-2.5 py-1 uppercase font-semibold pointer-events-none shadow-sm">
                           ★ En Çok Satan
                         </span>
+                        <FavoriteButton productId={p.id} loggedIn={loggedIn} initialFavorited={favoritedIds.includes(p.id)} />
                         <AddToCartButton productId={p.id} loggedIn={loggedIn} />
                       </div>
                       <div className="p-2.5 flex flex-col flex-1">
-                        {p.brand?.name && <p className="font-sans text-[8px] tracking-[0.2em] text-[#C4A882] mb-0.5">{p.brand.name.toLocaleUpperCase("tr-TR")}</p>}
+                        {p.brand && (
+                          <Link href={`/?marka=${p.brand.slug}`} className="font-sans text-[8px] tracking-[0.2em] text-[#C4A882] hover:text-[#8B6F4E] mb-0.5 block transition-colors">
+                            {p.brand.name.toLocaleUpperCase("tr-TR")}
+                          </Link>
+                        )}
                         <Link href={`/urunler/${p.slug}`}>
                           <h3 className="font-serif text-xs leading-snug text-[#1A1A1A] hover:text-[#C4A882] transition-colors line-clamp-2 mb-1.5">{p.name}</h3>
                         </Link>
-                        <div className="flex items-baseline gap-1 mt-auto">
-                          <span className="font-sans text-xs font-medium text-[#1A1A1A]">{price.toLocaleString("tr-TR")} ₺</span>
-                          {compare && <span className="font-sans text-[10px] text-[#C4A882] line-through">{compare.toLocaleString("tr-TR")} ₺</span>}
+                        <div className="flex items-center justify-between gap-1 mt-auto">
+                          <div className="flex items-baseline gap-1">
+                            <span className="font-sans text-xs font-medium text-[#1A1A1A]">{price.toLocaleString("tr-TR")} ₺</span>
+                            {compare && <span className="font-sans text-[10px] text-[#C4A882] line-through">{compare.toLocaleString("tr-TR")} ₺</span>}
+                          </div>
+                          {p.stock > 0 && (
+                            <span className="md:hidden">
+                              <AddToCartButton productId={p.id} loggedIn={loggedIn} mini />
+                            </span>
+                          )}
                         </div>
                       </div>
                     </article>
@@ -255,9 +270,11 @@ export default async function HomePage({
           )}
 
           <ProductGrid
+            key={`${kategori}|${marka}|${q}|${sirala}`}
             initialProducts={initialProducts}
             total={allProducts.length}
             loggedIn={loggedIn}
+            favoritedIds={favoritedIds}
             filters={{ kategori, marka, q, sirala }}
           />
         </div>

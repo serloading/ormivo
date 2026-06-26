@@ -3,8 +3,10 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
-import AddToCartButton from "@/components/site/AddToCartButton";
-import UrunlerMobileFilter from "@/components/site/UrunlerMobileFilter";
+import AddToCartButton      from "@/components/site/AddToCartButton";
+import FavoriteButton       from "@/components/site/FavoriteButton";
+import UrunlerMobileFilter  from "@/components/site/UrunlerMobileFilter";
+import { getUserFavoriteIds } from "@/lib/actions/favorite";
 
 export const metadata = { title: "Koleksiyon — Ormivo" };
 export const dynamic = "force-dynamic";
@@ -55,7 +57,7 @@ export default async function UrunlerPage({
   const session = await getSession();
   const loggedIn = !!session;
 
-  const [rawProducts, categories, brands] = await Promise.all([
+  const [rawProducts, categories, brands, favoritedIds] = await Promise.all([
     prisma.product.findMany({
       where,
       include: { category: true, brand: true },
@@ -63,11 +65,12 @@ export default async function UrunlerPage({
     }),
     prisma.category.findMany({ orderBy: { name: "asc" } }),
     prisma.brand.findMany({ orderBy: { name: "asc" } }),
+    getUserFavoriteIds(),
   ]);
 
   type UrunCat   = { id: string; name: string; slug: string };
   type UrunBrand = { id: string; name: string; slug: string };
-  type UrunProduct = { id: string; slug: string; name: string; price: unknown; comparePrice: unknown; images: string[]; stock: number; isBestSeller: boolean; brand?: { name: string } | null; category?: { name: string } | null };
+  type UrunProduct = { id: string; slug: string; name: string; price: unknown; comparePrice: unknown; images: string[]; stock: number; isBestSeller: boolean; brand?: { name: string; slug: string } | null; category?: { name: string } | null };
 
   const typedCats    = categories as UrunCat[];
   const typedBrands  = brands     as UrunBrand[];
@@ -255,12 +258,16 @@ export default async function UrunlerPage({
                         {product.isBestSeller && inStock && (
                           <div className="absolute top-2 right-2 bg-[#1A1A1A] text-[#C4A882] font-sans text-[8px] tracking-[0.1em] uppercase px-2 py-1 pointer-events-none">★ En Çok Satan</div>
                         )}
+                        <FavoriteButton productId={product.id} loggedIn={loggedIn} initialFavorited={favoritedIds.includes(product.id)} />
                         <AddToCartButton productId={product.id} loggedIn={loggedIn} />
                       </div>
 
                       <div className="p-3 md:p-4 flex flex-col flex-1">
                         {product.brand?.name && (
-                          <p className="font-sans text-[8px] md:text-[9px] tracking-[0.22em] text-[#C4A882] uppercase mb-1">{product.brand.name}</p>
+                          <Link href={`/?marka=${product.brand.slug}`}
+                            className="font-sans text-[8px] md:text-[9px] tracking-[0.22em] text-[#C4A882] hover:text-[#8B6F4E] mb-1 block transition-colors">
+                            {product.brand.name.toLocaleUpperCase("tr-TR")}
+                          </Link>
                         )}
                         <Link href={`/urunler/${product.slug}`}>
                           <h3 className="font-serif text-sm md:text-[15px] leading-snug text-[#1A1A1A] hover:text-[#C4A882] transition-colors line-clamp-2 mb-1.5">{product.name}</h3>
@@ -268,9 +275,16 @@ export default async function UrunlerPage({
                         {product.category && (
                           <p className="font-sans text-[8px] tracking-[0.12em] text-[#B0B0B0] uppercase mb-2.5">{product.category.name}</p>
                         )}
-                        <div className="flex items-baseline gap-1.5 mt-auto">
-                          <span className="font-sans text-sm font-medium text-[#1A1A1A]">{price.toLocaleString("tr-TR")} ₺</span>
-                          {compare && <span className="font-sans text-xs text-[#C4A882] line-through">{compare.toLocaleString("tr-TR")} ₺</span>}
+                        <div className="flex items-center justify-between gap-1 mt-auto">
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="font-sans text-sm font-medium text-[#1A1A1A]">{price.toLocaleString("tr-TR")} ₺</span>
+                            {compare && <span className="font-sans text-xs text-[#C4A882] line-through">{compare.toLocaleString("tr-TR")} ₺</span>}
+                          </div>
+                          {inStock && (
+                            <span className="md:hidden">
+                              <AddToCartButton productId={product.id} loggedIn={loggedIn} mini />
+                            </span>
+                          )}
                         </div>
                       </div>
                     </article>

@@ -64,7 +64,7 @@ export default async function UrunDetayPage({
   });
   if (!product) notFound();
 
-  type RelatedProduct = { id: string; slug: string; name: string; price: unknown; comparePrice: unknown; images: string[]; stock: number; brand?: { name: string } | null };
+  type RelatedProduct = { id: string; slug: string; name: string; price: unknown; comparePrice: unknown; images: string[]; stock: number; brand?: { name: string; slug: string } | null };
 
   const related = (await prisma.product.findMany({
     where: {
@@ -252,7 +252,10 @@ export default async function UrunDetayPage({
                     </div>
                     <div className="p-3 flex flex-col flex-1">
                       {r.brand?.name && (
-                        <p className="font-sans text-[8px] tracking-[0.2em] text-[#C4A882] uppercase mb-1">{r.brand.name}</p>
+                        <Link href={`/?marka=${r.brand.slug}`}
+                          className="font-sans text-[8px] tracking-[0.2em] text-[#C4A882] hover:text-[#8B6F4E] mb-1 block transition-colors">
+                          {r.brand.name.toLocaleUpperCase("tr-TR")}
+                        </Link>
                       )}
                       <Link href={`/urunler/${r.slug}`}>
                         <h3 className="font-serif text-sm leading-snug text-[#1A1A1A] hover:text-[#C4A882] transition-colors line-clamp-2 mb-2">

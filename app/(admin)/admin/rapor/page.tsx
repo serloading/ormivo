@@ -82,16 +82,21 @@ export default async function RaporPage() {
     const items = order.items as { productId?: string; productName?: string; name?: string; quantity?: number; qty?: number; price: number }[];
     const orderTotal = Number(order.total);
 
+    // İndirim hesabı: sipariş toplam < kalem toplamı ise fark indirimdedir
+    const itemsTotal = items.reduce((s, i) => s + i.price * (i.quantity ?? i.qty ?? 1), 0);
+    const scale = itemsTotal > 0 ? orderTotal / itemsTotal : 1;
+
     for (const item of items) {
       const name = item.productName ?? item.name ?? "—";
       const qty  = item.quantity ?? item.qty ?? 1;
       const prod = item.productId ? productMap.get(item.productId) : null;
+      const origLine = item.price * qty;
       soldItems.push({
         productId:    item.productId ?? null,
         name,
         qty,
-        originalPrice: item.price * qty,
-        salePrice:    Math.round(item.price * qty),
+        originalPrice: origLine,
+        salePrice:    Math.round(origLine * scale),
         costPrice:    prod?.costPrice ? Number(prod.costPrice) * qty : 0,
         categoryId:   prod?.categoryId ?? null,
         categoryName: prod?.category?.name ?? null,

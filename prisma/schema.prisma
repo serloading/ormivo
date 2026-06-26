@@ -54,6 +54,7 @@ model Product {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   cartItems    CartItem[]
+  favorites    Favorite[]
 }
 
 model Customer {
@@ -161,6 +162,7 @@ model SiteUser {
   cart               Cart?
   addresses          Address[]
   siteOrders         SiteOrder[]
+  favorites          Favorite[]
 }
 
 model Address {
@@ -224,6 +226,17 @@ model CartItem {
   addedAt      DateTime @default(now())
 
   @@unique([cartId, productId])
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  user      SiteUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
 }
 
 model Coupon {
