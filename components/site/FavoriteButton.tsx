@@ -67,7 +67,7 @@ export default function FavoriteButton({ productId, loggedIn, initialFavorited, 
     <button
       onClick={handleClick}
       aria-label={favorited ? "Favorilerden çıkar" : "Favorilere ekle"}
-      className={`absolute top-2 right-2 z-10 flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 shadow-sm
+      className={`absolute bottom-2 right-2 z-10 flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 shadow-sm
         ${favorited
           ? "bg-[#C4A882] text-white"
           : "bg-white/80 text-[#9A9A9A] hover:bg-white hover:text-[#C4A882]"}`}

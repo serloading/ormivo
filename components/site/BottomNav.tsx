@@ -47,7 +47,8 @@ export default function BottomNav({ cartCount, loggedIn }: Props) {
     setTimeout(() => inputRef.current?.focus(), 50);
   }
 
-  const NAV = [
+  // Sıra: Ana Sayfa | Favoriler | Ara | Sepet | Hesabım
+  const NAV_LEFT = [
     {
       href:  "/",
       exact: true,
@@ -68,6 +69,9 @@ export default function BottomNav({ cartCount, loggedIn }: Props) {
         </svg>
       ),
     },
+  ];
+
+  const NAV_RIGHT = [
     {
       href:  "/sepet",
       exact: false,
@@ -90,9 +94,38 @@ export default function BottomNav({ cartCount, loggedIn }: Props) {
     },
   ];
 
-  function isActive(item: typeof NAV[number]) {
-    if (item.exact) return pathname === item.href;
-    return pathname.startsWith(item.href);
+  function isActive(href: string, exact: boolean) {
+    if (exact) return pathname === href;
+    return pathname.startsWith(href.split("#")[0]);
+  }
+
+  function navLink(item: { href: string; exact: boolean; label: string; icon: React.ReactNode }) {
+    const active = isActive(item.href, item.exact);
+    const href   = item.href.startsWith("/hesabim") && !loggedIn ? "/giris" : item.href;
+    const isSepet = item.href === "/sepet";
+    return (
+      <Link
+        key={item.href}
+        href={href}
+        className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors relative
+          ${active ? "text-[#C4A882]" : "text-[#9A9A9A] hover:text-[#1A1A1A]"}`}
+      >
+        {isSepet ? (
+          <span className="relative">
+            {item.icon}
+            {total > 0 && (
+              <span className="absolute -top-1.5 -right-2 bg-[#C4A882] text-white text-[8px] font-sans font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                {total > 9 ? "9+" : total}
+              </span>
+            )}
+          </span>
+        ) : item.icon}
+        <span className={`font-sans text-[9px] tracking-[0.1em] uppercase leading-none ${active ? "text-[#C4A882]" : ""}`}>
+          {item.label}
+        </span>
+        {active && <span className="absolute top-0 inset-x-4 h-[2px] bg-[#C4A882] rounded-full" />}
+      </Link>
+    );
   }
 
   return (
@@ -124,38 +157,9 @@ export default function BottomNav({ cartCount, loggedIn }: Props) {
 
       <nav className="fixed bottom-0 inset-x-0 z-50 bg-white border-t border-[#E8E4DE] shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
         <div className="max-w-[1440px] mx-auto flex">
-          {NAV.map((item) => {
-            const active = isActive(item);
-            const href   = item.href.startsWith("/hesabim") && !loggedIn ? "/giris" : item.href;
+          {NAV_LEFT.map(navLink)}
 
-            return (
-              <Link
-                key={item.href}
-                href={href}
-                className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors relative
-                  ${active ? "text-[#C4A882]" : "text-[#9A9A9A] hover:text-[#1A1A1A]"}`}
-              >
-                {item.href === "/sepet" ? (
-                  <span className="relative">
-                    {item.icon}
-                    {total > 0 && (
-                      <span className="absolute -top-1.5 -right-2 bg-[#C4A882] text-white text-[8px] font-sans font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                        {total > 9 ? "9+" : total}
-                      </span>
-                    )}
-                  </span>
-                ) : (
-                  item.icon
-                )}
-                <span className={`font-sans text-[9px] tracking-[0.1em] uppercase leading-none ${active ? "text-[#C4A882]" : ""}`}>
-                  {item.label}
-                </span>
-                {active && <span className="absolute top-0 inset-x-4 h-[2px] bg-[#C4A882] rounded-full" />}
-              </Link>
-            );
-          })}
-
-          {/* Ara butonu */}
+          {/* Ara — ortada */}
           <button
             onClick={openSearch}
             className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors relative ${searchOpen ? "text-[#C4A882]" : "text-[#9A9A9A] hover:text-[#1A1A1A]"}`}
@@ -165,6 +169,8 @@ export default function BottomNav({ cartCount, loggedIn }: Props) {
             </svg>
             <span className="font-sans text-[9px] tracking-[0.1em] uppercase leading-none">Ara</span>
           </button>
+
+          {NAV_RIGHT.map(navLink)}
         </div>
       </nav>
     </>

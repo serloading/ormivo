@@ -73,6 +73,45 @@ export async function logout() {
   await deleteSession();
 }
 
+export async function updateSiteUserProfile(data: { name?: string; phone?: string; currentPassword?: string; newPassword?: string }) {
+  const { getSession } = await import("@/lib/session");
+  const session = await getSession();
+  if (!session) return { error: "Oturum açık değil." };
+
+  const updateData: Record<string, unknown> = {};
+
+  if (data.name !== undefined) {
+    const name = data.name.trim();
+    if (!name || name.length < 2) return { error: "Ad en az 2 karakter olmalı." };
+    if (name.length > 60) return { error: "Ad en fazla 60 karakter olabilir." };
+    updateData.name = name;
+  }
+
+  if (data.phone !== undefined) {
+    const phone = data.phone.trim().replace(/\s/g, "");
+    if (!phone || phone.length < 10) return { error: "Geçerli bir telefon numarası girin." };
+    // Aynı telefon başka kullanıcıda kayıtlı mı?
+    const existing = await prisma.siteUser.findFirst({ where: { phone, id: { not: session.userId } } });
+    if (existing) return { error: "Bu telefon numarası zaten kullanımda." };
+    updateData.phone = phone;
+  }
+
+  if (data.newPassword) {
+    if (!data.currentPassword) return { error: "Mevcut şifrenizi girin." };
+    const user = await prisma.siteUser.findUnique({ where: { id: session.userId } });
+    if (!user?.passwordHash) return { error: "Şifre değiştirilemedi." };
+    const valid = await bcrypt.compare(data.currentPassword, user.passwordHash);
+    if (!valid) return { error: "Mevcut şifre yanlış." };
+    if (data.newPassword.length < 8) return { error: "Yeni şifre en az 8 karakter olmalı." };
+    updateData.passwordHash = await bcrypt.hash(data.newPassword, 12);
+  }
+
+  if (Object.keys(updateData).length === 0) return { error: "Değişiklik yok." };
+
+  await prisma.siteUser.update({ where: { id: session.userId }, data: updateData });
+  return { success: true };
+}
+
 export async function updateSiteUserName(formData: FormData) {
   const { getSession } = await import("@/lib/session");
   const session = await getSession();
