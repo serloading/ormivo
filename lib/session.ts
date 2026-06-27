@@ -33,13 +33,32 @@ export async function createSession(payload: SessionPayload) {
   });
 }
 
+/**
+ * JWT'yi doğrula, ardından DB'den güncel segment + name oku.
+ * Admin segment değiştirince oturum yenilenmeden hemen yansır.
+ */
 export async function getSession(): Promise<SessionPayload | null> {
   try {
     const jar   = await cookies();
     const token = jar.get(COOKIE)?.value;
     if (!token) return null;
     const { payload } = await jwtVerify(token, getSecret());
-    return payload as unknown as SessionPayload;
+    const jwt = payload as unknown as SessionPayload;
+
+    // DB'den güncel segment ve isim oku
+    const { prisma } = await import("@/lib/prisma");
+    const user = await prisma.siteUser.findUnique({
+      where:  { id: jwt.userId },
+      select: { id: true, phone: true, name: true, segment: true },
+    });
+    if (!user) return null;
+
+    return {
+      userId:  user.id,
+      phone:   user.phone,
+      name:    user.name,
+      segment: user.segment ?? null,
+    };
   } catch {
     return null;
   }
