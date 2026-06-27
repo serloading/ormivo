@@ -1,21 +1,14 @@
-import { redirect }      from "next/navigation";
-import { getSession }     from "@/lib/session";
-import { prisma }         from "@/lib/prisma";
-import Image              from "next/image";
-import Link               from "next/link";
-import AddressActions     from "./AddressActions";
-import HesabimProfileForm from "./HesabimProfileForm";
-import HesabimSiparisler  from "./HesabimSiparisler";
-import { SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/segment";
+import { redirect }         from "next/navigation";
+import { getSession }        from "@/lib/session";
+import { prisma }            from "@/lib/prisma";
+import Image                 from "next/image";
+import Link                  from "next/link";
+import AddressActions        from "./AddressActions";
+import HesabimProfileCard    from "./HesabimProfileCard";
+import HesabimSiparisler     from "./HesabimSiparisler";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Hesabım — Ormivo" };
-
-const SEGMENT_ICONS: Record<string, string> = {
-  BRONZE: "🥉",
-  SILVER: "🥈",
-  GOLD:   "🏅",
-};
 
 interface UserAddress {
   id: string; recipientName: string; phone: string;
@@ -91,56 +84,16 @@ export default async function HesabimPage() {
     <div className="bg-[#FAFAF7] min-h-screen">
       <div className="max-w-4xl mx-auto px-4 md:px-6 py-10 space-y-6">
 
-        {/* ── Profil Başlığı ─────────────────────────── */}
-        <div className="bg-white border border-[#E8E4DE] p-6">
-          <div className="flex items-center gap-5">
-            {/* Avatar */}
-            <div className="w-14 h-14 rounded-full bg-[#EDE5D8] flex items-center justify-center shrink-0">
-              <span className="font-serif text-xl text-[#C4A882]">{initials}</span>
-            </div>
-
-            {/* İsim + Rozet + Telefon */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="font-serif text-xl text-[#1A1A1A] leading-tight">
-                  {user.name || "Üye"}
-                </h1>
-                {session.segment && SEGMENT_LABELS[session.segment] && (
-                  <span className={`inline-flex items-center gap-1 font-sans text-[10px] px-2 py-0.5 rounded font-semibold ${SEGMENT_COLORS[session.segment]}`}>
-                    <span>{SEGMENT_ICONS[session.segment] ?? "◆"}</span>
-                    {SEGMENT_LABELS[session.segment]}
-                  </span>
-                )}
-              </div>
-              <p className="font-sans text-sm text-[#9A9A9A] mt-0.5">{user.phone}</p>
-            </div>
-
-            {/* Hızlı edit */}
-            <Link href="#profil"
-              className="hidden md:block font-sans text-[9px] tracking-[0.15em] uppercase border border-[#E8E4DE] px-3 py-1.5 text-[#6B6B6B] hover:border-[#C4A882] hover:text-[#C4A882] transition-colors shrink-0">
-              Profil Düzenle
-            </Link>
-          </div>
-
-          {/* Hızlı navigasyon */}
-          <div className="grid grid-cols-3 gap-3 mt-5 pt-5 border-t border-[#E8E4DE]">
-            <a href="#siparisler" className="flex flex-col items-center gap-1.5 group">
-              <span className="text-xl">📦</span>
-              <span className="font-sans text-[10px] tracking-[0.15em] uppercase text-[#9A9A9A] group-hover:text-[#1A1A1A] transition-colors text-center">Siparişlerim</span>
-              <span className="font-sans text-sm font-medium text-[#1A1A1A]">{allOrders.length}</span>
-            </a>
-            <a href="#adresler" className="flex flex-col items-center gap-1.5 group">
-              <span className="text-xl">📍</span>
-              <span className="font-sans text-[10px] tracking-[0.15em] uppercase text-[#9A9A9A] group-hover:text-[#1A1A1A] transition-colors text-center">Adreslerim</span>
-              <span className="font-sans text-sm font-medium text-[#1A1A1A]">{user.addresses.length}</span>
-            </a>
-            <Link href="/hesabim/favorilerim" className="flex flex-col items-center gap-1.5 group">
-              <span className="text-xl">♡</span>
-              <span className="font-sans text-[10px] tracking-[0.15em] uppercase text-[#9A9A9A] group-hover:text-[#1A1A1A] transition-colors text-center">Favorilerim</span>
-              <span className="font-sans text-sm font-medium text-[#1A1A1A]">{favoriteCount}</span>
-            </Link>
-          </div>
-        </div>
+        {/* ── Profil Kartı (düzenleme + şifre değiştirme dahil) ── */}
+        <HesabimProfileCard
+          name={user.name ?? ""}
+          phone={user.phone}
+          segment={session.segment ?? null}
+          initials={initials}
+          orderCount={allOrders.length}
+          addressCount={user.addresses.length}
+          favoriteCount={favoriteCount}
+        />
 
         {/* ── Özet Kartlar ─────────────────────────────── */}
         {allOrders.length > 0 && (
@@ -229,12 +182,8 @@ export default async function HesabimPage() {
         {/* ── Ana Grid: Profil & Adresler | Siparişler ─── */}
         <div className="grid md:grid-cols-3 gap-6">
 
-          {/* Sol: Profil + Adresler */}
+          {/* Sol: Adresler */}
           <div className="md:col-span-1 space-y-4">
-            <div id="profil">
-              <HesabimProfileForm currentName={user.name ?? ""} phone={user.phone} />
-            </div>
-
             <div id="adresler" className="bg-white border border-[#E8E4DE] p-5">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-sans text-[10px] tracking-[0.3em] uppercase text-[#C4A882]">Adreslerim</h2>
