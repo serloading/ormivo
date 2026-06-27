@@ -7,6 +7,7 @@ import { placeOrder } from "@/lib/actions/order-site";
 import { validateCoupon } from "@/lib/actions/coupon";
 import { addToCart } from "@/lib/actions/cart";
 import CartItemRow from "./CartItemRow";
+import { getSegmentPrice, SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/segment";
 
 interface Product {
   id: string; name: string; price: unknown; brand?: { name: string; slug: string } | null;
@@ -26,10 +27,12 @@ export default function LoggedInCart({
   items,
   addresses,
   crossSellProducts = [],
+  userSegment = null,
 }: {
   items: CartItem[];
   addresses: Address[];
   crossSellProducts?: CrossSellProduct[];
+  userSegment?: string | null;
 }) {
   const [showForm,   setShowForm]   = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -52,7 +55,13 @@ export default function LoggedInCart({
   const [addedCrossSell, setAddedCrossSell] = useState<Set<string>>(new Set());
   const [crossPending, startCrossT]         = useTransition();
 
-  const itemsTotal = items.reduce((s, i) => s + Number(i.product.price) * i.quantity, 0);
+  const originalTotal  = items.reduce((s, i) => s + Number(i.product.price) * i.quantity, 0);
+  const segmentTotal   = items.reduce((s, i) => {
+    const sp = getSegmentPrice(Number(i.product.price), userSegment);
+    return s + (sp ?? Number(i.product.price)) * i.quantity;
+  }, 0);
+  const segmentDiscount = Math.round(originalTotal - segmentTotal);
+  const itemsTotal = segmentTotal;
   const total      = Math.max(0, itemsTotal - couponDiscount);
 
   function applyCoupon() {
@@ -134,7 +143,7 @@ export default function LoggedInCart({
       <div className="grid md:grid-cols-3 gap-6">
         {/* Ürün listesi */}
         <div className="md:col-span-2 space-y-3">
-          {items.map((item) => <CartItemRow key={item.id} item={item} />)}
+          {items.map((item) => <CartItemRow key={item.id} item={item} userSegment={userSegment} />)}
         </div>
 
         {/* Özet + sipariş formu */}
@@ -142,14 +151,25 @@ export default function LoggedInCart({
           <div className="bg-white border border-[#E8E4DE] p-6 sticky top-24 space-y-5">
             <h2 className="font-serif text-lg text-[#1A1A1A] pb-4 border-b border-[#E8E4DE]">Sipariş Özeti</h2>
 
+            {/* Segment rozeti */}
+            {userSegment && SEGMENT_LABELS[userSegment] && (
+              <div className={`flex items-center gap-2 px-3 py-2 rounded font-sans text-xs ${SEGMENT_COLORS[userSegment]}`}>
+                <span className="font-semibold">{SEGMENT_LABELS[userSegment]} İndirimi Uygulandı</span>
+              </div>
+            )}
+
             {/* Ürünler */}
             <div className="space-y-2">
-              {items.map((i) => (
-                <div key={i.id} className="flex justify-between font-sans text-xs text-[#6B6B6B]">
-                  <span className="truncate pr-2">{i.product.name} ×{i.quantity}</span>
-                  <span className="shrink-0">{(Number(i.product.price) * i.quantity).toLocaleString("tr-TR")} ₺</span>
-                </div>
-              ))}
+              {items.map((i) => {
+                const sp = getSegmentPrice(Number(i.product.price), userSegment);
+                const lineTotal = (sp ?? Number(i.product.price)) * i.quantity;
+                return (
+                  <div key={i.id} className="flex justify-between font-sans text-xs text-[#6B6B6B]">
+                    <span className="truncate pr-2">{i.product.name} ×{i.quantity}</span>
+                    <span className="shrink-0">{lineTotal.toLocaleString("tr-TR")} ₺</span>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Kupon kodu */}
@@ -186,19 +206,25 @@ export default function LoggedInCart({
 
             {/* Toplam */}
             <div className="border-t border-[#E8E4DE] pt-4 space-y-1">
-              {couponDiscount > 0 && (
+              {segmentDiscount > 0 && (
                 <div className="flex justify-between font-sans text-xs text-[#6B6B6B]">
-                  <span>Ara toplam</span>
-                  <span>{itemsTotal.toLocaleString("tr-TR")} ₺</span>
+                  <span>Liste fiyatı</span>
+                  <span>{originalTotal.toLocaleString("tr-TR")} ₺</span>
+                </div>
+              )}
+              {segmentDiscount > 0 && (
+                <div className="flex justify-between font-sans text-xs text-[#C4A882] font-medium">
+                  <span>{SEGMENT_LABELS[userSegment!]} İndirimi</span>
+                  <span>−{segmentDiscount.toLocaleString("tr-TR")} ₺</span>
                 </div>
               )}
               {couponDiscount > 0 && (
                 <div className="flex justify-between font-sans text-xs text-green-600">
-                  <span>İndirim ({appliedCoupon})</span>
+                  <span>Kupon ({appliedCoupon})</span>
                   <span>−{couponDiscount.toLocaleString("tr-TR")} ₺</span>
                 </div>
               )}
-              <div className="flex justify-between font-sans text-sm font-semibold text-[#1A1A1A]">
+              <div className="flex justify-between font-sans text-sm font-semibold text-[#1A1A1A] pt-1 border-t border-[#E8E4DE]">
                 <span>Toplam</span>
                 <span>{total.toLocaleString("tr-TR")} ₺</span>
               </div>

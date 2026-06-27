@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { getCart } from "@/lib/actions/cart";
 import { useCoupon } from "@/lib/actions/coupon";
+import { getSegmentPrice } from "@/lib/segment";
 
 const CARGO_FEE = 200;
 
@@ -35,18 +36,25 @@ export async function placeOrder(input: PlaceOrderInput) {
   let orderItems: { productId: string; name: string; price: number; qty: number }[] = [];
   let total = 0;
 
+  const userSegment = session?.segment ?? null;
+
   if (session) {
     const cart = await getCart();
     const dbItems = cart?.items ?? [];
     if (dbItems.length === 0) return { error: "Sepetiniz boş." };
 
     type CartItem = { quantity: number; product: { id: string; name: string; price: unknown } };
-    orderItems = (dbItems as CartItem[]).map((i) => ({
-      productId: i.product.id,
-      name:      i.product.name,
-      price:     Number(i.product.price),
-      qty:       i.quantity,
-    }));
+    orderItems = (dbItems as CartItem[]).map((i) => {
+      const originalPrice = Number(i.product.price);
+      const segmentedPrice = getSegmentPrice(originalPrice, userSegment) ?? originalPrice;
+      return {
+        productId:     i.product.id,
+        name:          i.product.name,
+        price:         segmentedPrice,
+        originalPrice: originalPrice,
+        qty:           i.quantity,
+      };
+    });
     total = orderItems.reduce((s: number, i) => s + i.price * i.qty, 0);
   } else {
     if (!guestItems || guestItems.length === 0) return { error: "Sepetiniz boş." };
@@ -77,6 +85,13 @@ export async function placeOrder(input: PlaceOrderInput) {
     });
   }
 
+  // Segment indirimi: orijinal fiyat - segment fiyatı toplamı
+  const segmentDiscountAmount = orderItems.reduce((s, i) => {
+    const orig = (i as typeof i & { originalPrice?: number }).originalPrice ?? i.price;
+    return s + (orig - i.price) * i.qty;
+  }, 0);
+  const totalDiscount = Math.round(segmentDiscountAmount) + (couponDiscount ?? 0);
+
   const order = await prisma.siteOrder.create({
     data: {
       recipientName:  recipientName.trim(),
@@ -87,7 +102,7 @@ export async function placeOrder(input: PlaceOrderInput) {
       note:           note?.trim() || null,
       items:          orderItems,
       total:          Math.max(0, total - (couponDiscount ?? 0)),
-      discount:       couponDiscount ?? 0,
+      discount:       totalDiscount,
       couponCode:     couponCode ?? null,
       customerId:     customer.id,
       userId:         session?.userId ?? null,

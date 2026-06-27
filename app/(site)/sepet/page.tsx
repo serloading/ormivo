@@ -21,6 +21,8 @@ export default async function SepetPage() {
     );
   }
 
+  const userSegment = session.segment ?? null;
+
   const [cart, addresses] = await Promise.all([
     getCart(),
     prisma.address.findMany({
@@ -73,7 +75,7 @@ export default async function SepetPage() {
         <p className="font-sans text-sm text-[#9A9A9A] mb-8">
           {session.name ? `Merhaba ${session.name}` : session.phone}
         </p>
-        <LoggedInCart items={items} addresses={addresses} crossSellProducts={crossSellProducts} />
+        <LoggedInCart items={items} addresses={addresses} crossSellProducts={crossSellProducts} userSegment={userSegment} />
       </div>
     </div>
   );
