@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Modal from "./Modal";
@@ -8,6 +8,9 @@ import { Field, TextareaField, SubmitRow } from "./FormField";
 import { createCustomer, updateCustomer, deleteCustomer, backfillCustomerNos } from "@/lib/actions/customer";
 import { updateCustomerSegment, updateCustomerTags } from "@/lib/actions/customer";
 import { SEGMENTS, SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/customer-constants";
+
+type SortKey = "name" | "segment" | "tag" | "orders" | "createdAt";
+type SortDir = "asc" | "desc";
 
 const SEGMENT_ICONS: Record<string, { letter: string; cls: string }> = {
   GOLD:   { letter: "G", cls: "bg-yellow-400 text-yellow-900" },
@@ -38,6 +41,8 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
   const [formSegment, setFormSegment] = useState("");
   const [formTags, setFormTags]       = useState<string[]>([]);
   const [selected, setSelected]   = useState<Set<string>>(new Set());
+  const [sortKey, setSortKey]     = useState<SortKey>("createdAt");
+  const [sortDir, setSortDir]     = useState<SortDir>("desc");
 
   function toggleSelect(id: string) {
     setSelected((prev) => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
@@ -57,12 +62,39 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
   // Tüm etiketleri topla (filtre için)
   const allTags = Array.from(new Set(customers.flatMap((c) => c.tags))).sort();
 
-  const filtered = customers.filter((c) => {
-    const matchSearch = !search || c.name.toLowerCase().includes(search.toLowerCase()) || (c.phone ?? "").includes(search);
-    const matchSeg    = !segFilter || c.segment === segFilter;
-    const matchTag    = !tagFilter || c.tags.includes(tagFilter);
-    return matchSearch && matchSeg && matchTag;
-  });
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) setSortDir((d) => d === "asc" ? "desc" : "asc");
+    else { setSortKey(key); setSortDir("asc"); }
+  }
+
+  const SEGMENT_ORDER: Record<string, number> = { GOLD: 1, SILVER: 2, BRONZE: 3 };
+
+  const filtered = useMemo(() => {
+    const base = customers.filter((c) => {
+      const matchSearch = !search || c.name.toLowerCase().includes(search.toLowerCase()) || (c.phone ?? "").includes(search);
+      const matchSeg    = !segFilter || c.segment === segFilter;
+      const matchTag    = !tagFilter || c.tags.includes(tagFilter);
+      return matchSearch && matchSeg && matchTag;
+    });
+
+    return [...base].sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === "name") {
+        cmp = a.name.localeCompare(b.name, "tr");
+      } else if (sortKey === "segment") {
+        cmp = (SEGMENT_ORDER[a.segment ?? ""] ?? 99) - (SEGMENT_ORDER[b.segment ?? ""] ?? 99);
+      } else if (sortKey === "tag") {
+        cmp = (a.tags[0] ?? "").localeCompare(b.tags[0] ?? "", "tr");
+      } else if (sortKey === "orders") {
+        const aO = (a._count?.orders ?? 0) + (a._count?.siteOrders ?? 0);
+        const bO = (b._count?.orders ?? 0) + (b._count?.siteOrders ?? 0);
+        cmp = aO - bO;
+      } else {
+        cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [customers, search, segFilter, tagFilter, sortKey, sortDir]);
 
   function openAdd() {
     setEditing(null);
@@ -157,14 +189,25 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
                 <input type="checkbox" checked={selected.size === filtered.length && filtered.length > 0} onChange={toggleAll}
                   className="rounded border-[#d4c5ba]" />
               </th>
-              {["No", "Ad Soyad", "Telefon", "Adres", "Etiket", "Sipariş", "Kayıt", ""].map((h) => (
-                <th key={h} className="text-left px-6 py-4 text-xs tracking-widest text-[#8b6f5e] uppercase font-medium">{h}</th>
+              <th className="text-left px-6 py-4 text-xs tracking-widest text-[#8b6f5e] uppercase font-medium">No</th>
+              {([ ["name", "Ad Soyad"], ["", "Telefon"], ["", "Adres"], ["segment", "Segment"], ["tag", "Etiket"], ["orders", "Sipariş"], ["createdAt", "Kayıt"] ] as [SortKey | "", string][]).map(([key, label]) => (
+                <th key={label} className="text-left px-6 py-4 text-xs tracking-widest text-[#8b6f5e] uppercase font-medium">
+                  {key ? (
+                    <button onClick={() => toggleSort(key as SortKey)} className="flex items-center gap-1 hover:text-[#2c1810] transition-colors group">
+                      {label}
+                      <span className="text-[10px] text-[#d4c5ba] group-hover:text-[#8b6f5e]">
+                        {sortKey === key ? (sortDir === "asc" ? "↑" : "↓") : "⇅"}
+                      </span>
+                    </button>
+                  ) : label}
+                </th>
               ))}
+              <th className="px-6 py-4"></th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={9} className="px-6 py-12 text-center text-sm text-[#b8a89e]">Müşteri bulunamadı.</td></tr>
+              <tr><td colSpan={10} className="px-6 py-12 text-center text-sm text-[#b8a89e]">Müşteri bulunamadı.</td></tr>
             ) : filtered.map((c, i) => (
               <tr key={c.id} className={`border-b border-[#f0ebe6] hover:bg-[#faf8f6] ${selected.has(c.id) ? "bg-red-50" : ""} ${i === filtered.length - 1 ? "border-b-0" : ""}`}>
                 <td className="px-4 py-4">
@@ -172,21 +215,20 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
                 </td>
                 <td className="px-6 py-4 text-xs text-[#b8a89e] font-mono">{c.customerNo ?? "—"}</td>
                 <td className="px-6 py-4">
-                  <div className="flex items-center gap-1.5">
-                    {c.segment && SEGMENT_ICONS[c.segment] && (
-                      <span title={SEGMENT_LABELS[c.segment]}
-                        className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold shrink-0 ${SEGMENT_ICONS[c.segment].cls}`}>
-                        {SEGMENT_ICONS[c.segment].letter}
-                      </span>
-                    )}
-                    <Link href={`/admin/musteriler/${c.id}`} className="font-medium text-[#2c1810] hover:underline">
-                      {c.name}
-                    </Link>
-                  </div>
-                  {c.email && <p className="text-xs text-[#b8a89e] mt-0.5 ml-6">{c.email}</p>}
+                  <Link href={`/admin/musteriler/${c.id}`} className="font-medium text-[#2c1810] hover:underline">
+                    {c.name}
+                  </Link>
+                  {c.email && <p className="text-xs text-[#b8a89e] mt-0.5">{c.email}</p>}
                 </td>
                 <td className="px-6 py-4 text-[#5c4033]">{c.phone || "—"}</td>
                 <td className="px-6 py-4 text-[#5c4033]">{c.address || "—"}</td>
+                <td className="px-6 py-4">
+                  {c.segment && SEGMENT_ICONS[c.segment] ? (
+                    <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold ${SEGMENT_ICONS[c.segment].cls}`}>
+                      {SEGMENT_ICONS[c.segment].letter}
+                    </span>
+                  ) : <span className="text-[#b8a89e]">—</span>}
+                </td>
                 <td className="px-6 py-4">
                   {c.tags.length > 0 ? (
                     <div className="flex flex-wrap gap-1">
@@ -196,8 +238,15 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
                     </div>
                   ) : <span className="text-[#b8a89e]">—</span>}
                 </td>
-                <td className="px-6 py-4 text-[#5c4033]">
-                  {((c._count?.orders ?? 0) + (c._count?.siteOrders ?? 0))}
+                <td className="px-6 py-4">
+                  {(() => {
+                    const total = (c._count?.orders ?? 0) + (c._count?.siteOrders ?? 0);
+                    return total > 0 ? (
+                      <Link href={`/admin/musteriler/${c.id}`} className="font-medium text-[#2c1810] hover:underline">
+                        {total}
+                      </Link>
+                    ) : <span className="text-[#b8a89e]">0</span>;
+                  })()}
                 </td>
                 <td className="px-6 py-4 text-[#8b6f5e]">{new Date(c.createdAt).toLocaleDateString("tr-TR")}</td>
                 <td className="px-6 py-4 text-right whitespace-nowrap">
