@@ -27,6 +27,12 @@ export async function register(formData: FormData) {
     data: { phone, passwordHash },
   });
 
+  // Admin müşteriler listesinde görünsün
+  const existingCustomer = await prisma.customer.findFirst({ where: { phone } });
+  if (!existingCustomer) {
+    await prisma.customer.create({ data: { name: phone, phone } });
+  }
+
   await createSession({ userId: user.id, phone: user.phone, name: user.name, segment: user.segment ?? null });
   return { success: true };
 }
@@ -108,7 +114,17 @@ export async function updateSiteUserProfile(data: { name?: string; phone?: strin
 
   if (Object.keys(updateData).length === 0) return { error: "Değişiklik yok." };
 
-  await prisma.siteUser.update({ where: { id: session.userId }, data: updateData });
+  const updatedUser = await prisma.siteUser.update({ where: { id: session.userId }, data: updateData });
+
+  // Customer kaydını da senkron tut
+  const customerPhone = (updateData.phone as string | undefined) ?? session.phone;
+  const existingCust  = await prisma.customer.findFirst({ where: { phone: customerPhone } });
+  if (existingCust) {
+    if (updateData.name) await prisma.customer.update({ where: { id: existingCust.id }, data: { name: updateData.name as string } });
+  } else {
+    await prisma.customer.create({ data: { phone: customerPhone, name: (updatedUser.name ?? customerPhone) } });
+  }
+
   return { success: true };
 }
 
