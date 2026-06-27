@@ -281,15 +281,26 @@ export default async function UrunDetayPage({
                           {r.name}
                         </h3>
                       </Link>
-                      <div className="flex items-baseline gap-1.5 mt-auto">
-                        <span className="font-sans text-sm font-medium text-[#1A1A1A]">
-                          {rPrice.toLocaleString("tr-TR")} ₺
-                        </span>
-                        {rCompare && (
-                          <span className="font-sans text-xs text-[#C4A882] line-through">
-                            {rCompare.toLocaleString("tr-TR")} ₺
-                          </span>
-                        )}
+                      <div className="mt-auto">
+                        {(() => {
+                          const rSeg = getSegmentPrice(rPrice, userSegment);
+                          return rSeg ? (
+                            <div className="flex flex-col gap-0.5">
+                              <span className={`font-sans text-[8px] px-1 py-px rounded font-semibold self-start ${SEGMENT_COLORS[userSegment!]}`}>
+                                {SEGMENT_LABELS[userSegment!]}
+                              </span>
+                              <div className="flex items-baseline gap-1">
+                                <span className="font-sans text-sm font-semibold text-[#C4A882]">{rSeg.toLocaleString("tr-TR")} ₺</span>
+                                <span className="font-sans text-xs text-[#9A9A9A] line-through">{rPrice.toLocaleString("tr-TR")} ₺</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-baseline gap-1.5">
+                              <span className="font-sans text-sm font-medium text-[#1A1A1A]">{rPrice.toLocaleString("tr-TR")} ₺</span>
+                              {rCompare && <span className="font-sans text-xs text-[#C4A882] line-through">{rCompare.toLocaleString("tr-TR")} ₺</span>}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </article>
