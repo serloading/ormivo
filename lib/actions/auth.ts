@@ -30,7 +30,7 @@ export async function register(formData: FormData) {
   // Admin müşteriler listesinde görünsün
   const existingCustomer = await prisma.customer.findFirst({ where: { phone } });
   if (!existingCustomer) {
-    await prisma.customer.create({ data: { name: phone, phone } });
+    await prisma.customer.create({ data: { name: phone, phone, tags: [] } });
   }
 
   await createSession({ userId: user.id, phone: user.phone, name: user.name, segment: user.segment ?? null });
