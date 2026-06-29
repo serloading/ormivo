@@ -101,12 +101,14 @@ function ItemRow({
   onUpdate,
   onRemove,
   canRemove,
+  usdRate,
 }: {
   item: DepoSiparisItem;
   idx: number;
   onUpdate: (idx: number, field: keyof DepoSiparisItem | "unitPriceStr", value: string) => void;
   onRemove: (idx: number) => void;
   canRemove: boolean;
+  usdRate: number;
 }) {
   const [query, setQuery] = useState(item.name);
   const [suggestions, setSuggestions] = useState<ProductSuggestion[]>([]);
@@ -153,11 +155,11 @@ function ItemRow({
   }
 
   return (
-    <div className="grid grid-cols-12 gap-2 items-start">
-      <div className="col-span-5 relative" ref={containerRef}>
+    <div className="grid grid-cols-13 gap-2 items-start" style={{ gridTemplateColumns: "5fr 2fr 2fr 2fr 1fr" }}>
+      <div className="relative" ref={containerRef}>
         <input
           className="w-full border border-[#d4c5ba] px-2 py-1.5 text-sm focus:outline-none focus:border-[#8b6f5e]"
-          placeholder="Ã¼rÃ¼n adÄ± ara..."
+          placeholder="ürün adı ara..."
           value={query}
           onChange={(e) => handleQueryChange(e.target.value)}
           onFocus={() => suggestions.length > 0 && setOpen(true)}
@@ -185,17 +187,31 @@ function ItemRow({
       <input
         type="number"
         min="1"
-        className="col-span-2 border border-[#d4c5ba] px-2 py-1.5 text-sm text-right focus:outline-none focus:border-[#8b6f5e]"
+        className="border border-[#d4c5ba] px-2 py-1.5 text-sm text-right focus:outline-none focus:border-[#8b6f5e]"
         value={item.qty}
         onChange={(e) => onUpdate(idx, "qty", e.target.value)}
+      />
+
+      {/* USD girişi → TL otomatik hesaplar */}
+      <input
+        type="number"
+        min="0"
+        step="0.01"
+        className="border border-[#5e8b73] px-2 py-1.5 text-sm text-right focus:outline-none focus:border-[#3d7a5e] text-[#5e8b73] placeholder-[#b0c8bd]"
+        placeholder="$0.00"
+        value={item.unitPrice && usdRate ? (Math.round((item.unitPrice / usdRate) * 100) / 100) || "" : ""}
+        onChange={(e) => {
+          const usd = parseFloat(e.target.value) || 0;
+          onUpdate(idx, "unitPriceStr", String(Math.round(usd * usdRate * 100) / 100));
+        }}
       />
 
       <input
         type="number"
         min="0"
         step="0.01"
-        className="col-span-3 border border-[#d4c5ba] px-2 py-1.5 text-sm text-right focus:outline-none focus:border-[#8b6f5e]"
-        placeholder="0.00"
+        className="border border-[#d4c5ba] px-2 py-1.5 text-sm text-right focus:outline-none focus:border-[#8b6f5e]"
+        placeholder="0.00 ₺"
         value={item.unitPrice || ""}
         onChange={(e) => onUpdate(idx, "unitPriceStr", e.target.value)}
       />
@@ -204,15 +220,15 @@ function ItemRow({
         type="button"
         onClick={() => onRemove(idx)}
         disabled={!canRemove}
-        className="col-span-2 text-red-400 hover:text-red-600 text-xs disabled:opacity-30 text-center py-1.5"
+        className="text-red-400 hover:text-red-600 text-xs disabled:opacity-30 text-center py-1.5"
       >
-        Ã— Sil
+        × Sil
       </button>
     </div>
   );
 }
 
-export default function DepoSiparisClient({ siparisler }: { siparisler: DepoSiparis[] }) {
+export default function DepoSiparisClient({ siparisler, usdRate }: { siparisler: DepoSiparis[]; usdRate: number }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [modalOpen, setModalOpen] = useState(false);
@@ -536,11 +552,12 @@ export default function DepoSiparisClient({ siparisler }: { siparisler: DepoSipa
               <button type="button" onClick={addItem} className="text-xs text-[#2c1810] hover:underline">+ SatÄ±r Ekle</button>
             </div>
             <div className="space-y-2">
-              <div className="grid grid-cols-12 gap-2 text-[10px] uppercase tracking-wide text-[#8b6f5e] px-1">
-                <span className="col-span-5">ÃœrÃ¼n AdÄ±</span>
-                <span className="col-span-2 text-right">Adet</span>
-                <span className="col-span-3 text-right">AlÄ±ÅŸ FiyatÄ± (â‚º)</span>
-                <span className="col-span-2" />
+              <div className="gap-2 text-[10px] uppercase tracking-wide text-[#8b6f5e] px-1" style={{ display: "grid", gridTemplateColumns: "5fr 2fr 2fr 2fr 1fr" }}>
+                <span>Ürün Adı</span>
+                <span className="text-right">Adet</span>
+                <span className="text-right text-[#5e8b73]">Alış ($)</span>
+                <span className="text-right">Alış (₺)</span>
+                <span />
               </div>
               {items.map((item, idx) => (
                 <ItemRow
@@ -550,6 +567,7 @@ export default function DepoSiparisClient({ siparisler }: { siparisler: DepoSipa
                   onUpdate={updateItem}
                   onRemove={removeItem}
                   canRemove={items.length > 1}
+                  usdRate={usdRate}
                 />
               ))}
             </div>

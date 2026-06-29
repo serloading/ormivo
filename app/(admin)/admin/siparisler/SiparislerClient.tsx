@@ -15,6 +15,7 @@ import { createOrder } from "@/lib/actions/order";
 import { createCustomer } from "@/lib/actions/customer";
 import { createProduct } from "@/lib/actions/product";
 import { createCustomerDebt, addCustomerPayment } from "@/lib/actions/debt";
+import { addManualOrderToDepo } from "@/lib/actions/depo-siparis";
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING:   "Beklemede",
@@ -897,6 +898,7 @@ export default function SiparislerClient({
                 <td className="px-4 py-3 whitespace-nowrap">
                   <button onClick={() => setEditOrder(order)}
                     className="text-xs text-indigo-500 hover:text-indigo-700 mr-3">Düzenle</button>
+                  <SendToDepoButton order={order} />
                   <DeleteButton order={order} />
                 </td>
               </tr>
@@ -1074,6 +1076,27 @@ function OrderSummaryModal({ order, onClose }: { order: OrderRow; onClose: () =>
 }
 
 // ---- Delete Button ----
+function SendToDepoButton({ order }: { order: OrderRow }) {
+  const [pending, startTransition] = useTransition();
+  const router = useRouter();
+  function handleSend() {
+    if (!confirm(`#${order.orderNo} siparişindeki ürünler depo siparişine eklensin mi?`)) return;
+    startTransition(async () => {
+      try {
+        const res = await addManualOrderToDepo(order.id);
+        if (!res.success) { alert(res.error ?? "Aktarım başarısız."); return; }
+        alert(res.mode === "created" ? "Yeni depo siparişi oluşturuldu." : "Mevcut açık depo siparişine eklendi.");
+        router.refresh();
+      } catch (e) { alert("Hata: " + (e instanceof Error ? e.message : "Bilinmeyen hata")); }
+    });
+  }
+  return (
+    <button onClick={handleSend} disabled={pending} className="text-xs text-emerald-600 hover:text-emerald-800 mr-3 disabled:opacity-50">
+      Depoya Ekle
+    </button>
+  );
+}
+
 function DeleteButton({ order }: { order: OrderRow }) {
   const [, startTransition] = useTransition();
   const router = useRouter();

@@ -24,7 +24,7 @@ export default async function AdminUrunlerPage() {
       <div className="mb-6">
         <UsdRateWidget initialRate={usdRate} />
       </div>
-      <AdminUrunlerClient products={products} categories={categories} brands={brands} />
+      <AdminUrunlerClient products={products} categories={categories} brands={brands} usdRate={usdRate} />
     </div>
   );
 }

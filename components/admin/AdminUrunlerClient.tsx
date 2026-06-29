@@ -13,7 +13,8 @@ type Brand    = { id: string; name: string; slug: string };
 type Product  = {
   id: string; productNo?: string | null; name: string; slug: string;
   price: number | string; comparePrice?: number | string | null;
-  costPrice?: number | string | null; stock: number; isActive: boolean;
+  costPrice?: number | string | null; costPriceUsd?: number | string | null;
+  stock: number; isActive: boolean;
   images: string[];
   category?: Category | null;
   brand?: Brand | null;
@@ -23,8 +24,8 @@ type Product  = {
 type EditCell = { id: string; field: string } | null;
 
 export default function AdminUrunlerClient({
-  products: initialProducts, categories, brands,
-}: { products: Product[]; categories: Category[]; brands: Brand[] }) {
+  products: initialProducts, categories, brands, usdRate,
+}: { products: Product[]; categories: Category[]; brands: Brand[]; usdRate: number }) {
   const [, startTransition] = useTransition();
 
   // Local products state — updated optimistically after each mutation
@@ -79,7 +80,8 @@ export default function AdminUrunlerClient({
   function startEdit(product: Product, field: string) {
     let val = "";
     if (field === "price")      val = String(Number(product.price));
-    if (field === "costPrice")  val = String(Number(product.costPrice ?? 0));
+    if (field === "costPrice")     val = String(Number(product.costPrice ?? 0));
+    if (field === "costPriceUsd") val = String(Number(product.costPriceUsd ?? 0));
     if (field === "stock")      val = String(product.stock);
     if (field === "name")       val = product.name;
     if (field === "slug")       val = product.slug;
@@ -109,6 +111,12 @@ export default function AdminUrunlerClient({
     if (field === "costPrice") {
       const n = parseFloat(val) || 0;
       data = { costPrice: n }; patch = { costPrice: n };
+    }
+    if (field === "costPriceUsd") {
+      const usd = parseFloat(val) || 0;
+      const tl  = Math.round(usd * usdRate * 100) / 100;
+      data = { costPriceUsd: usd, costPrice: tl };
+      patch = { costPriceUsd: usd, costPrice: tl };
     }
     if (field === "stock") {
       const n = parseInt(val) || 0;
@@ -274,6 +282,7 @@ export default function AdminUrunlerClient({
                 <th className="px-4 py-3 text-left text-xs tracking-widest uppercase text-[#8b6f5e] font-normal">Marka</th>
                 <th className="px-4 py-3 text-left text-xs tracking-widest uppercase text-[#8b6f5e] font-normal">Kategori</th>
                 <th className="px-4 py-3 text-left text-xs tracking-widest uppercase text-[#8b6f5e] font-normal whitespace-nowrap">Satış ₺</th>
+                <th className="px-4 py-3 text-left text-xs tracking-widest uppercase text-[#8b6f5e] font-normal whitespace-nowrap">Geliş $</th>
                 <th className="px-4 py-3 text-left text-xs tracking-widest uppercase text-[#8b6f5e] font-normal whitespace-nowrap">Geliş ₺</th>
                 <th className="px-4 py-3 text-left text-xs tracking-widest uppercase text-[#8b6f5e] font-normal">Stok</th>
                 <th className="px-4 py-3 text-left text-xs tracking-widest uppercase text-[#8b6f5e] font-normal">Durum</th>
@@ -282,7 +291,7 @@ export default function AdminUrunlerClient({
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={10} className="px-4 py-12 text-center text-[#b8a89e] text-sm">Ürün bulunamadı</td></tr>
+                <tr><td colSpan={11} className="px-4 py-12 text-center text-[#b8a89e] text-sm">Ürün bulunamadı</td></tr>
               ) : filtered.map((product, i) => {
                 const isSelected = selected.has(product.id);
                 const thumb = product.images?.[0] ?? null;
@@ -445,7 +454,32 @@ export default function AdminUrunlerClient({
                       )}
                     </td>
 
-                    {/* Geliş fiyatı */}
+                    {/* Geliş fiyatı $ */}
+                    <td className="px-4 py-3">
+                      {isEditing(product.id, "costPriceUsd") ? (
+                        <input
+                          ref={editRef as React.RefObject<HTMLInputElement>}
+                          type="number"
+                          step="0.01"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onBlur={() => commitEdit()}
+                          onKeyDown={(e) => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") cancelEdit(); }}
+                          className="w-20 border border-[#8b6f5e] rounded px-2 py-1 text-sm focus:outline-none text-[#5e8b73]"
+                          disabled={saving}
+                        />
+                      ) : (
+                        <span
+                          onClick={() => startEdit(product, "costPriceUsd")}
+                          title={`Tıkla — kur: ${usdRate} ₺`}
+                          className="cursor-pointer hover:bg-[#f5f0eb] px-1 py-0.5 rounded transition-colors text-[#5e8b73] text-xs font-medium"
+                        >
+                          {product.costPriceUsd ? `$${Number(product.costPriceUsd).toLocaleString("tr-TR")}` : "—"}
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Geliş fiyatı ₺ */}
                     <td className="px-4 py-3">
                       {isEditing(product.id, "costPrice") ? (
                         <input

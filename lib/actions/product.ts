@@ -28,7 +28,7 @@ export async function getProducts() {
     where: { deletedAt: null },
     select: {
       id: true, productNo: true, name: true, slug: true,
-      price: true, comparePrice: true, costPrice: true,
+      price: true, comparePrice: true, costPrice: true, costPriceUsd: true,
       stock: true, isActive: true, images: true, extraCategoryIds: true,
       category: { select: { id: true, name: true, slug: true } },
       brand:    { select: { id: true, name: true, slug: true } },
@@ -40,6 +40,7 @@ export async function getProducts() {
     price:        Number(p.price),
     comparePrice: p.comparePrice != null ? Number(p.comparePrice) : null,
     costPrice:    p.costPrice    != null ? Number(p.costPrice)    : null,
+    costPriceUsd: p.costPriceUsd != null ? Number(p.costPriceUsd) : null,
   }));
 }
 
