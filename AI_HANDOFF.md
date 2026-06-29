@@ -546,3 +546,21 @@ Notlar:
 Sonraki adım:
 - Değişiklikleri commit edip `origin/main` üzerine pushlamak
 - Push sonrası canlı ortamı doğrulamak
+
+---
+
+## 19. 2026-06-29 Canlıya Çıkış Tamamlandı
+
+Yapılanlar:
+- Sepet tarafı tekrar kontrol edildi ve indirimli fiyat, ana tutar ve son tutar özet akışının yerinde olduğu doğrulandı
+- Gerekli değişiklikler `main` dalına commit edildi
+- Değişiklikler uzak depoya pushlandı
+
+Durum:
+- Commit: `eb3ba20`
+- Push: tamam
+- Bekleyen işler: canlı ortamda son elle doğrulama
+
+Sonraki adım:
+- Canlı site açılıp sepet ve sipariş akışı son kez gözlemlenmeli
+- Eğer deploy otomatik tetiklenmediyse platform tarafındaki deploy adımı da kontrol edilmeli
