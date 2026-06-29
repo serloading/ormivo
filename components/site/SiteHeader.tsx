@@ -1,11 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 interface Brand { id: string; name: string; slug: string; }
 interface User  { name: string | null; phone: string; }
+interface Suggestion {
+  type: "brand" | "product";
+  id: string; name: string; slug: string;
+  image: string | null; brandName: string | null;
+}
 
 const KATEGORILER = [
   { href: "/?kategori=kadin",  label: "Kadın"  },
@@ -26,13 +32,16 @@ export default function SiteHeader({
   const pathname = usePathname();
   const router   = useRouter();
 
-  const [mobileOpen,   setMobileOpen]   = useState(false);
-  const [userOpen,     setUserOpen]     = useState(false);
-  const [searchQ,      setSearchQ]      = useState("");
-  const [mobileSearch, setMobileSearch] = useState("");
-  const [searchOpen,   setSearchOpen]   = useState(false);
-  const [guestCount,   setGuestCount]   = useState(0);
+  const [mobileOpen,    setMobileOpen]    = useState(false);
+  const [userOpen,      setUserOpen]      = useState(false);
+  const [searchQ,       setSearchQ]       = useState("");
+  const [mobileSearch,  setMobileSearch]  = useState("");
+  const [searchOpen,    setSearchOpen]    = useState(false);
+  const [guestCount,    setGuestCount]    = useState(0);
+  const [suggestions,   setSuggestions]   = useState<Suggestion[]>([]);
+  const [suggOpen,      setSuggOpen]      = useState(false);
   const mobileSearchRef = useRef<HTMLInputElement>(null);
+  const searchFormRef   = useRef<HTMLDivElement>(null);
 
   const userRef  = useRef<HTMLDivElement>(null);
 
@@ -42,10 +51,27 @@ export default function SiteHeader({
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (userRef.current && !userRef.current.contains(e.target as Node)) setUserOpen(false);
+      if (searchFormRef.current && !searchFormRef.current.contains(e.target as Node)) setSuggOpen(false);
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  /* Debounced autocomplete */
+  const fetchSuggestions = useCallback(async (q: string) => {
+    if (q.length < 3) { setSuggestions([]); setSuggOpen(false); return; }
+    try {
+      const res = await fetch(`/api/search-suggest?q=${encodeURIComponent(q)}`);
+      const data: Suggestion[] = await res.json();
+      setSuggestions(data);
+      setSuggOpen(data.length > 0);
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => fetchSuggestions(searchQ), 250);
+    return () => clearTimeout(t);
+  }, [searchQ, fetchSuggestions]);
 
   /* Misafir sepet sayısı */
   useEffect(() => {
@@ -83,23 +109,61 @@ export default function SiteHeader({
           </Link>
 
           {/* ── SEARCH BAR (logonun sağı, flex-1) ── */}
-          <form
-            onSubmit={handleSearch}
-            className="hidden md:flex flex-1 items-center bg-[#F5F1EC] border border-[#E8E4DE] hover:border-[#C4A882] focus-within:border-[#C4A882] transition-colors px-4 py-2.5 gap-3 max-w-lg"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4 text-[#C4A882] shrink-0">
-              <circle cx="11" cy="11" r="7" /><path d="m21 21-4.35-4.35" />
-            </svg>
-            <input
-              value={searchQ}
-              onChange={(e) => setSearchQ(e.target.value)}
-              placeholder="Parfüm veya marka ara…"
-              className="flex-1 bg-transparent font-sans text-sm text-[#1A1A1A] placeholder-[#B8B4AE] outline-none"
-            />
-            {searchQ && (
-              <button type="button" onClick={() => setSearchQ("")} className="text-[#B8B4AE] hover:text-[#1A1A1A] transition-colors text-lg leading-none">×</button>
+          <div ref={searchFormRef} className="hidden md:flex flex-1 flex-col relative max-w-lg">
+            <form
+              onSubmit={handleSearch}
+              className="flex items-center bg-[#F5F1EC] border border-[#E8E4DE] hover:border-[#C4A882] focus-within:border-[#C4A882] transition-colors px-4 py-2.5 gap-3"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4 text-[#C4A882] shrink-0">
+                <circle cx="11" cy="11" r="7" /><path d="m21 21-4.35-4.35" />
+              </svg>
+              <input
+                value={searchQ}
+                onChange={(e) => setSearchQ(e.target.value)}
+                onFocus={() => suggestions.length > 0 && setSuggOpen(true)}
+                placeholder="Parfüm veya marka ara…"
+                className="flex-1 bg-transparent font-sans text-sm text-[#1A1A1A] placeholder-[#B8B4AE] outline-none"
+              />
+              {searchQ && (
+                <button type="button" onClick={() => { setSearchQ(""); setSuggestions([]); setSuggOpen(false); }} className="text-[#B8B4AE] hover:text-[#1A1A1A] transition-colors text-lg leading-none">×</button>
+              )}
+              <button type="submit" className="font-sans text-[10px] tracking-[0.15em] uppercase text-[#C4A882] hover:text-[#8B6F4E] transition-colors shrink-0">Ara</button>
+            </form>
+            {/* Autocomplete dropdown */}
+            {suggOpen && suggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 z-50 bg-white border border-[#E8E4DE] shadow-lg mt-0.5 max-h-80 overflow-y-auto">
+                {suggestions.map((s) => (
+                  <Link
+                    key={s.id}
+                    href={s.type === "brand" ? `/urunler?marka=${encodeURIComponent(s.slug)}` : `/urunler/${s.slug}`}
+                    onClick={() => { setSuggOpen(false); setSearchQ(""); }}
+                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#FAF7F3] transition-colors"
+                  >
+                    {s.image ? (
+                      <div className="relative w-8 h-8 shrink-0 bg-[#F5F0EA] overflow-hidden">
+                        <Image src={s.image} alt={s.name} fill className="object-contain p-0.5" />
+                      </div>
+                    ) : (
+                      <div className="w-8 h-8 shrink-0 bg-[#F5F0EA] flex items-center justify-center">
+                        <span className="text-[#C4A882] text-xs">◈</span>
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      {s.type === "brand" && <span className="font-sans text-[9px] tracking-[0.15em] uppercase text-[#C4A882] block">Marka</span>}
+                      {s.brandName && s.type === "product" && <span className="font-sans text-[9px] tracking-[0.15em] uppercase text-[#C4A882] block">{s.brandName}</span>}
+                      <p className="font-sans text-sm text-[#1A1A1A] truncate">{s.name}</p>
+                    </div>
+                  </Link>
+                ))}
+                <button
+                  onClick={() => { router.push(`/?q=${encodeURIComponent(searchQ.trim())}`); setSuggOpen(false); }}
+                  className="w-full px-4 py-2.5 text-left font-sans text-xs text-[#6B6B6B] hover:bg-[#FAF7F3] border-t border-[#E8E4DE] transition-colors"
+                >
+                  &quot;{searchQ}&quot; için tüm sonuçları gör →
+                </button>
+              </div>
             )}
-          </form>
+          </div>
 
           {/* ── SAĞ: Nav + Sepet + Kullanıcı ── */}
           <div className="hidden md:flex items-center gap-1 ml-auto shrink-0">

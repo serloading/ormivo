@@ -8,6 +8,7 @@ import {
   createSupplierDebt,
   addSupplierPayment,
   deleteSupplierDebt,
+  createDebtFromSiteOrder,
 } from "@/lib/actions/debt";
 
 // ── Types ────────────────────────────────────────────────────
@@ -151,8 +152,12 @@ export default function BorcAlacakClient({
     | { type: "pay-supplier"; debt: SDebt }
     | { type: "history-customer"; debt: CDebt }
     | { type: "history-supplier"; debt: SDebt }
+    | { type: "pay-site-order"; order: PendingSiteOrder }
     | null;
   const [modal, setModal] = useState<Modal>(null);
+
+  // ── Site order payment form ───────────────────────────────
+  const [soForm, setSoForm] = useState({ customerId: "", amount: "", note: "" });
 
   // ── New customer debt form ────────────────────────────────
   const [cdForm, setCdForm] = useState({
@@ -271,7 +276,7 @@ export default function BorcAlacakClient({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 bg-purple-50 text-left">
-                      {["Sipariş No", "Müşteri", "Ürünler", "Teslimat", "Tutar", "Tarih"].map((h) => (
+                      {["Sipariş No", "Müşteri", "Ürünler", "Teslimat", "Tutar", "Tarih", ""].map((h) => (
                         <th key={h} className="px-4 py-2.5 text-[11px] uppercase tracking-wide text-purple-400 font-medium whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -283,8 +288,8 @@ export default function BorcAlacakClient({
                         <tr key={o.id} className="hover:bg-gray-50">
                           <td className="px-4 py-2.5 font-mono text-xs font-semibold text-gray-700">#{o.orderNo.slice(-8)}</td>
                           <td className="px-4 py-2.5">
-                            <p className="font-medium text-[#2c1810]">{o.recipientName}</p>
-                            {o.recipientPhone && <p className="text-[11px] text-gray-400">{o.recipientPhone}</p>}
+                            <p className="font-medium text-[#2c1810]">{o.recipientName ?? o.user?.name}</p>
+                            {(o.recipientPhone ?? o.user?.phone) && <p className="text-[11px] text-gray-400">{o.recipientPhone ?? o.user?.phone}</p>}
                           </td>
                           <td className="px-4 py-2.5 max-w-[200px]">
                             {items.map((item, i) => (
@@ -298,6 +303,14 @@ export default function BorcAlacakClient({
                           </td>
                           <td className="px-4 py-2.5 font-semibold text-orange-600 whitespace-nowrap">{Number(o.total).toLocaleString("tr-TR")} ₺</td>
                           <td className="px-4 py-2.5 text-[11px] text-gray-400 whitespace-nowrap">{new Date(o.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}</td>
+                          <td className="px-4 py-2.5">
+                            <button
+                              onClick={() => { setSoForm({ customerId: "", amount: String(Number(o.total)), note: "" }); setModal({ type: "pay-site-order", order: o }); }}
+                              className="text-[11px] bg-green-600 text-white px-2.5 py-1 hover:bg-green-700 transition-colors whitespace-nowrap"
+                            >
+                              Ödeme Al
+                            </button>
+                          </td>
                         </tr>
                       );
                     })}
@@ -705,6 +718,57 @@ export default function BorcAlacakClient({
       {/* Ödeme geçmişi — tedarikçi */}
       {modal?.type === "history-supplier" && (
         <PaymentHistory payments={modal.debt.payments} onClose={() => setModal(null)} />
+      )}
+
+      {/* Web Sipariş Ödeme Al */}
+      {modal?.type === "pay-site-order" && (
+        <Modal title={`Ödeme Al — #${modal.order.orderNo}`} onClose={() => setModal(null)}>
+          <div className="space-y-4">
+            <div className="bg-gray-50 border border-gray-200 p-4 rounded text-sm space-y-1">
+              <p className="font-medium text-[#2c1810]">{modal.order.recipientName ?? modal.order.user?.name}</p>
+              <p className="text-gray-500">Web Sipariş #{modal.order.orderNo}</p>
+              <p>Toplam: <span className="font-semibold text-orange-600">{Number(modal.order.total).toLocaleString("tr-TR")} ₺</span></p>
+            </div>
+            <Field label="Müşteri *">
+              <select value={soForm.customerId} onChange={(e) => setSoForm((f) => ({ ...f, customerId: e.target.value }))} className={inputCls}>
+                <option value="">Müşteri seçin...</option>
+                {customers.map((c) => <option key={c.id} value={c.id}>{c.name}{c.phone ? ` — ${c.phone}` : ""}</option>)}
+              </select>
+            </Field>
+            <Field label="Alınan Tutar (₺) *">
+              <input type="number" min="0" value={soForm.amount}
+                onChange={(e) => setSoForm((f) => ({ ...f, amount: e.target.value }))}
+                placeholder="0.00" className={inputCls} autoFocus />
+            </Field>
+            <Field label="Not">
+              <input value={soForm.note} onChange={(e) => setSoForm((f) => ({ ...f, note: e.target.value }))} placeholder="nakit / havale" className={inputCls} />
+            </Field>
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={() => setModal(null)} className="text-sm text-gray-400 hover:text-gray-700 px-4 py-2">İptal</button>
+              <button
+                disabled={!soForm.customerId || !soForm.amount || isPending}
+                onClick={() => {
+                  startT(async () => {
+                    const o = (modal as { type: "pay-site-order"; order: PendingSiteOrder }).order;
+                    await createDebtFromSiteOrder({
+                      siteOrderId:    o.id,
+                      customerId:     soForm.customerId,
+                      customerName:   customers.find((c) => c.id === soForm.customerId)?.name ?? "",
+                      orderNo:        o.orderNo,
+                      totalAmount:    Number(o.total),
+                      initialPayment: parseFloat(soForm.amount),
+                    });
+                    setModal(null);
+                    setSoForm({ customerId: "", amount: "", note: "" });
+                  });
+                }}
+                className="bg-green-600 text-white text-sm px-6 py-2 hover:bg-green-700 disabled:opacity-40 transition-colors"
+              >
+                {isPending ? "Kaydediliyor..." : "Ödeme Kaydet"}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

@@ -27,6 +27,7 @@ interface OrderRow {
   discount: unknown;
   trackingNo: string | null;
   cargoCompany: string | null;
+  source?: "web" | "admin";
 }
 
 interface Props {

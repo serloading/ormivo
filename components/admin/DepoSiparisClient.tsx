@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -11,6 +11,7 @@ import {
   updateDepoSiparis,
   type DepoSiparisItem,
 } from "@/lib/actions/depo-siparis";
+import { createSupplierDebt } from "@/lib/actions/debt";
 
 type DepoSiparis = {
   id: string;
@@ -40,14 +41,30 @@ type FormState = {
   notes: string;
 };
 
+type SupplierFormState = {
+  supplierName: string;
+  description: string;
+  totalAmount: string;
+  initialPayment: string;
+  dueDate: string;
+};
+
 const EMPTY_FORM: FormState = {
-  title: "Haftalık Sipariş",
+  title: "HaftalÄ±k SipariÅŸ",
   orderDate: new Date().toISOString().split("T")[0],
   depoName: "",
   depoPhone: "",
   shippingFee: "",
   paidAmount: "",
   notes: "",
+};
+
+const EMPTY_SUPPLIER_FORM: SupplierFormState = {
+  supplierName: "",
+  description: "",
+  totalAmount: "",
+  initialPayment: "",
+  dueDate: "",
 };
 
 const EMPTY_ITEM = (): DepoSiparisItem => ({ productId: undefined, name: "", qty: 1, unitPrice: 0 });
@@ -140,7 +157,7 @@ function ItemRow({
       <div className="col-span-5 relative" ref={containerRef}>
         <input
           className="w-full border border-[#d4c5ba] px-2 py-1.5 text-sm focus:outline-none focus:border-[#8b6f5e]"
-          placeholder="ürün adı ara..."
+          placeholder="Ã¼rÃ¼n adÄ± ara..."
           value={query}
           onChange={(e) => handleQueryChange(e.target.value)}
           onFocus={() => suggestions.length > 0 && setOpen(true)}
@@ -157,7 +174,7 @@ function ItemRow({
               >
                 <span className="text-[#2c1810]">{s.name}</span>
                 {s.costPrice != null && (
-                  <span className="ml-2 text-[11px] text-[#8b6f5e]">{s.costPrice.toLocaleString("tr-TR")} ₺</span>
+                  <span className="ml-2 text-[11px] text-[#8b6f5e]">{s.costPrice.toLocaleString("tr-TR")} â‚º</span>
                 )}
               </button>
             ))}
@@ -189,7 +206,7 @@ function ItemRow({
         disabled={!canRemove}
         className="col-span-2 text-red-400 hover:text-red-600 text-xs disabled:opacity-30 text-center py-1.5"
       >
-        × Sil
+        Ã— Sil
       </button>
     </div>
   );
@@ -202,6 +219,8 @@ export default function DepoSiparisClient({ siparisler }: { siparisler: DepoSipa
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [items, setItems] = useState<DepoSiparisItem[]>([EMPTY_ITEM()]);
+  const [supplierModalOpen, setSupplierModalOpen] = useState(false);
+  const [supplierForm, setSupplierForm] = useState<SupplierFormState>(EMPTY_SUPPLIER_FORM);
 
   const shippingFee = Number(form.shippingFee) || 0;
   const paid = Number(form.paidAmount) || 0;
@@ -225,6 +244,10 @@ export default function DepoSiparisClient({ siparisler }: { siparisler: DepoSipa
     setForm(EMPTY_FORM);
     setItems([EMPTY_ITEM()]);
     setEditingId(null);
+  }
+
+  function resetSupplierForm() {
+    setSupplierForm(EMPTY_SUPPLIER_FORM);
   }
 
   function openCreate() {
@@ -253,6 +276,11 @@ export default function DepoSiparisClient({ siparisler }: { siparisler: DepoSipa
     resetForm();
   }
 
+  function closeSupplierModal() {
+    setSupplierModalOpen(false);
+    resetSupplierForm();
+  }
+
   function addItem() {
     setItems((prev) => [...prev, EMPTY_ITEM()]);
   }
@@ -267,7 +295,7 @@ export default function DepoSiparisClient({ siparisler }: { siparisler: DepoSipa
     if (validItems.length === 0) return;
 
     const payload = {
-      title: form.title || "Haftalık Sipariş",
+      title: form.title || "HaftalÄ±k SipariÅŸ",
       orderDate: form.orderDate,
       items: validItems,
       paidAmount: paid,
@@ -289,27 +317,44 @@ export default function DepoSiparisClient({ siparisler }: { siparisler: DepoSipa
     });
   }
 
+  function handleSupplierSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!supplierForm.supplierName.trim() || !supplierForm.description.trim() || !supplierForm.totalAmount.trim()) return;
+
+    startTransition(async () => {
+      await createSupplierDebt({
+        supplierName: supplierForm.supplierName.trim(),
+        description: supplierForm.description.trim(),
+        totalAmount: Math.max(0, Number(supplierForm.totalAmount) || 0),
+        initialPayment: supplierForm.initialPayment.trim() ? Math.max(0, Number(supplierForm.initialPayment) || 0) : undefined,
+        dueDate: supplierForm.dueDate || undefined,
+      });
+      router.refresh();
+      closeSupplierModal();
+    });
+  }
+
   function handleIlet(order: DepoSiparis) {
     const itemsForMsg = normalizeItems(order.items);
     const phone = order.depoPhone ?? order.supplierName ?? "";
     const message = [
       `Merhaba ${order.depoName || order.supplierName || "Depo"},`,
       "",
-      `Depo siparişi: ${order.title}`,
+      `Depo sipariÅŸi: ${order.title}`,
       `Tarih: ${new Date(order.orderDate).toLocaleDateString("tr-TR")}`,
       "",
-      ...itemsForMsg.map((item) => `- ${item.name} ×${item.qty} = ${(item.qty * item.unitPrice).toLocaleString("tr-TR")} ₺`),
+      ...itemsForMsg.map((item) => `- ${item.name} Ã—${item.qty} = ${(item.qty * item.unitPrice).toLocaleString("tr-TR")} â‚º`),
       "",
-      `Ürün toplamı: ${itemsTotal.toLocaleString("tr-TR")} ₺`,
-      `Kargo: ${shippingFee.toLocaleString("tr-TR")} ₺`,
-      `Genel toplam: ${grandTotal.toLocaleString("tr-TR")} ₺`,
+      `ÃœrÃ¼n toplamÄ±: ${itemsTotal.toLocaleString("tr-TR")} â‚º`,
+      `Kargo: ${shippingFee.toLocaleString("tr-TR")} â‚º`,
+      `Genel toplam: ${grandTotal.toLocaleString("tr-TR")} â‚º`,
     ].join("\n");
 
     const url = buildWhatsAppUrl(phone, message);
     if (url) {
       window.open(url, "_blank", "noopener,noreferrer");
     } else {
-      alert("Bu sipariş için depo telefonu girilmemiş.");
+      alert("Bu sipariÅŸ iÃ§in depo telefonu girilmemiÅŸ.");
       return;
     }
 
@@ -320,7 +365,7 @@ export default function DepoSiparisClient({ siparisler }: { siparisler: DepoSipa
   }
 
   function handleDelete(id: string) {
-    if (confirm("Bu siparişi silmek istiyor musunuz?")) {
+    if (confirm("Bu sipariÅŸi silmek istiyor musunuz?")) {
       startTransition(async () => {
         await deleteDepoSiparis(id);
         router.refresh();
@@ -330,22 +375,30 @@ export default function DepoSiparisClient({ siparisler }: { siparisler: DepoSipa
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center justify-between mb-8">
         <div>
-          <h2 className="text-2xl font-light tracking-wide text-[#2c1810]">Depo Siparişleri</h2>
-          <p className="text-xs text-[#8b6f5e] mt-1">Stok sistemini etkilemez - yalnızca depo takibi için</p>
+          <h2 className="text-2xl font-light tracking-wide text-[#2c1810]">Depo Sipariþleri</h2>
+          <p className="text-xs text-[#8b6f5e] mt-1">Stok sistemini etkilemez - yalnýzca depo takibi için</p>
         </div>
-        <button
-          onClick={openCreate}
-          className="bg-[#2c1810] text-[#f5f0eb] text-xs tracking-widest uppercase px-6 py-3 hover:bg-[#3d2418] transition-colors"
-        >
-          + Yeni Sipariş
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setSupplierModalOpen(true)}
+            className="border border-[#d4c5ba] text-[#5c4033] text-xs tracking-widest uppercase px-5 py-3 hover:bg-[#f5f0eb] transition-colors"
+          >
+            + Tedarikçi Borcu
+          </button>
+          <button
+            onClick={openCreate}
+            className="bg-[#2c1810] text-[#f5f0eb] text-xs tracking-widest uppercase px-6 py-3 hover:bg-[#3d2418] transition-colors"
+          >
+            + Yeni Sipariþ
+          </button>
+        </div>
       </div>
 
       {siparisler.length === 0 ? (
         <div className="bg-white border border-[#e8ddd6] rounded-sm py-16 text-center text-sm text-[#b8a89e]">
-          Henüz depo siparişi yok.
+          HenÃ¼z depo sipariÅŸi yok.
         </div>
       ) : (
         <div className="space-y-4">
@@ -363,42 +416,42 @@ export default function DepoSiparisClient({ siparisler }: { siparisler: DepoSipa
                 <div className={`flex items-center justify-between px-6 py-4 ${isSent ? "bg-green-50" : "bg-[#faf8f6]"}`}>
                   <div className="flex items-center gap-3">
                     <span className={`text-[10px] px-2.5 py-1 rounded-full font-medium tracking-wide ${isSent ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
-                      {isSent ? "İletildi" : "Hazırlanıyor"}
+                      {isSent ? "Ä°letildi" : "HazÄ±rlanÄ±yor"}
                     </span>
                     <div>
                       <p className="text-sm font-medium text-[#2c1810]">{order.title}</p>
                       <p className="text-[11px] text-[#8b6f5e]">
                         {new Date(order.orderDate).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" })}
-                        {(order.depoName || order.supplierName) && <span className="ml-2 text-[#8b6f5e]">· {order.depoName || order.supplierName}</span>}
-                        {order.depoPhone && <span className="ml-2 text-[#8b6f5e]">· {order.depoPhone}</span>}
+                        {(order.depoName || order.supplierName) && <span className="ml-2 text-[#8b6f5e]">Â· {order.depoName || order.supplierName}</span>}
+                        {order.depoPhone && <span className="ml-2 text-[#8b6f5e]">Â· {order.depoPhone}</span>}
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-6">
                     <div className="text-right">
-                      <p className="text-lg font-semibold text-[#2c1810]">{total.toLocaleString("tr-TR")} ₺</p>
+                      <p className="text-lg font-semibold text-[#2c1810]">{total.toLocaleString("tr-TR")} â‚º</p>
                       <p className="text-[11px] text-[#8b6f5e]">
-                        Ürün: {productTotal.toLocaleString("tr-TR")} ₺ · Kargo: {shipping.toLocaleString("tr-TR")} ₺
+                        ÃœrÃ¼n: {productTotal.toLocaleString("tr-TR")} â‚º Â· Kargo: {shipping.toLocaleString("tr-TR")} â‚º
                       </p>
                       {remainingAmount > 0 && (
-                        <p className="text-[11px] text-red-600">Kalan borç: {remainingAmount.toLocaleString("tr-TR")} ₺</p>
+                        <p className="text-[11px] text-red-600">Kalan borÃ§: {remainingAmount.toLocaleString("tr-TR")} â‚º</p>
                       )}
-                      {remainingAmount === 0 && paidAmount > 0 && <p className="text-[11px] text-green-600">Ödendi</p>}
+                      {remainingAmount === 0 && paidAmount > 0 && <p className="text-[11px] text-green-600">Ã–dendi</p>}
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => openEdit(order)}
                         className="text-xs text-[#8b6f5e] hover:text-[#2c1810] px-2 py-2"
                       >
-                        Düzenle
+                        DÃ¼zenle
                       </button>
                       {!isSent && (
                         <button
                           onClick={() => handleIlet(order)}
                           className="text-xs bg-[#2c1810] text-white px-4 py-2 hover:bg-[#3d2418] transition-colors tracking-wide"
                         >
-                          Depoya İlet
+                          Depoya Ä°let
                         </button>
                       )}
                       <button onClick={() => handleDelete(order.id)} className="text-xs text-red-400 hover:text-red-600 px-2 py-2">
@@ -412,9 +465,9 @@ export default function DepoSiparisClient({ siparisler }: { siparisler: DepoSipa
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-left border-b border-[#f0ebe6]">
-                        <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium">Ürün Adı</th>
+                        <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium">ÃœrÃ¼n AdÄ±</th>
                         <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium text-right">Adet</th>
-                        <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium text-right">Alış Fiyatı</th>
+                        <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium text-right">AlÄ±ÅŸ FiyatÄ±</th>
                         <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium text-right">Toplam</th>
                       </tr>
                     </thead>
@@ -423,8 +476,8 @@ export default function DepoSiparisClient({ siparisler }: { siparisler: DepoSipa
                         <tr key={index} className="border-b border-[#f9f6f3] last:border-0">
                           <td className="py-2 text-[#2c1810]">{item.name}</td>
                           <td className="py-2 text-right text-[#5c4033]">{item.qty}</td>
-                          <td className="py-2 text-right text-[#5c4033]">{Number(item.unitPrice).toLocaleString("tr-TR")} ₺</td>
-                          <td className="py-2 text-right font-medium text-[#2c1810]">{(item.qty * item.unitPrice).toLocaleString("tr-TR")} ₺</td>
+                          <td className="py-2 text-right text-[#5c4033]">{Number(item.unitPrice).toLocaleString("tr-TR")} â‚º</td>
+                          <td className="py-2 text-right font-medium text-[#2c1810]">{(item.qty * item.unitPrice).toLocaleString("tr-TR")} â‚º</td>
                         </tr>
                       ))}
                     </tbody>
@@ -442,23 +495,23 @@ export default function DepoSiparisClient({ siparisler }: { siparisler: DepoSipa
       <Modal
         open={modalOpen}
         onClose={closeModal}
-        title={editingId ? "Depo Siparişi Düzenle" : "Yeni Depo Siparişi"}
+        title={editingId ? "Depo SipariÅŸi DÃ¼zenle" : "Yeni Depo SipariÅŸi"}
         width="max-w-3xl"
       >
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Sipariş Başlığı" required value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} placeholder="Haftalık Sipariş" />
-            <Field label="Sipariş Tarihi" required type="date" value={form.orderDate} onChange={(e) => setForm((p) => ({ ...p, orderDate: e.target.value }))} />
+            <Field label="SipariÅŸ BaÅŸlÄ±ÄŸÄ±" required value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} placeholder="HaftalÄ±k SipariÅŸ" />
+            <Field label="SipariÅŸ Tarihi" required type="date" value={form.orderDate} onChange={(e) => setForm((p) => ({ ...p, orderDate: e.target.value }))} />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Depo Adı" required value={form.depoName} onChange={(e) => setForm((p) => ({ ...p, depoName: e.target.value }))} placeholder="Depo adı" />
+            <Field label="Depo AdÄ±" required value={form.depoName} onChange={(e) => setForm((p) => ({ ...p, depoName: e.target.value }))} placeholder="Depo adÄ±" />
             <Field label="Depo Telefonu" required value={form.depoPhone} onChange={(e) => setForm((p) => ({ ...p, depoPhone: e.target.value }))} placeholder="05XX XXX XX XX" />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <Field
-              label="Kargo Ücreti"
+              label="Kargo Ãœcreti"
               type="number"
               min="0"
               step="0.01"
@@ -467,7 +520,7 @@ export default function DepoSiparisClient({ siparisler }: { siparisler: DepoSipa
               placeholder="0.00"
             />
             <Field
-              label="Ödenen Tutar"
+              label="Ã–denen Tutar"
               type="number"
               min="0"
               step="0.01"
@@ -479,14 +532,14 @@ export default function DepoSiparisClient({ siparisler }: { siparisler: DepoSipa
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs uppercase tracking-widest text-[#8b6f5e] font-medium">Ürünler</label>
-              <button type="button" onClick={addItem} className="text-xs text-[#2c1810] hover:underline">+ Satır Ekle</button>
+              <label className="text-xs uppercase tracking-widest text-[#8b6f5e] font-medium">ÃœrÃ¼nler</label>
+              <button type="button" onClick={addItem} className="text-xs text-[#2c1810] hover:underline">+ SatÄ±r Ekle</button>
             </div>
             <div className="space-y-2">
               <div className="grid grid-cols-12 gap-2 text-[10px] uppercase tracking-wide text-[#8b6f5e] px-1">
-                <span className="col-span-5">Ürün Adı</span>
+                <span className="col-span-5">ÃœrÃ¼n AdÄ±</span>
                 <span className="col-span-2 text-right">Adet</span>
-                <span className="col-span-3 text-right">Alış Fiyatı (₺)</span>
+                <span className="col-span-3 text-right">AlÄ±ÅŸ FiyatÄ± (â‚º)</span>
                 <span className="col-span-2" />
               </div>
               {items.map((item, idx) => (
@@ -503,29 +556,31 @@ export default function DepoSiparisClient({ siparisler }: { siparisler: DepoSipa
 
             <div className="mt-4 pt-4 border-t border-[#f0ebe6] space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-[#8b6f5e]">Ürün Toplamı</span>
-                <span className="text-sm font-semibold text-[#2c1810]">{itemsTotal.toLocaleString("tr-TR")} ₺</span>
+                <span className="text-sm text-[#8b6f5e]">ÃœrÃ¼n ToplamÄ±</span>
+                <span className="text-sm font-semibold text-[#2c1810]">{itemsTotal.toLocaleString("tr-TR")} â‚º</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-[#8b6f5e]">Kargo</span>
-                <span className="text-sm font-semibold text-[#2c1810]">{shippingFee.toLocaleString("tr-TR")} ₺</span>
+                <span className="text-sm font-semibold text-[#2c1810]">{shippingFee.toLocaleString("tr-TR")} â‚º</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-[#8b6f5e]">Sipariş Toplamı</span>
-                <span className="text-lg font-semibold text-[#2c1810]">{grandTotal.toLocaleString("tr-TR")} ₺</span>
+                <span className="text-sm text-[#8b6f5e]">SipariÅŸ ToplamÄ±</span>
+                <span className="text-lg font-semibold text-[#2c1810]">{grandTotal.toLocaleString("tr-TR")} â‚º</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-[#8b6f5e]">Kalan Borç</span>
-                <span className="text-sm font-semibold text-red-600">{remaining.toLocaleString("tr-TR")} ₺</span>
+                <span className="text-sm text-[#8b6f5e]">Kalan BorÃ§</span>
+                <span className="text-sm font-semibold text-red-600">{remaining.toLocaleString("tr-TR")} â‚º</span>
               </div>
             </div>
           </div>
 
-          <Field label="Notlar" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Öncelikli ürünler, teslimat notu..." />
+          <Field label="Notlar" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Ã–ncelikli Ã¼rÃ¼nler, teslimat notu..." />
 
-          <SubmitRow onCancel={closeModal} label={editingId ? "Güncelle" : "Sipariş Oluştur"} loading={isPending} />
+          <SubmitRow onCancel={closeModal} label={editingId ? "GÃ¼ncelle" : "SipariÅŸ OluÅŸtur"} loading={isPending} />
         </form>
       </Modal>
     </div>
   );
 }
+
+

@@ -47,32 +47,36 @@ function calcDebtStatus(paid: number, total: number) {
 }
 
 async function syncShippingExpense(depoSiparisId: string, shippingFee: number, title: string, orderDate: string) {
-  const existing = await prisma.finance.findUnique({ where: { depoSiparisId } });
+  const existing = await prisma.finance.findFirst({ where: { depoSiparisId } });
   if (shippingFee > 0) {
-    await prisma.finance.upsert({
-      where: { depoSiparisId },
-      create: {
-        type: "EXPENSE",
-        amount: shippingFee,
-        description: `Depo kargo â€” ${title}`,
-        category: "Kargo Gideri",
-        date: new Date(orderDate),
-        depoSiparisId,
-      },
-      update: {
-        amount: shippingFee,
-        description: `Depo kargo â€” ${title}`,
-        category: "Kargo Gideri",
-        date: new Date(orderDate),
-      },
-    });
+    if (existing) {
+      await prisma.finance.updateMany({
+        where: { depoSiparisId },
+        data: {
+          amount: shippingFee,
+          description: `Depo kargo — ${title}`,
+          category: "Kargo Gideri",
+          date: new Date(orderDate),
+        },
+      });
+    } else {
+      await prisma.finance.create({
+        data: {
+          type: "EXPENSE",
+          amount: shippingFee,
+          description: `Depo kargo — ${title}`,
+          category: "Kargo Gideri",
+          date: new Date(orderDate),
+          depoSiparisId,
+        },
+      });
+    }
     return;
   }
   if (existing) {
-    await prisma.finance.delete({ where: { depoSiparisId } });
+    await prisma.finance.deleteMany({ where: { depoSiparisId } });
   }
 }
-
 async function syncSupplierDebt(params: {
   depoSiparisId: string;
   supplierName?: string;
@@ -83,36 +87,40 @@ async function syncSupplierDebt(params: {
 }) {
   const { depoSiparisId, supplierName, title, orderDate, total, paid } = params;
   const remaining = Math.max(0, total - paid);
-  const existing = await prisma.supplierDebt.findUnique({ where: { depoSiparisId } });
+  const existing = await prisma.supplierDebt.findFirst({ where: { depoSiparisId } });
   const debtName = supplierName?.trim() || null;
 
   if (remaining > 0 && debtName) {
-    await prisma.supplierDebt.upsert({
-      where: { depoSiparisId },
-      create: {
-        supplierName: debtName,
-        description: `Depo Siparişi: ${title} (${new Date(orderDate).toLocaleDateString("tr-TR")})`,
-        totalAmount: total,
-        paidAmount: paid,
-        status: calcDebtStatus(paid, total),
-        depoSiparisId,
-      },
-      update: {
-        supplierName: debtName,
-        description: `Depo Siparişi: ${title} (${new Date(orderDate).toLocaleDateString("tr-TR")})`,
-        totalAmount: total,
-        paidAmount: paid,
-        status: calcDebtStatus(paid, total),
-      },
-    });
+    if (existing) {
+      await prisma.supplierDebt.updateMany({
+        where: { depoSiparisId },
+        data: {
+          supplierName: debtName,
+          description: `Depo Siparişi: ${title} (${new Date(orderDate).toLocaleDateString("tr-TR")})`,
+          totalAmount: total,
+          paidAmount: paid,
+          status: calcDebtStatus(paid, total),
+        },
+      });
+    } else {
+      await prisma.supplierDebt.create({
+        data: {
+          supplierName: debtName,
+          description: `Depo Siparişi: ${title} (${new Date(orderDate).toLocaleDateString("tr-TR")})`,
+          totalAmount: total,
+          paidAmount: paid,
+          status: calcDebtStatus(paid, total),
+          depoSiparisId,
+        },
+      });
+    }
     return;
   }
 
   if (existing) {
-    await prisma.supplierDebt.delete({ where: { depoSiparisId } });
+    await prisma.supplierDebt.deleteMany({ where: { depoSiparisId } });
   }
 }
-
 async function syncDerivedRecords(params: {
   depoSiparisId: string;
   shippingFee: number;
@@ -305,3 +313,4 @@ export async function addManualOrderToDepo(orderId: string) {
   revalidatePath("/admin/finans");
   return { success: true, mode: "created" as const, depoSiparisId: created.id };
 }
+

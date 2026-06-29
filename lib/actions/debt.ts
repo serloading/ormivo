@@ -58,16 +58,71 @@ export async function addCustomerPayment(data: {
 }) {
   const debt = await prisma.customerDebt.findUniqueOrThrow({ where: { id: data.debtId } });
   const newPaid = debt.paidAmount + data.amount;
+  const newStatus = calcStatus(newPaid, debt.totalAmount);
+
   await Promise.all([
     prisma.debtPayment.create({
       data: { debtId: data.debtId, amount: data.amount, note: data.note },
     }),
     prisma.customerDebt.update({
       where: { id: data.debtId },
-      data: { paidAmount: newPaid, status: calcStatus(newPaid, debt.totalAmount) },
+      data: { paidAmount: newPaid, status: newStatus },
     }),
   ]);
+
+  // İlişkili siparişin ödeme durumunu güncelle
+  if (debt.orderId) {
+    const paymentStatus = newStatus === "ODENDI" ? "PAID" : "PARTIAL";
+    // Manuel sipariş (Order)
+    await prisma.order.updateMany({
+      where: { id: debt.orderId },
+      data:  { paymentStatus },
+    }).catch(() => {/* order olmayabilir */});
+    // Web siparişi (SiteOrder) — orderId web siparişine de bağlı olabilir
+    await prisma.siteOrder.updateMany({
+      where: { id: debt.orderId },
+      data:  { paymentStatus },
+    }).catch(() => {/* siteOrder olmayabilir */});
+  }
+
   revalidatePath("/admin/borc-alacak");
+  revalidatePath("/admin/siparisler");
+}
+
+export async function createDebtFromSiteOrder(data: {
+  siteOrderId: string;
+  customerId: string;
+  customerName: string;
+  orderNo: string;
+  totalAmount: number;
+  initialPayment: number;
+}) {
+  const paid = data.initialPayment;
+  const debt = await prisma.customerDebt.create({
+    data: {
+      customerId:  data.customerId,
+      orderId:     data.siteOrderId,
+      description: `Web Sipariş #${data.orderNo}`,
+      totalAmount: data.totalAmount,
+      paidAmount:  paid,
+      status:      calcStatus(paid, data.totalAmount),
+    },
+  });
+  if (paid > 0) {
+    await prisma.debtPayment.create({
+      data: { debtId: debt.id, amount: paid, note: "İlk ödeme" },
+    });
+  }
+  // SiteOrder paymentStatus güncelle
+  const paymentStatus = calcStatus(paid, data.totalAmount) === "ODENDI" ? "PAID"
+    : paid > 0 ? "PARTIAL" : "PENDING";
+  await prisma.siteOrder.update({
+    where: { id: data.siteOrderId },
+    data:  { paymentStatus },
+  });
+  revalidatePath("/admin/borc-alacak");
+  revalidatePath("/admin/siparisler");
+  return debt;
 }
 
 export async function deleteCustomerDebt(id: string) {

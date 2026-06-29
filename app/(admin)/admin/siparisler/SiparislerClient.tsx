@@ -4,6 +4,7 @@ import { useState, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createPortal } from "react-dom";
+import { normalizeOrderItems } from "@/lib/order-items";
 import {
   updateSiteOrderStatus, updateManuelOrderStatus, updateTrackingNo, updatePaymentStatus,
   updateDeliveryMethod, updateSiteOrderDiscount,
@@ -43,12 +44,21 @@ const DELIVERY_COLORS: Record<string, string> = {
   PICKUP: "bg-teal-50 text-teal-700 border-teal-200",
 };
 
+function safeOrderItems(items: unknown) {
+  return normalizeOrderItems(items).map((item) => ({
+    ...item,
+    name: item.name || "Ürün",
+    qty: Number(item.qty) || 1,
+    price: Number(item.price) || 0,
+  }));
+}
+
 interface OrderRow {
   id: string; customerId: string | null; source: "web" | "manuel"; orderNo: string; status: string;
   paymentStatus: string; deliveryMethod: string; createdAt: string;
   recipientName: string | null; recipientPhone: string | null;
   addressLine: string | null; city: string | null; district: string | null;
-  items: { name: string; qty: number; price: number }[];
+  items: unknown;
   total: number; discount: number; note: string | null;
   trackingNo: string | null; cargoCompany: string | null;
   memberName: string | null; memberPhone: string | null;
@@ -840,7 +850,7 @@ export default function SiparislerClient({
                 </td>
                 <td className="px-4 py-3">
                   <div className="space-y-0.5">
-                    {order.items.map((item, i) => (
+                    {safeOrderItems(order.items).map((item, i) => (
                       <div key={i} className="text-xs text-gray-600">
                         <span className="font-medium">{item.name}</span>
                         <span className="text-gray-400 ml-1">×{item.qty}</span>
@@ -852,12 +862,12 @@ export default function SiparislerClient({
                 {/* Tutar: ürünlerin orijinal fiyat toplamı */}
                 <td className="px-4 py-3 whitespace-nowrap">
                   <div className="font-medium text-gray-800 text-sm">
-                    {order.items.reduce((s, i) => s + i.qty * i.price, 0).toLocaleString("tr-TR")} ₺
+                    {safeOrderItems(order.items).reduce((s, i) => s + i.qty * i.price, 0).toLocaleString("tr-TR")} ₺
                   </div>
                 </td>
                 {/* İndirim: otomatik hesaplanır (Tutar - İndirimli Tutar) */}
                 {(() => {
-                  const originalTotal = order.items.reduce((s, i) => s + i.qty * i.price, 0);
+                  const originalTotal = safeOrderItems(order.items).reduce((s, i) => s + i.qty * i.price, 0);
                   const indirimliTutar = order.source === "web" ? order.total - order.discount : order.total;
                   const indirim = originalTotal - indirimliTutar;
                   return (
@@ -918,7 +928,8 @@ export default function SiparislerClient({
 
 // ---- Order Summary Modal ----
 function OrderSummaryModal({ order, onClose }: { order: OrderRow; onClose: () => void }) {
-  const originalTotal = order.items.reduce((s, i) => s + i.qty * i.price, 0);
+  const items = safeOrderItems(order.items);
+  const originalTotal = items.reduce((s, i) => s + i.qty * i.price, 0);
   const indirimliTutar = order.source === "web" ? order.total - order.discount : order.total;
   const indirim = originalTotal - indirimliTutar;
 
@@ -930,7 +941,7 @@ function OrderSummaryModal({ order, onClose }: { order: OrderRow; onClose: () =>
     ``,
     `#${order.orderNo} numaralı siparişinizin özeti:`,
     ``,
-    ...order.items.map((i) => `• ${i.name} ×${i.qty} = ${(i.price * i.qty).toLocaleString("tr-TR")} ₺`),
+    ...items.map((i) => `• ${i.name} ×${i.qty} = ${(i.price * i.qty).toLocaleString("tr-TR")} ₺`),
     ``,
   ];
   if (indirim > 0) {
@@ -973,7 +984,7 @@ function OrderSummaryModal({ order, onClose }: { order: OrderRow; onClose: () =>
           <div>
             <p className="text-[9px] tracking-widest uppercase text-gray-400 mb-2">Ürünler</p>
             <div className="space-y-1.5">
-              {order.items.map((item, i) => (
+              {items.map((item, i) => (
                 <div key={i} className="flex justify-between text-sm">
                   <span className="text-gray-700">{item.name} <span className="text-gray-400">×{item.qty}</span></span>
                   <span className="text-gray-800 font-medium">{(item.price * item.qty).toLocaleString("tr-TR")} ₺</span>
@@ -1097,7 +1108,7 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
     return match?.id ?? "";
   });
   const [items, setItems] = useState<ItemForm[]>(
-    order.items.map((i) => ({ productId: (i as { productId?: string }).productId ?? null, name: i.name, qty: i.qty, price: i.price }))
+    safeOrderItems(order.items).map((i) => ({ productId: (i as { productId?: string }).productId ?? null, name: i.name, qty: i.qty, price: i.price }))
   );
   const [status, setStatus]               = useState(order.status);
   const [deliveryMethod, setDeliveryMethod] = useState(order.deliveryMethod);
@@ -1109,7 +1120,7 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
   const [note, setNote]                   = useState(order.note ?? "");
   const [manualTotal, setManualTotal]     = useState(String(order.total));
   const [totalEdited, setTotalEdited]     = useState(() => {
-    const initialAuto = order.items.reduce((s, i) => s + i.qty * i.price, 0);
+    const initialAuto = safeOrderItems(order.items).reduce((s, i) => s + i.qty * i.price, 0);
     return Math.abs(Number(order.total) - initialAuto) > 0.01;
   });
   const [pending, startSave]              = useTransition();
@@ -1203,15 +1214,20 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
           if (existingDebt) {
             // Mevcut borç kaydına ek ödeme ekle
             await addCustomerPayment({ debtId: existingDebt.id, amount: alinanAmt, note: "Sipariş düzenlemesinden ek ödeme" });
-          } else if (alinanAmt < netTotal && customerId) {
-            // Yeni borç kaydı oluştur
-            await createCustomerDebt({
-              customerId,
-              orderId: order.source === "manuel" ? order.id : undefined,
-              description: `Sipariş #${order.orderNo} — kalan borç`,
-              totalAmount: netTotal,
-              initialPayment: alinanAmt,
-            });
+          } else if (customerId) {
+            if (alinanAmt < netTotal) {
+              // Kısmi ödeme → borç kaydı oluştur
+              await createCustomerDebt({
+                customerId,
+                orderId: order.source === "manuel" ? order.id : undefined,
+                description: `Sipariş #${order.orderNo} — kalan borç`,
+                totalAmount: netTotal,
+                initialPayment: alinanAmt,
+              });
+            } else {
+              // Tam ödeme → sadece paymentStatus güncelle
+              await updatePaymentStatus(order.id, "PAID");
+            }
           }
         }
         router.refresh();

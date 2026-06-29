@@ -51,19 +51,16 @@ export default async function SiparisTamamlandiPage({
   // WhatsApp mesajı oluştur
   let waUrl: string | null = null;
   if (orderDetails && orderNo) {
-    const indirimliTutar = Math.max(0, orderDetails.total - orderDetails.discount);
     const lines = [
-      `Merhaba, #${orderNo} numaralı siparişim:`,
+      `Merhaba, #${orderNo} numaralı siparişim hakkında bilgi almak istedim.`,
       ``,
       ...orderDetails.items.map((i) => `• ${i.name} ×${i.qty} = ${(i.price * i.qty).toLocaleString("tr-TR")} ₺`),
       ``,
-      `Toplam: ${indirimliTutar.toLocaleString("tr-TR")} ₺`,
-      ``,
-      `Siparişimi onaylar mısınız?`,
+      ...(orderDetails.discount > 0 ? [`İndirim: -${orderDetails.discount.toLocaleString("tr-TR")} ₺`] : []),
+      `Toplam: ${orderDetails.total.toLocaleString("tr-TR")} ₺`,
     ];
     const text = encodeURIComponent(lines.join("\n"));
-    const customerWa = orderDetails.customerPhone ? toWaPhone(orderDetails.customerPhone) : null;
-    if (customerWa) waUrl = `https://wa.me/${customerWa}?text=${text}`;
+    waUrl = `https://wa.me/905465402113?text=${text}`;
   }
 
   return (
@@ -107,7 +104,7 @@ export default async function SiparisTamamlandiPage({
                 )}
                 <div className="flex justify-between text-sm font-bold border-t border-[#E8E4DE] pt-1.5 mt-1.5">
                   <span className="text-[#1A1A1A]">Toplam</span>
-                  <span className="text-[#C4A882]">{Math.max(0, orderDetails.total - orderDetails.discount).toLocaleString("tr-TR")} ₺</span>
+                  <span className="text-[#C4A882]">{orderDetails.total.toLocaleString("tr-TR")} ₺</span>
                 </div>
               </div>
             </div>

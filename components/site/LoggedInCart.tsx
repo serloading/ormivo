@@ -8,6 +8,7 @@ import { validateCoupon } from "@/lib/actions/coupon";
 import { addToCart } from "@/lib/actions/cart";
 import CartItemRow from "./CartItemRow";
 import { getSegmentPrice, SEGMENT_LABELS, SEGMENT_COLORS, type SegmentPricingSettings } from "@/lib/segment";
+import { TURKEY_CITIES, CITY_NAMES } from "@/lib/data/turkey-cities";
 
 interface Product {
   id: string; name: string; price: unknown; brand?: { name: string; slug: string } | null;
@@ -266,8 +267,6 @@ export default function LoggedInCart({
                         { key: "recipientName", label: "Ad Soyad *",  type: "text", placeholder: "Ahmet Yılmaz" },
                         { key: "phone",          label: "Telefon *",    type: "tel",  placeholder: "05XX XXX XX XX" },
                         { key: "addressLine",    label: "Adres *",      type: "text", placeholder: "Mahalle, cadde, no, daire" },
-                        { key: "city",           label: "Şehir *",      type: "text", placeholder: "İstanbul" },
-                        { key: "district",       label: "İlçe",         type: "text", placeholder: "Kadıköy" },
                       ] as const).map((f) => (
                         <div key={f.key}>
                           <label className="block font-sans text-[9px] tracking-[0.1em] uppercase text-[#6B6B6B] mb-1">{f.label}</label>
@@ -276,6 +275,30 @@ export default function LoggedInCart({
                             className="w-full border border-[#E8E4DE] px-3 py-2 font-sans text-xs outline-none focus:border-[#C4A882] transition-colors" />
                         </div>
                       ))}
+                      <div>
+                        <label className="block font-sans text-[9px] tracking-[0.1em] uppercase text-[#6B6B6B] mb-1">Şehir *</label>
+                        <select value={newAddr.city}
+                          onChange={(e) => setNewAddr((p) => ({ ...p, city: e.target.value, district: "" }))}
+                          className="w-full border border-[#E8E4DE] px-3 py-2 font-sans text-xs outline-none focus:border-[#C4A882] transition-colors">
+                          <option value="">Şehir seçin…</option>
+                          {CITY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block font-sans text-[9px] tracking-[0.1em] uppercase text-[#6B6B6B] mb-1">İlçe</label>
+                        {newAddr.city && TURKEY_CITIES[newAddr.city]?.length > 0 ? (
+                          <select value={newAddr.district}
+                            onChange={(e) => setNewAddr((p) => ({ ...p, district: e.target.value }))}
+                            className="w-full border border-[#E8E4DE] px-3 py-2 font-sans text-xs outline-none focus:border-[#C4A882] transition-colors">
+                            <option value="">İlçe seçin (opsiyonel)</option>
+                            {TURKEY_CITIES[newAddr.city].map((d) => <option key={d} value={d}>{d}</option>)}
+                          </select>
+                        ) : (
+                          <input type="text" placeholder={newAddr.city === "Yurt Dışı" ? "Bölge / Şehir" : "Kadıköy"} value={newAddr.district}
+                            onChange={(e) => setNewAddr((p) => ({ ...p, district: e.target.value }))}
+                            className="w-full border border-[#E8E4DE] px-3 py-2 font-sans text-xs outline-none focus:border-[#C4A882] transition-colors" />
+                        )}
+                      </div>
                       <label className="flex items-center gap-2 mt-2 cursor-pointer">
                         <input type="checkbox" checked={saveAddr} onChange={(e) => setSaveAddr(e.target.checked)} className="w-3.5 h-3.5 accent-[#C4A882]" />
                         <span className="font-sans text-[10px] text-[#4A4A4A]">Bu adresi hesabıma kaydet</span>

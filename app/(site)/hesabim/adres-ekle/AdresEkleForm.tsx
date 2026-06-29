@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { addAddress } from "@/lib/actions/address";
+import { TURKEY_CITIES, CITY_NAMES } from "@/lib/data/turkey-cities";
 
 interface Props {
   defaultName:  string;
@@ -14,7 +15,10 @@ interface Props {
 export default function AdresEkleForm({ defaultName, defaultPhone, isFirst }: Props) {
   const [error, setError]          = useState("");
   const [pending, startTransition] = useTransition();
+  const [selectedCity, setSelectedCity] = useState("");
   const router = useRouter();
+
+  const districts = selectedCity && TURKEY_CITIES[selectedCity] ? TURKEY_CITIES[selectedCity] : [];
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -69,11 +73,27 @@ export default function AdresEkleForm({ defaultName, defaultPhone, isFirst }: Pr
             </div>
             <div>
               <label className={lbl}>Şehir *</label>
-              <input name="city" type="text" required placeholder="İstanbul" className={inp} />
+              <select
+                name="city"
+                required
+                value={selectedCity}
+                onChange={(e) => setSelectedCity(e.target.value)}
+                className={inp}
+              >
+                <option value="">Şehir seçin…</option>
+                {CITY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
             </div>
             <div>
               <label className={lbl}>İlçe</label>
-              <input name="district" type="text" placeholder="Kadıköy" className={inp} />
+              {districts.length > 0 ? (
+                <select name="district" className={inp}>
+                  <option value="">İlçe seçin (opsiyonel)</option>
+                  {districts.map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
+              ) : (
+                <input name="district" type="text" placeholder={selectedCity === "Yurt Dışı" ? "Bölge / Şehir" : "İlçe"} className={inp} />
+              )}
             </div>
 
             <label className="flex items-center gap-2.5 cursor-pointer">

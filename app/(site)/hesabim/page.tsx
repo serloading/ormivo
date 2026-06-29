@@ -19,7 +19,7 @@ export default async function HesabimPage() {
   const session = await getSession();
   if (!session) redirect("/giris");
 
-  const [user, orders, allOrders, favoriteLists, favoriteCount] = await Promise.all([
+  const [user, siteOrders, allSiteOrders, favoriteLists, favoriteCount] = await Promise.all([
     prisma.siteUser.findUnique({
       where:   { id: session.userId },
       include: { addresses: { orderBy: { isDefault: "desc" } } },
@@ -47,20 +47,46 @@ export default async function HesabimPage() {
 
   if (!user) redirect("/giris");
 
-  type OrderItem = { qty?: number; quantity?: number; price: number };
-  const totalOriginal = allOrders.reduce((sum, o) => {
-    const items = o.items as OrderItem[];
-    return sum + items.reduce((s, i) => s + (i.qty ?? i.quantity ?? 1) * i.price, 0);
-  }, 0);
-  const totalPaid     = allOrders.reduce((sum, o) => sum + Number(o.total), 0);
-  const totalDiscount = Math.max(0, totalOriginal - totalPaid);
-
   const customer = await prisma.customer.findFirst({
     where: { phone: user.phone },
     include: {
       debts: { where: { status: { not: "ODENDI" } }, orderBy: { createdAt: "desc" } },
+      orders: {
+        where:   { status: { not: "CANCELLED" } },
+        orderBy: { createdAt: "desc" },
+        take:    20,
+        select: { id: true, orderNo: true, createdAt: true, status: true, items: true, total: true },
+      },
     },
   });
+
+  // Admin siparişlerini (Order) HesabimSiparisler formatına uyarla
+  const adminOrders = (customer?.orders ?? []).map((o) => ({
+    id:           o.id,
+    orderNo:      o.orderNo,
+    createdAt:    o.createdAt,
+    status:       o.status as string,
+    items:        o.items,
+    total:        o.total,
+    discount:     null,
+    trackingNo:   null as string | null,
+    cargoCompany: null as string | null,
+    source:       "admin" as const,
+  }));
+
+  // Web siparişleri
+  const orders = [
+    ...siteOrders.map((o) => ({ ...o, source: "web" as const })),
+    ...adminOrders.filter((ao) => !siteOrders.some((so) => so.orderNo === ao.orderNo)),
+  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  type OrderItem = { qty?: number; quantity?: number; price: number };
+  const totalOriginal = allSiteOrders.reduce((sum, o) => {
+    const items = o.items as OrderItem[];
+    return sum + items.reduce((s, i) => s + (i.qty ?? i.quantity ?? 1) * i.price, 0);
+  }, 0);
+  const totalPaid     = allSiteOrders.reduce((sum, o) => sum + Number(o.total), 0);
+  const totalDiscount = Math.max(0, totalOriginal - totalPaid);
   const debts = customer?.debts ?? [];
 
   // Favori listelerindeki ürünlerin önizlemesi (her listeden ilk görsel)
@@ -90,13 +116,13 @@ export default async function HesabimPage() {
           phone={user.phone}
           segment={session.segment ?? null}
           initials={initials}
-          orderCount={allOrders.length}
+          orderCount={orders.length}
           addressCount={user.addresses.length}
           favoriteCount={favoriteCount}
         />
 
         {/* ── Özet Kartlar ─────────────────────────────── */}
-        {allOrders.length > 0 && (
+        {allSiteOrders.length > 0 && (
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-white border border-[#E8E4DE] p-4 text-center">
               <p className="font-sans text-[8px] tracking-[0.3em] uppercase text-[#9A9A9A] mb-1.5">Toplam Alışveriş</p>
@@ -192,10 +218,19 @@ export default async function HesabimPage() {
                   + Ekle
                 </a>
               </div>
-              {user.addresses.length === 0 ? (
+              {user.addresses.length === 0 && !customer?.address ? (
                 <p className="font-sans text-xs text-[#9A9A9A]">Henüz adres eklenmemiş.</p>
               ) : (
                 <div className="space-y-3">
+                  {/* Admin tarafından kaydedilen adres */}
+                  {customer?.address && (
+                    <div className="border border-[#E8E4DE] p-3 text-xs font-sans bg-[#FAFAF7]">
+                      <p className="font-semibold text-[#1A1A1A] mb-0.5">{customer.name}</p>
+                      {customer.city && <p className="text-[#6B6B6B]">{customer.city}</p>}
+                      <p className="text-[#6B6B6B]">{customer.address}</p>
+                      <span className="inline-block mt-1 font-sans text-[8px] tracking-widest uppercase bg-[#EDE5D8] text-[#C4A882] px-1.5 py-0.5">Kayıtlı Adres</span>
+                    </div>
+                  )}
                   {(user.addresses as UserAddress[]).map((addr) => (
                     <div key={addr.id} className="border border-[#E8E4DE] p-3 text-xs font-sans">
                       <div className="flex items-start justify-between gap-2">
