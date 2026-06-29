@@ -361,3 +361,23 @@ Etkilenen dosyalar:
 
 Sonraki adım:
 - Deploy öncesi mevcut değişiklikleri commit edip `origin/main` üzerine pushlamak
+
+---
+
+## 12. 2026-06-29 Deploy Tamamlandı
+
+Yapılanlar:
+- Deploy kapsamındaki değişiklikler commit edildi
+- Commit `4df468d` olarak `origin/main` üzerine pushlandı
+- Bu push ile production deploy tetiklendi
+
+Notlar:
+- Import parser, instruction/prose satırlarını filtreleyecek şekilde sertleştirildi
+- Yanlışlıkla oluşan uzun talep cümlesi ürünü veritabanından kaldırıldı
+- Handoff dokümanı son durumu ve denetim notlarını içeriyor
+
+Etkilenen dosyalar:
+- `AI_HANDOFF.md`
+
+Sonraki adım:
+- Deploy tamamlanma durumunu Vercel tarafında izlemek
