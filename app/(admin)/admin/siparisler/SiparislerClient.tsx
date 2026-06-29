@@ -9,7 +9,7 @@ import {
   updateSiteOrderStatus, updateManuelOrderStatus, updateTrackingNo, updatePaymentStatus,
   updateDeliveryMethod, updateSiteOrderDiscount,
   updateManuelOrderPayment, updateManuelOrderTotal, updateManuelOrderDelivery,
-  updateOrderItems, deleteOrderById, updateManuelOrderTracking,
+  updateOrderItems, deleteOrderById, updateManuelOrderTracking, updateManuelOrderPaymentStatus,
 } from "@/lib/actions/site-order-admin";
 import { createOrder } from "@/lib/actions/order";
 import { createCustomer } from "@/lib/actions/customer";
@@ -1226,7 +1226,11 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
               });
             } else {
               // Tam ödeme → sadece paymentStatus güncelle
-              await updatePaymentStatus(order.id, "PAID");
+              if (order.source === "web") {
+                await updatePaymentStatus(order.id, "PAID");
+              } else {
+                await updateManuelOrderPaymentStatus(order.id, "PAID");
+              }
             }
           }
         }

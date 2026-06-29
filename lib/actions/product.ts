@@ -11,7 +11,7 @@ export type ProductFormData = {
   scentNotes?: string;
   price: number;
   comparePrice?: number;
-  costPrice?: number;
+  costPrice?: number | null;
   costPriceUsd?: number;
   categoryId?: string;
   extraCategoryIds?: string[];
@@ -104,15 +104,13 @@ export async function updateProduct(id: string, data: Partial<ProductFormData>) 
       detail:   { name: prev.name, field: "price", from: Number(prev.price), to: data.price },
     });
   }
-  if (data.costPrice !== undefined && prev && Number(prev.costPrice ?? 0) !== data.costPrice) {
+  if (data.costPriceUsd !== undefined) {
     await logActivity({
       action:   "PRODUCT_PRICE_CHANGED",
       entity:   "PRODUCT",
       entityId: id,
-      detail:   { name: prev.name, field: "costPrice", from: Number(prev.costPrice ?? 0), to: data.costPrice },
+      detail:   { name: prev?.name, field: "costPriceUsd", to: data.costPriceUsd },
     });
-    const { rebuildCostExpensesForProduct } = await import("./site-order-admin");
-    await rebuildCostExpensesForProduct(id);
   }
 
   return { success: true };

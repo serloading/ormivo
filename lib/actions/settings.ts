@@ -49,3 +49,18 @@ export async function updateDiamondMarkup(amount: number) {
   revalidatePath("/urunler");
   return { success: true };
 }
+
+export async function getUsdRate(): Promise<number> {
+  const row = await prisma.setting.findUnique({ where: { key: "usd_rate" } });
+  return row ? parseFloat(row.value) : 38;
+}
+
+export async function setUsdRate(rate: number) {
+  await prisma.setting.upsert({
+    where:  { key: "usd_rate" },
+    update: { value: String(rate) },
+    create: { key: "usd_rate", value: String(rate) },
+  });
+  revalidatePath("/admin/urunler");
+  return { success: true };
+}

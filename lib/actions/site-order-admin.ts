@@ -27,10 +27,14 @@ async function ensureCostExpenses(
   const productIds = items.map((i) => i.productId).filter(Boolean) as string[];
   if (productIds.length === 0) return;
 
-  const products = await prisma.product.findMany({
-    where:  { id: { in: productIds } },
-    select: { id: true, name: true, costPrice: true },
-  });
+  const [products, usdRateRow] = await Promise.all([
+    prisma.product.findMany({
+      where:  { id: { in: productIds } },
+      select: { id: true, name: true, costPriceUsd: true },
+    }),
+    prisma.setting.findUnique({ where: { key: "usd_rate" } }),
+  ]);
+  const usdRate = usdRateRow ? parseFloat(usdRateRow.value) : 38;
 
   // Deduplicate by description
   const existingCosts = await prisma.finance.findMany({
@@ -42,9 +46,9 @@ async function ensureCostExpenses(
   for (const item of items) {
     if (!item.productId) continue;
     const product = products.find((p) => p.id === item.productId);
-    if (!product?.costPrice) continue;
+    if (!product?.costPriceUsd) continue;
 
-    const cost = Number(product.costPrice) * item.qty;
+    const cost = Math.round(Number(product.costPriceUsd) * usdRate) * item.qty;
     const desc = `Ürün maliyeti — ${item.name} — #${order.orderNo}`;
     if (existingDescs.has(desc)) continue;
 
@@ -363,62 +367,17 @@ export async function updateManuelOrderStatus(orderId: string, status: string) {
   return { success: true };
 }
 
+export async function updateManuelOrderPaymentStatus(orderId: string, paymentStatus: string) {
+  await prisma.order.update({ where: { id: orderId }, data: { paymentStatus: paymentStatus as never } });
+  revalidatePath("/admin/siparisler");
+  return { success: true };
+}
+
 // ── Product cost rebuild ──────────────────────────────────────────────────────
 
-// Called when a product's costPrice changes — updates all existing cost Finance records.
-export async function rebuildCostExpensesForProduct(productId: string) {
-  const product = await prisma.product.findUnique({ where: { id: productId }, select: { id: true, name: true, costPrice: true } });
-  if (!product?.costPrice) return;
-
-  // Web orders (PAID or FREE)
-  const paidWebOrders = await prisma.siteOrder.findMany({
-    where:  { paymentStatus: { in: ["PAID", "FREE"] } },
-    select: { id: true, orderNo: true, items: true },
-  });
-
-  for (const order of paidWebOrders) {
-    const items = normalizeOrderItems(order.items);
-    for (const item of items.filter((i) => i.productId === productId)) {
-      const desc    = `Ürün maliyeti — ${item.name} — #${order.orderNo}`;
-      const newCost = Number(product.costPrice) * item.qty;
-      const existing = await prisma.finance.findFirst({
-        where: { siteOrderId: order.id, category: "Ürün Maliyeti", description: desc },
-      });
-      if (existing) {
-        await prisma.finance.update({ where: { id: existing.id }, data: { amount: newCost } });
-      } else {
-        await prisma.finance.create({
-          data: { type: "EXPENSE", amount: newCost, description: desc, category: "Ürün Maliyeti", siteOrderId: order.id },
-        });
-      }
-    }
-  }
-
-  // Manuel orders (PAID)
-  const paidManuelOrders = await prisma.order.findMany({
-    where:  { paymentStatus: "PAID" },
-    select: { id: true, orderNo: true, items: true },
-  });
-
-  for (const order of paidManuelOrders) {
-    const items = normalizeOrderItems(order.items);
-    for (const item of items.filter((i) => i.productId === productId)) {
-      const desc    = `Ürün maliyeti — ${item.name} — #${order.orderNo}`;
-      const newCost = Number(product.costPrice) * item.qty;
-      const existing = await prisma.finance.findFirst({
-        where: { description: desc, category: "Ürün Maliyeti" },
-      });
-      if (existing) {
-        await prisma.finance.update({ where: { id: existing.id }, data: { amount: newCost } });
-      } else {
-        await prisma.finance.create({
-          data: { type: "EXPENSE", amount: newCost, description: desc, category: "Ürün Maliyeti" },
-        });
-      }
-    }
-  }
-
-  revalidatePath("/admin/finans");
+// NOT USED: Finance records are frozen at order-creation time. USD rate changes do not rewrite history.
+async function rebuildCostExpensesForProduct(productId: string) {
+  void productId;
 }
 
 // ── Edit & Delete ─────────────────────────────────────────────────────────────

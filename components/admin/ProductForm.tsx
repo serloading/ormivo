@@ -16,7 +16,7 @@ type Product = {
   categoryId?: string | null; extraCategoryIds?: string[]; brandId?: string | null;
 };
 
-type Props = { product?: Product; categories: Category[]; brands: Brand[] };
+type Props = { product?: Product; categories: Category[]; brands: Brand[]; usdRate?: number };
 
 function toSlug(text: string) {
   return text.toLowerCase()
@@ -28,7 +28,7 @@ function toSlug(text: string) {
 const inputCls = "w-full border border-[#d4c5ba] rounded-sm px-4 py-3 text-sm text-[#2c1810] placeholder-[#b8a89e] focus:outline-none focus:border-[#8b6f5e] transition-colors bg-[#faf8f6]";
 const labelCls = "block text-xs font-medium tracking-widest text-[#5c4033] uppercase mb-2";
 
-export default function ProductForm({ product, categories, brands }: Props) {
+export default function ProductForm({ product, categories, brands, usdRate = 38 }: Props) {
   const router = useRouter();
   const isEdit = !!product;
   const fileRef = useRef<HTMLInputElement>(null);
@@ -62,29 +62,12 @@ export default function ProductForm({ product, categories, brands }: Props) {
     );
   }
 
-  const [costCurrency, setCostCurrency] = useState<"TRY" | "USD">("TRY");
-  const [usdRate, setUsdRate] = useState("38");
   const [images, setImages] = useState<string[]>(product?.images ?? []);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   function handleNameChange(name: string) {
     setForm((p) => ({ ...p, name, slug: isEdit ? p.slug : toSlug(name) }));
-  }
-
-  function handleUsdChange(usd: string) {
-    setForm((p) => ({
-      ...p,
-      costPriceUsd: usd,
-      costPrice: usd && usdRate ? String(Math.round(parseFloat(usd) * parseFloat(usdRate))) : p.costPrice,
-    }));
-  }
-
-  function handleRateChange(rate: string) {
-    setUsdRate(rate);
-    if (form.costPriceUsd && rate) {
-      setForm((p) => ({ ...p, costPrice: String(Math.round(parseFloat(p.costPriceUsd) * parseFloat(rate))) }));
-    }
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -120,7 +103,7 @@ export default function ProductForm({ product, categories, brands }: Props) {
       scentNotes: form.scentNotes || undefined,
       price: parseFloat(form.price) || 0,
       comparePrice: form.comparePrice ? parseFloat(form.comparePrice) : undefined,
-      costPrice: form.costPrice ? parseFloat(form.costPrice) : undefined,
+      costPrice: null,
       costPriceUsd: form.costPriceUsd ? parseFloat(form.costPriceUsd) : undefined,
       categoryId: selectedCatIds[0] || undefined,
       extraCategoryIds: selectedCatIds.slice(1),
@@ -234,39 +217,25 @@ export default function ProductForm({ product, categories, brands }: Props) {
           </div>
 
           <div className="bg-white border border-[#e8ddd6] rounded-sm p-6">
-            <h3 className="text-xs tracking-widest text-[#5c4033] uppercase mb-5">Gelis Fiyati</h3>
-            <div className="flex gap-2 mb-3">
-              <button type="button" onClick={() => setCostCurrency("TRY")}
-                className={"flex-1 text-xs py-1.5 rounded-sm border transition-colors " + (costCurrency === "TRY" ? "bg-[#2c1810] text-[#f5f0eb] border-[#2c1810]" : "border-[#d4c5ba] text-[#5c4033]")}>
-                TL TRY
-              </button>
-              <button type="button" onClick={() => setCostCurrency("USD")}
-                className={"flex-1 text-xs py-1.5 rounded-sm border transition-colors " + (costCurrency === "USD" ? "bg-[#2c1810] text-[#f5f0eb] border-[#2c1810]" : "border-[#d4c5ba] text-[#5c4033]")}>
-                $ USD
-              </button>
+            <h3 className="text-xs tracking-widest text-[#5c4033] uppercase mb-1">Gelis Fiyati (USD)</h3>
+            <p className="text-[11px] text-[#b8a89e] mb-4">
+              Sistem kuru: <strong className="text-[#5c4033]">{usdRate} TL</strong> — kuru Ürünler sayfasından değiştirebilirsiniz
+            </p>
+            <div>
+              <label className={labelCls}>Gelis Fiyati ($)</label>
+              <input
+                type="number" min="0" step="0.01"
+                value={form.costPriceUsd}
+                onChange={(e) => setForm((p) => ({ ...p, costPriceUsd: e.target.value }))}
+                className={inputCls} placeholder="25"
+              />
+              {form.costPriceUsd && (
+                <p className="text-xs text-[#8b6f5e] mt-2">
+                  ≈ {Math.round(parseFloat(form.costPriceUsd) * usdRate).toLocaleString("tr-TR")} TL
+                  <span className="text-[#b8a89e] ml-1">(siparişte o anki kur ile hesaplanır)</span>
+                </p>
+              )}
             </div>
-            {costCurrency === "USD" ? (
-              <div className="space-y-3">
-                <div>
-                  <label className={labelCls}>Dolar Kuru (TL)</label>
-                  <input type="number" min="0" step="0.01" value={usdRate} onChange={(e) => handleRateChange(e.target.value)} className={inputCls} placeholder="38" />
-                </div>
-                <div>
-                  <label className={labelCls}>Gelis Fiyati ($)</label>
-                  <input type="number" min="0" step="0.01" value={form.costPriceUsd} onChange={(e) => handleUsdChange(e.target.value)} className={inputCls} placeholder="25" />
-                </div>
-                <div>
-                  <label className={labelCls}>= TRY Karsiligi</label>
-                  <input type="number" min="0" step="0.01" value={form.costPrice} onChange={(e) => setForm((p) => ({ ...p, costPrice: e.target.value }))} className={inputCls} placeholder="Otomatik hesaplanir" />
-                  <p className="text-xs text-[#b8a89e] mt-1">Elle degistirebilirsiniz</p>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <label className={labelCls}>Gelis Fiyati (TL)</label>
-                <input type="number" min="0" step="0.01" value={form.costPrice} onChange={(e) => setForm((p) => ({ ...p, costPrice: e.target.value }))} className={inputCls} placeholder="750" />
-              </div>
-            )}
           </div>
 
           <div className="bg-white border border-[#e8ddd6] rounded-sm p-6">

@@ -59,14 +59,18 @@ export async function createOrder(data: OrderFormData) {
   // Ürün maliyeti giderleri hemen kayıt
   const productIds = itemsWithProduct.map((i) => i.productId!);
   if (productIds.length > 0) {
-    const productCosts = await prisma.product.findMany({
-      where: { id: { in: productIds } },
-      select: { id: true, costPrice: true },
-    });
+    const [productCosts, usdRateRow] = await Promise.all([
+      prisma.product.findMany({
+        where: { id: { in: productIds } },
+        select: { id: true, costPriceUsd: true },
+      }),
+      prisma.setting.findUnique({ where: { key: "usd_rate" } }),
+    ]);
+    const usdRate = usdRateRow ? parseFloat(usdRateRow.value) : 38;
     for (const item of itemsWithProduct) {
       const prod = productCosts.find((p) => p.id === item.productId);
-      if (!prod?.costPrice) continue;
-      const cost = Number(prod.costPrice) * item.quantity;
+      if (!prod?.costPriceUsd) continue;
+      const cost = Math.round(Number(prod.costPriceUsd) * usdRate) * item.quantity;
       await prisma.finance.create({
         data: {
           type:        "EXPENSE",

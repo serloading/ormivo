@@ -46,9 +46,16 @@ export default function ProductCard({ product }: { product: Product }) {
 
       {/* Bilgi */}
       <div className="p-4 flex flex-col flex-1">
-        <p className="font-sans text-[9px] tracking-[0.2em] text-[#C4A882] uppercase mb-1">
-          {product.brand?.name ?? product.category?.name ?? ""}
-        </p>
+        {product.brand?.name ? (
+          <Link href={`/urunler?marka=${encodeURIComponent(product.brand.name)}`}
+            className="font-sans text-[9px] tracking-[0.2em] text-[#C4A882] uppercase mb-1 hover:text-[#8B6F4E] transition-colors block">
+            {product.brand.name}
+          </Link>
+        ) : (
+          <p className="font-sans text-[9px] tracking-[0.2em] text-[#C4A882] uppercase mb-1">
+            {product.category?.name ?? ""}
+          </p>
+        )}
 
         <Link href={`/urunler/${product.slug}`}>
           <h3 className="font-serif text-sm md:text-base text-[#1A1A1A] leading-snug mb-2 line-clamp-2 hover:text-[#C4A882] transition-colors">

@@ -3,13 +3,15 @@ import ProductForm from "@/components/admin/ProductForm";
 import { prisma } from "@/lib/prisma";
 import { getCategories } from "@/lib/actions/category";
 import { getBrands } from "@/lib/actions/brand";
+import { getUsdRate } from "@/lib/actions/settings";
 
 export default async function UrunDuzenlePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [product, categories, brands] = await Promise.all([
+  const [product, categories, brands, usdRate] = await Promise.all([
     prisma.product.findUnique({ where: { id } }),
     getCategories(),
     getBrands(),
+    getUsdRate(),
   ]);
   if (!product) notFound();
 
@@ -27,7 +29,7 @@ export default async function UrunDuzenlePage({ params }: { params: Promise<{ id
         <h2 className="text-2xl font-light tracking-wide text-[#2c1810]">Ürün Düzenle</h2>
         <p className="text-sm text-[#8b6f5e] mt-1">{product.name}</p>
       </div>
-      <ProductForm product={p} categories={categories} brands={brands} />
+      <ProductForm product={p} categories={categories} brands={brands} usdRate={usdRate} />
     </div>
   );
 }
