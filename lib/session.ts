@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { syncSiteUserFromCustomerPhone } from "@/lib/site-user-sync";
 
 const COOKIE = "site_session";
 
@@ -47,11 +48,16 @@ export async function getSession(): Promise<SessionPayload | null> {
 
     // DB'den güncel segment ve isim oku
     const { prisma } = await import("@/lib/prisma");
-    const user = await prisma.siteUser.findUnique({
+    let user = await prisma.siteUser.findUnique({
       where:  { id: jwt.userId },
       select: { id: true, phone: true, name: true, segment: true },
     });
     if (!user) return null;
+
+    if (!user.name || !user.segment) {
+      const synced = await syncSiteUserFromCustomerPhone(user.phone);
+      if (synced) user = synced;
+    }
 
     return {
       userId:  user.id,

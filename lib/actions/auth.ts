@@ -3,10 +3,15 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { createSession, deleteSession } from "@/lib/session";
+import { syncSiteUserFromCustomerPhone } from "@/lib/site-user-sync";
 
 export async function register(formData: FormData) {
+  const name     = (formData.get("name")     as string)?.trim();
   const phone    = (formData.get("phone")    as string)?.trim().replace(/\s/g, "");
   const password = (formData.get("password") as string);
+
+  if (!name || name.length < 2)
+    return { error: "Ad Soyad en az 2 karakter olmalı." };
 
   if (!phone || !password)
     return { error: "Telefon numarası ve şifre gerekli." };
@@ -24,16 +29,21 @@ export async function register(formData: FormData) {
 
   const passwordHash = await bcrypt.hash(password, 12);
   const user = await prisma.siteUser.create({
-    data: { phone, passwordHash },
+    data: { phone, name, passwordHash },
   });
 
   // Admin müşteriler listesinde görünsün
   const existingCustomer = await prisma.customer.findFirst({ where: { phone } });
   if (!existingCustomer) {
-    await prisma.customer.create({ data: { name: phone, phone, tags: [] } });
+    await prisma.customer.create({ data: { name, phone, tags: [] } });
   }
 
-  await createSession({ userId: user.id, phone: user.phone, name: user.name, segment: user.segment ?? null });
+  await createSession({
+    userId: user.id,
+    phone: user.phone,
+    name: user.name,
+    segment: existingCustomer?.segment ?? user.segment ?? null,
+  });
   return { success: true };
 }
 
@@ -124,6 +134,8 @@ export async function updateSiteUserProfile(data: { name?: string; phone?: strin
   } else {
     await prisma.customer.create({ data: { phone: customerPhone, name: (updatedUser.name ?? customerPhone) } });
   }
+
+  await syncSiteUserFromCustomerPhone(customerPhone);
 
   return { success: true };
 }

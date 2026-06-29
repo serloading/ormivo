@@ -37,6 +37,20 @@ export default function KayitPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block font-sans text-[11px] tracking-[0.15em] uppercase text-[#6B6B6B] mb-1.5">
+                Ad Soyad
+              </label>
+              <input
+                name="name"
+                type="text"
+                required
+                placeholder="Adınız Soyadınız"
+                autoComplete="name"
+                className="w-full border border-[#E8E4DE] px-3 py-2.5 font-sans text-sm outline-none focus:border-[#C4A882] transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block font-sans text-[11px] tracking-[0.15em] uppercase text-[#6B6B6B] mb-1.5">
                 Telefon Numarası
               </label>
               <input

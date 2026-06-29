@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/actions/activity-log";
 import { auth } from "@/lib/auth";
+import { syncSiteUserFromCustomerPhone } from "@/lib/site-user-sync";
 
 // Varsayılan şifre: admin tarafından oluşturulan müşterilere atanır
 const DEFAULT_PASSWORD = "Ormivo2025!@#";
@@ -17,6 +18,10 @@ export type CustomerFormData = {
   address?: string;
   note?: string;
 };
+
+function normalizePhone(phone: string) {
+  return phone.trim().replace(/\s/g, "");
+}
 
 export async function getCustomers() {
   return prisma.customer.findMany({
@@ -31,7 +36,7 @@ export async function getCustomerById(id: string) {
   return prisma.customer.findUnique({
     where: { id },
     include: {
-      notes:  { orderBy: { createdAt: "desc" } },
+      notes: { orderBy: { createdAt: "desc" } },
       orders: { orderBy: { createdAt: "desc" } },
       siteOrders: { orderBy: { createdAt: "desc" } },
     },
@@ -57,13 +62,20 @@ export async function createCustomer(data: CustomerFormData) {
 
     // Telefon varsa otomatik SiteUser oluştur (müşteri siteye girebilsin)
     if (data.phone) {
-      const normalizedPhone = data.phone.trim().replace(/\s/g, "");
-      const existing = await prisma.siteUser.findUnique({ where: { phone: normalizedPhone } });
+      const phone = normalizePhone(data.phone);
+      const existing = await prisma.siteUser.findUnique({ where: { phone } });
       if (!existing) {
         const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 12);
         await prisma.siteUser.create({
-          data: { phone: normalizedPhone, name: data.name, passwordHash, mustChangePassword: true },
+          data: {
+            phone,
+            name: data.name,
+            passwordHash,
+            mustChangePassword: true,
+          },
         });
+      } else {
+        await syncSiteUserFromCustomerPhone(phone);
       }
     }
 
@@ -78,16 +90,28 @@ export async function createCustomer(data: CustomerFormData) {
 }
 
 export async function createSiteUserForCustomer(customerId: string) {
-  const customer = await prisma.customer.findUnique({ where: { id: customerId }, select: { name: true, phone: true } });
+  const customer = await prisma.customer.findUnique({
+    where: { id: customerId },
+    select: { name: true, phone: true, segment: true },
+  });
   if (!customer?.phone) return { error: "Müşteri telefon numarası yok." };
 
-  const phone = customer.phone.trim().replace(/\s/g, "");
+  const phone = normalizePhone(customer.phone);
   const existing = await prisma.siteUser.findUnique({ where: { phone } });
-  if (existing) return { error: "Bu telefon numarasıyla zaten hesap var." };
+  if (existing) {
+    await syncSiteUserFromCustomerPhone(phone);
+    return { success: true, alreadyExists: true };
+  }
 
   const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 12);
   await prisma.siteUser.create({
-    data: { phone, name: customer.name, passwordHash, mustChangePassword: true },
+    data: {
+      phone,
+      name: customer.name,
+      segment: customer.segment ?? null,
+      passwordHash,
+      mustChangePassword: true,
+    },
   });
   return { success: true };
 }
@@ -137,10 +161,10 @@ export async function updateCustomerSegment(id: string, segment: string | null) 
     await prisma.siteUser.updateMany({ where: { phone: prev.phone }, data: { segment } });
   }
   await logActivity({
-    action:   "CUSTOMER_SEGMENT_CHANGED",
-    entity:   "CUSTOMER",
+    action: "CUSTOMER_SEGMENT_CHANGED",
+    entity: "CUSTOMER",
     entityId: id,
-    detail:   { name: prev?.name, from: prev?.segment, to: segment },
+    detail: { name: prev?.name, from: prev?.segment, to: segment },
   });
   revalidatePath("/admin/musteriler");
   revalidatePath(`/admin/musteriler/${id}`);
@@ -161,10 +185,10 @@ export async function addCustomerNote(customerId: string, content: string) {
     data: { customerId, content: content.trim(), createdBy },
   });
   await logActivity({
-    action:   "CUSTOMER_NOTE_ADDED",
-    entity:   "CUSTOMER",
+    action: "CUSTOMER_NOTE_ADDED",
+    entity: "CUSTOMER",
     entityId: customerId,
-    detail:   { noteId: note.id },
+    detail: { noteId: note.id },
   });
   revalidatePath(`/admin/musteriler/${customerId}`);
   return { success: true };
@@ -173,10 +197,10 @@ export async function addCustomerNote(customerId: string, content: string) {
 export async function deleteCustomerNote(noteId: string, customerId: string) {
   await prisma.customerNote.delete({ where: { id: noteId } });
   await logActivity({
-    action:   "CUSTOMER_NOTE_DELETED",
-    entity:   "CUSTOMER",
+    action: "CUSTOMER_NOTE_DELETED",
+    entity: "CUSTOMER",
     entityId: customerId,
-    detail:   { noteId },
+    detail: { noteId },
   });
   revalidatePath(`/admin/musteriler/${customerId}`);
   return { success: true };
