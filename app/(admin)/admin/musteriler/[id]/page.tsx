@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getCustomerById } from "@/lib/actions/customer";
+import { prisma } from "@/lib/prisma";
 import MusteriProfilClient from "@/components/admin/MusteriProfilClient";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +37,13 @@ export default async function MusteriProfilPage({ params }: { params: Promise<{ 
     .filter((o) => o.paymentStatus === "PAID")
     .reduce((s, o) => s + o.total, 0);
 
+  const siteUser = customer.phone
+    ? await prisma.siteUser.findFirst({
+        where: { phone: customer.phone },
+        include: { addresses: { orderBy: { isDefault: "desc" } } },
+      })
+    : null;
+
   const serialized = {
     id:        customer.id,
     name:      customer.name,
@@ -46,6 +54,11 @@ export default async function MusteriProfilPage({ params }: { params: Promise<{ 
     note:      customer.note,
     segment:   customer.segment,
     tags:      customer.tags,
+    siteUserId: siteUser?.id ?? null,
+    addresses:  (siteUser?.addresses ?? []).map((a) => ({
+      id: a.id, recipientName: a.recipientName, phone: a.phone,
+      addressLine: a.addressLine, city: a.city, district: a.district, isDefault: a.isDefault,
+    })),
     notes:     customer.notes.map((n) => ({
       id:        n.id,
       content:   n.content,

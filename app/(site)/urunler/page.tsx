@@ -242,6 +242,7 @@ export default async function UrunlerPage({
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                 {products.map((product) => {
                   const price    = Number(product.price);
+                  const productCostPrice = (product as { costPrice?: unknown }).costPrice != null ? Number((product as { costPrice?: unknown }).costPrice) : null;
                   const img      = product.images?.[0] ?? null;
                   const inStock  = product.stock > 0;
                   return (
@@ -283,7 +284,7 @@ export default async function UrunlerPage({
                         )}
                         <div className="flex items-center justify-between gap-1 mt-auto">
                           {(() => {
-                            const segPrice = getSegmentPrice(price, userSegment, segmentSettings);
+                            const segPrice = getSegmentPrice(price, userSegment, segmentSettings, productCostPrice);
                             return segPrice ? (
                               <div className="flex flex-col gap-0.5">
                                 <span className={`font-sans text-[8px] px-1 py-px rounded font-semibold self-start ${SEGMENT_COLORS[userSegment!]}`}>

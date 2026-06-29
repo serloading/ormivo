@@ -165,7 +165,7 @@ export default function AdminUrunlerClient({
     let data: Record<string, unknown> = {};
     let patch: Partial<Product> = {};
     if (bulkField === "price")      { const n = parseFloat(bulkValue)||0; data={price:n}; patch={price:n}; }
-    if (bulkField === "costPrice")  { const n = parseFloat(bulkValue)||0; data={costPrice:n}; patch={costPrice:n}; }
+    if (bulkField === "costPrice")  { const usd = parseFloat(bulkValue)||0; const tl = Math.round(usd * usdRate * 100)/100; data={costPriceUsd:usd,costPrice:tl}; patch={costPriceUsd:usd,costPrice:tl}; }
     if (bulkField === "stock")      { const n = parseInt(bulkValue)||0; data={stock:n}; patch={stock:n}; }
     if (bulkField === "isActive")   { const v = bulkValue==="true"; data={isActive:v}; patch={isActive:v}; }
     if (bulkField === "brandId")    { const brand=brands.find((b)=>b.id===bulkValue)??null; data={brandId:bulkValue}; patch={brand}; }
@@ -283,7 +283,6 @@ export default function AdminUrunlerClient({
                 <th className="px-4 py-3 text-left text-xs tracking-widest uppercase text-[#8b6f5e] font-normal">Kategori</th>
                 <th className="px-4 py-3 text-left text-xs tracking-widest uppercase text-[#8b6f5e] font-normal whitespace-nowrap">Satış ₺</th>
                 <th className="px-4 py-3 text-left text-xs tracking-widest uppercase text-[#8b6f5e] font-normal whitespace-nowrap">Geliş $</th>
-                <th className="px-4 py-3 text-left text-xs tracking-widest uppercase text-[#8b6f5e] font-normal whitespace-nowrap">Geliş ₺</th>
                 <th className="px-4 py-3 text-left text-xs tracking-widest uppercase text-[#8b6f5e] font-normal">Stok</th>
                 <th className="px-4 py-3 text-left text-xs tracking-widest uppercase text-[#8b6f5e] font-normal">Durum</th>
                 <th className="px-4 py-3" />
@@ -291,7 +290,7 @@ export default function AdminUrunlerClient({
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={11} className="px-4 py-12 text-center text-[#b8a89e] text-sm">Ürün bulunamadı</td></tr>
+                <tr><td colSpan={10} className="px-4 py-12 text-center text-[#b8a89e] text-sm">Ürün bulunamadı</td></tr>
               ) : filtered.map((product, i) => {
                 const isSelected = selected.has(product.id);
                 const thumb = product.images?.[0] ?? null;
@@ -479,30 +478,6 @@ export default function AdminUrunlerClient({
                       )}
                     </td>
 
-                    {/* Geliş fiyatı ₺ */}
-                    <td className="px-4 py-3">
-                      {isEditing(product.id, "costPrice") ? (
-                        <input
-                          ref={editRef as React.RefObject<HTMLInputElement>}
-                          type="number"
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          onBlur={() => commitEdit()}
-                          onKeyDown={(e) => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") cancelEdit(); }}
-                          className="w-24 border border-[#8b6f5e] rounded px-2 py-1 text-sm focus:outline-none text-[#8b6f5e]"
-                          disabled={saving}
-                        />
-                      ) : (
-                        <span
-                          onClick={() => startEdit(product, "costPrice")}
-                          title="Düzenlemek için tıkla"
-                          className="cursor-pointer hover:bg-[#f5f0eb] px-1 py-0.5 rounded transition-colors text-[#8b6f5e] text-xs"
-                        >
-                          {product.costPrice ? `${Number(product.costPrice).toLocaleString("tr-TR")} ₺` : "—"}
-                        </span>
-                      )}
-                    </td>
-
                     {/* Stok */}
                     <td className="px-4 py-3">
                       {isEditing(product.id, "stock") ? (
@@ -560,7 +535,7 @@ export default function AdminUrunlerClient({
           <select value={bulkField} onChange={(e) => { setBulkField(e.target.value); setBulkValue(""); }}
             className="bg-[#3d2418] border border-[#5c4033] rounded px-3 py-2 text-sm text-[#f5f0eb] focus:outline-none">
             <option value="price">Satış Fiyatı</option>
-            <option value="costPrice">Geliş Fiyatı</option>
+            <option value="costPrice">Geliş ($)</option>
             <option value="stock">Stok</option>
             <option value="isActive">Durum</option>
             <option value="brandId">Marka</option>

@@ -3,7 +3,9 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateCustomer, updateCustomerSegment, updateCustomerTags, addCustomerNote, deleteCustomerNote, createSiteUserForCustomer } from "@/lib/actions/customer";
+import { adminAddAddress, adminDeleteAddress } from "@/lib/actions/address";
 import { SEGMENTS, SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/customer-constants";
+import { TURKEY_CITIES, CITY_NAMES } from "@/lib/data/turkey-cities";
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING:   "Beklemede",
@@ -27,10 +29,17 @@ function toWaPhone(phone: string): string {
   return "90" + d;
 }
 
+type UserAddress = {
+  id: string; recipientName: string; phone: string;
+  addressLine: string; city: string; district: string | null; isDefault: boolean;
+};
+
 type CustomerData = {
   id: string; name: string; phone: string | null; email: string | null;
   city: string | null; address: string | null; note: string | null;
   segment: string | null; tags: string[];
+  siteUserId?: string | null;
+  addresses?: UserAddress[];
   notes: { id: string; content: string; createdBy: string; createdAt: string }[];
   createdAt: string;
 };
@@ -251,6 +260,9 @@ export default function MusteriProfilClient({
               className="bg-[#2c1810] text-[#f5f0eb] text-xs px-3 py-1.5 rounded-sm hover:bg-[#3d2418]">Ekle</button>
           </div>
         </div>
+
+        {/* Adresler */}
+        <AddressSection siteUserId={customer.siteUserId ?? null} addresses={customer.addresses ?? []} />
       </div>
 
       {/* Sağ kolon */}
@@ -324,6 +336,113 @@ export default function MusteriProfilClient({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function AddressSection({ siteUserId, addresses }: { siteUserId: string | null; addresses: UserAddress[] }) {
+  const router = useRouter();
+  const [, startT] = useTransition();
+  const [showForm, setShowForm] = useState(false);
+  const [city, setCity] = useState("");
+  const [form, setForm] = useState({ recipientName: "", phone: "", addressLine: "", district: "", isDefault: false });
+
+  const districts = city && TURKEY_CITIES[city] ? TURKEY_CITIES[city] : [];
+
+  function handleDelete(id: string) {
+    if (!confirm("Bu adres silinsin mi?")) return;
+    startT(async () => { await adminDeleteAddress(id); router.refresh(); });
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!siteUserId) return alert("Bu müşterinin site hesabı yok, önce site hesabı oluşturun.");
+    if (!form.recipientName || !form.phone || !form.addressLine || !city) return;
+    await adminAddAddress(siteUserId, { ...form, city, district: form.district || null });
+    setShowForm(false);
+    setForm({ recipientName: "", phone: "", addressLine: "", district: "", isDefault: false });
+    setCity("");
+    router.refresh();
+  }
+
+  const inp = "w-full border border-[#d4c5ba] rounded-sm px-3 py-1.5 text-sm bg-[#faf8f6] focus:outline-none focus:border-[#8b6f5e]";
+
+  return (
+    <div className="bg-white border border-[#e8ddd6] rounded-sm p-5">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-xs tracking-widest text-[#5c4033] uppercase">Adresler</h3>
+        {siteUserId && (
+          <button onClick={() => setShowForm((p) => !p)} className="text-xs text-[#8b6f5e] hover:text-[#2c1810] underline">
+            {showForm ? "İptal" : "+ Adres Ekle"}
+          </button>
+        )}
+      </div>
+
+      {!siteUserId && (
+        <p className="text-xs text-[#b8a89e]">Site hesabı olmayan müşteriye adres eklenemez.</p>
+      )}
+
+      {addresses.length === 0 && siteUserId && !showForm && (
+        <p className="text-xs text-[#b8a89e]">Kayıtlı adres yok.</p>
+      )}
+
+      <div className="space-y-3 mb-3">
+        {addresses.map((a) => (
+          <div key={a.id} className="border border-[#f0ebe6] rounded-sm p-3 text-xs">
+            <div className="flex justify-between items-start">
+              <div>
+                {a.isDefault && <span className="text-[10px] bg-[#f0ebe6] text-[#8b6f5e] px-1.5 py-0.5 rounded mr-1">Varsayılan</span>}
+                <span className="font-medium text-[#2c1810]">{a.recipientName}</span> · {a.phone}
+                <p className="text-[#5c4033] mt-0.5">{a.addressLine}</p>
+                <p className="text-[#8b6f5e]">{[a.district, a.city].filter(Boolean).join(", ")}</p>
+              </div>
+              <button onClick={() => handleDelete(a.id)} className="text-red-400 hover:text-red-600 ml-2">Sil</button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {showForm && siteUserId && (
+        <form onSubmit={handleSubmit} className="space-y-2 border-t border-[#f0ebe6] pt-3">
+          {[
+            { label: "Alıcı Adı *", key: "recipientName", type: "text" },
+            { label: "Telefon *",   key: "phone",          type: "tel" },
+            { label: "Adres *",     key: "addressLine",    type: "text" },
+          ].map(({ label, key, type }) => (
+            <div key={key}>
+              <label className="text-[10px] text-[#8b6f5e] block mb-0.5">{label}</label>
+              <input type={type} value={form[key as keyof typeof form] as string}
+                onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))}
+                required className={inp} />
+            </div>
+          ))}
+          <div>
+            <label className="text-[10px] text-[#8b6f5e] block mb-0.5">Şehir *</label>
+            <select value={city} onChange={(e) => { setCity(e.target.value); setForm((p) => ({ ...p, district: "" })); }} required className={inp}>
+              <option value="">Şehir seçin</option>
+              {CITY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] text-[#8b6f5e] block mb-0.5">İlçe</label>
+            {districts.length > 0 ? (
+              <select value={form.district} onChange={(e) => setForm((p) => ({ ...p, district: e.target.value }))} className={inp}>
+                <option value="">İlçe seçin</option>
+                {districts.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+            ) : (
+              <input type="text" value={form.district} onChange={(e) => setForm((p) => ({ ...p, district: e.target.value }))} placeholder="İlçe" className={inp} />
+            )}
+          </div>
+          <label className="flex items-center gap-2 text-xs text-[#5c4033]">
+            <input type="checkbox" checked={form.isDefault} onChange={(e) => setForm((p) => ({ ...p, isDefault: e.target.checked }))} />
+            Varsayılan olarak kaydet
+          </label>
+          <button type="submit" className="w-full bg-[#2c1810] text-[#f5f0eb] text-xs py-2 hover:bg-[#3d2418] transition-colors">
+            Adresi Kaydet
+          </button>
+        </form>
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { prisma }     from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 
@@ -57,5 +58,27 @@ export async function setDefaultAddress(id: string) {
   });
   if (updated.count === 0) return { error: "Adres bulunamadı." };
 
+  return { success: true };
+}
+
+export async function adminAddAddress(siteUserId: string, data: {
+  recipientName: string; phone: string; addressLine: string;
+  city: string; district?: string | null; isDefault?: boolean;
+}) {
+  if (data.isDefault) {
+    await prisma.address.updateMany({ where: { userId: siteUserId }, data: { isDefault: false } });
+  }
+  await prisma.address.create({
+    data: { userId: siteUserId, recipientName: data.recipientName, phone: data.phone,
+      addressLine: data.addressLine, city: data.city, district: data.district ?? null,
+      isDefault: data.isDefault ?? false },
+  });
+  revalidatePath("/admin/musteriler");
+  return { success: true };
+}
+
+export async function adminDeleteAddress(id: string) {
+  await prisma.address.delete({ where: { id } });
+  revalidatePath("/admin/musteriler");
   return { success: true };
 }

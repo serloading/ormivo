@@ -30,17 +30,19 @@ export type SegmentPricingSettings = {
 
 const DISCOUNT_SEGMENTS = new Set(["BRONZE", "SILVER", "GOLD"] as const);
 
-/** Segment fiyatı hesapla. Diamond sabit artış, diğerleri yüzde indirimdir. */
+/** Segment fiyatı hesapla. Diamond: geliş fiyatı + sabit artış. Diğerleri: yüzde indirimdir. */
 export function getSegmentPrice(
   basePrice: number,
   segment: string | null | undefined,
   rates?: SegmentPricingSettings,
+  costPrice?: number | null,
 ): number | null {
   if (!segment) return null;
 
   if (segment === "DIAMOND") {
     const markup = rates?.DIAMOND ?? DEFAULT_DIAMOND_MARKUP;
-    return Math.round(basePrice + markup);
+    const base = (costPrice != null && costPrice > 0) ? costPrice : basePrice;
+    return Math.round(base + markup);
   }
 
   let discount: number;

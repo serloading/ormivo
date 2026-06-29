@@ -83,7 +83,8 @@ export default async function UrunDetayPage({
   })) as RelatedProduct[];
 
   const price = Number(product.price);
-  const segPrice = getSegmentPrice(price, userSegment, segmentSettings);
+  const costPrice = product.costPrice != null ? Number(product.costPrice) : null;
+  const segPrice = getSegmentPrice(price, userSegment, segmentSettings, costPrice);
   const inStock  = product.stock > 0;
 
   return (
@@ -158,7 +159,7 @@ export default async function UrunDetayPage({
 
             {/* Fiyat */}
             {(() => {
-              const segPrice = getSegmentPrice(price, userSegment, segmentSettings);
+              const segPrice = getSegmentPrice(price, userSegment, segmentSettings, costPrice);
               return segPrice ? (
                 <div className="mb-3 space-y-1.5">
                   <span className={`inline-block font-sans text-[11px] px-2.5 py-1 rounded font-semibold ${SEGMENT_COLORS[userSegment!]}`}>
@@ -278,7 +279,8 @@ export default async function UrunDetayPage({
                       </Link>
                       <div className="mt-auto">
                         {(() => {
-              const rSeg = getSegmentPrice(rPrice, userSegment, segmentSettings);
+              const rCostPrice = (r as { costPrice?: unknown }).costPrice != null ? Number((r as { costPrice?: unknown }).costPrice) : null;
+              const rSeg = getSegmentPrice(rPrice, userSegment, segmentSettings, rCostPrice);
                           return rSeg ? (
                             <div className="flex flex-col gap-0.5">
                               <span className={`font-sans text-[8px] px-1 py-px rounded font-semibold self-start ${SEGMENT_COLORS[userSegment!]}`}>
