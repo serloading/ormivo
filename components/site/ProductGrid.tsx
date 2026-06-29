@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link  from "next/link";
 import AddToCartButton  from "./AddToCartButton";
 import FavoriteButton   from "./FavoriteButton";
-import { getSegmentPrice, SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/segment";
+import { getSegmentPrice, SEGMENT_LABELS, SEGMENT_COLORS, type SegmentPricingSettings } from "@/lib/segment";
 
 interface Product {
   id:           string;
@@ -24,6 +24,7 @@ interface Props {
   loggedIn:        boolean;
   favoritedIds?:   string[];
   userSegment?:    string | null;
+  segmentSettings?: SegmentPricingSettings;
   filters: {
     kategori: string;
     marka:    string;
@@ -32,7 +33,7 @@ interface Props {
   };
 }
 
-export default function ProductGrid({ initialProducts, total, loggedIn, favoritedIds = [], userSegment, filters }: Props) {
+export default function ProductGrid({ initialProducts, total, loggedIn, favoritedIds = [], userSegment, segmentSettings, filters }: Props) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [loading,  setLoading]  = useState(false);
   const [hasMore,  setHasMore]  = useState(initialProducts.length < total);
@@ -101,8 +102,6 @@ export default function ProductGrid({ initialProducts, total, loggedIn, favorite
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-3">
         {products.map((product) => {
           const price    = product.price;
-          const compare  = product.comparePrice;
-          const discount = compare ? Math.round((1 - price / compare) * 100) : null;
           const img      = product.images?.[0] ?? null;
           const inStock  = product.stock > 0;
 
@@ -129,11 +128,6 @@ export default function ProductGrid({ initialProducts, total, loggedIn, favorite
                     Tükendi
                   </span>
                 )}
-                {discount && inStock && (
-                  <span className="absolute top-2 left-2 bg-[#C4A882] text-white font-sans text-[10px] tracking-widest uppercase px-2.5 py-1 pointer-events-none font-semibold shadow-sm">
-                    -%{discount}
-                  </span>
-                )}
                 <FavoriteButton
                   productId={product.id}
                   loggedIn={loggedIn}
@@ -144,7 +138,7 @@ export default function ProductGrid({ initialProducts, total, loggedIn, favorite
 
               <div className="p-2 md:p-2.5 flex flex-col flex-1">
                 {product.brand && (
-                  <Link href={`/?marka=${product.brand.slug}`} onClick={(e) => e.stopPropagation()}
+                  <Link href={`/urunler?marka=${product.brand.slug}`} onClick={(e) => e.stopPropagation()}
                     className="font-sans text-[7px] tracking-[0.2em] text-[#C4A882] hover:text-[#8B6F4E] mb-0.5 truncate block transition-colors">
                     {product.brand.name}
                   </Link>
@@ -156,7 +150,7 @@ export default function ProductGrid({ initialProducts, total, loggedIn, favorite
                 </Link>
                 <div className="flex items-center justify-between gap-1 mt-auto">
                   {(() => {
-                    const segPrice = getSegmentPrice(price, userSegment);
+                    const segPrice = getSegmentPrice(price, userSegment, segmentSettings);
                     return segPrice ? (
                       <div className="flex flex-col gap-0.5 min-w-0">
                         <span className={`font-sans text-[8px] px-1 py-px rounded font-semibold self-start ${SEGMENT_COLORS[userSegment!]}`}>
@@ -170,11 +164,6 @@ export default function ProductGrid({ initialProducts, total, loggedIn, favorite
                     ) : (
                       <p className="font-sans text-xs md:text-sm font-semibold text-[#1A1A1A]">
                         {price.toLocaleString("tr-TR")} ₺
-                        {compare && (
-                          <span className="ml-1.5 text-[10px] font-normal text-[#C4A882] line-through">
-                            {compare.toLocaleString("tr-TR")} ₺
-                          </span>
-                        )}
                       </p>
                     );
                   })()}

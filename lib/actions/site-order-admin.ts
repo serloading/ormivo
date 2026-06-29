@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { logActivity } from "@/lib/actions/activity-log";
+import { normalizeOrderItems } from "@/lib/order-items";
 
 const CARGO_FEE = 200;
 
@@ -22,7 +23,7 @@ async function ensureCostExpenses(
   order: { id: string; orderNo: string; items: unknown },
   source: "web" | "manuel"
 ) {
-  const items = order.items as { productId?: string; name: string; qty: number }[];
+  const items = normalizeOrderItems(order.items);
   const productIds = items.map((i) => i.productId).filter(Boolean) as string[];
   if (productIds.length === 0) return;
 
@@ -61,7 +62,7 @@ async function ensureCostExpenses(
 
 // Restores stock for all items in an order (called on cancellation).
 async function restoreStock(items: unknown) {
-  const rows = items as { productId?: string; qty: number }[];
+  const rows = normalizeOrderItems(items);
   for (const item of rows) {
     if (!item.productId) continue;
     try {
@@ -77,14 +78,16 @@ async function restoreStock(items: unknown) {
 
 // Sipariş düzenlenince stok farkını uygula (eski - yeni)
 async function applyStockDiff(
-  prevItems: { productId?: string; qty: number }[],
-  newItems: { productId?: string; qty: number }[]
+  prevItems: unknown,
+  newItems: unknown
 ) {
+  const prevRows = normalizeOrderItems(prevItems);
+  const newRows = normalizeOrderItems(newItems);
   // Ürün bazında qty değişimini hesapla
   const prevMap = new Map<string, number>();
-  for (const i of prevItems) if (i.productId) prevMap.set(i.productId, (prevMap.get(i.productId) ?? 0) + i.qty);
+  for (const i of prevRows) if (i.productId) prevMap.set(i.productId, (prevMap.get(i.productId) ?? 0) + i.qty);
   const newMap = new Map<string, number>();
-  for (const i of newItems) if (i.productId) newMap.set(i.productId, (newMap.get(i.productId) ?? 0) + i.qty);
+  for (const i of newRows) if (i.productId) newMap.set(i.productId, (newMap.get(i.productId) ?? 0) + i.qty);
 
   // Tüm productId'leri topla
   const allIds = new Set([...prevMap.keys(), ...newMap.keys()]);
@@ -374,7 +377,7 @@ export async function rebuildCostExpensesForProduct(productId: string) {
   });
 
   for (const order of paidWebOrders) {
-    const items = order.items as { productId?: string; name: string; qty: number }[];
+    const items = normalizeOrderItems(order.items);
     for (const item of items.filter((i) => i.productId === productId)) {
       const desc    = `Ürün maliyeti — ${item.name} — #${order.orderNo}`;
       const newCost = Number(product.costPrice) * item.qty;
@@ -398,7 +401,7 @@ export async function rebuildCostExpensesForProduct(productId: string) {
   });
 
   for (const order of paidManuelOrders) {
-    const items = order.items as { productId?: string; name: string; qty: number }[];
+    const items = normalizeOrderItems(order.items);
     for (const item of items.filter((i) => i.productId === productId)) {
       const desc    = `Ürün maliyeti — ${item.name} — #${order.orderNo}`;
       const newCost = Number(product.costPrice) * item.qty;
@@ -440,7 +443,7 @@ export async function updateOrderItems(
       where: { id: orderId },
       select: { items: true },
     });
-    const prevItems = prevOrder.items as { productId?: string; qty: number }[];
+    const prevItems = prevOrder.items;
     await applyStockDiff(prevItems, items);
 
     const order = await prisma.siteOrder.update({
@@ -492,7 +495,7 @@ export async function updateOrderItems(
       where: { id: orderId },
       select: { items: true },
     });
-    const prevItems = prevOrder.items as { productId?: string; qty: number }[];
+    const prevItems = prevOrder.items;
     await applyStockDiff(prevItems, items);
 
     const order = await prisma.order.update({

@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useTransition } from "react";
 import { updateCartItem, removeFromCart } from "@/lib/actions/cart";
-import { getSegmentPrice, SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/segment";
+import { getSegmentPrice, SEGMENT_LABELS, SEGMENT_COLORS, type SegmentPricingSettings } from "@/lib/segment";
 
 interface CartItemRowProps {
   item: {
@@ -20,12 +20,13 @@ interface CartItemRowProps {
     };
   };
   userSegment?: string | null;
+  segmentSettings?: SegmentPricingSettings;
 }
 
-export default function CartItemRow({ item, userSegment }: CartItemRowProps) {
+export default function CartItemRow({ item, userSegment, segmentSettings }: CartItemRowProps) {
   const [pending, startTransition] = useTransition();
   const price    = Number(item.product.price);
-  const segPrice = getSegmentPrice(price, userSegment);
+  const segPrice = getSegmentPrice(price, userSegment, segmentSettings);
   const img      = item.product.images?.[0] ?? null;
 
   const update = (qty: number) =>
@@ -49,7 +50,7 @@ export default function CartItemRow({ item, userSegment }: CartItemRowProps) {
       <div className="flex-1 min-w-0 flex flex-col justify-between">
         <div>
           {item.product.brand?.name && (
-            <Link href={`/?marka=${item.product.brand.slug}`}
+            <Link href={`/urunler?marka=${item.product.brand.slug}`}
               className="font-sans text-[9px] tracking-[0.2em] text-[#C4A882] mb-0.5 hover:text-[#8B6F4E] transition-colors block"
               >
               {item.product.brand.name}

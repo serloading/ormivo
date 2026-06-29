@@ -4,27 +4,34 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { createSession, deleteSession } from "@/lib/session";
 import { syncSiteUserFromCustomerPhone } from "@/lib/site-user-sync";
+import { canonicalPhone, normalizePhoneDigits, phoneLookupVariants } from "@/lib/phone";
 
 export async function register(formData: FormData) {
-  const name     = (formData.get("name")     as string)?.trim();
-  const phone    = (formData.get("phone")    as string)?.trim().replace(/\s/g, "");
+  const name = (formData.get("name") as string)?.trim();
+  const phoneRaw = (formData.get("phone") as string)?.trim();
   const password = (formData.get("password") as string);
 
-  if (!name || name.length < 2)
+  if (!name || name.length < 2) {
     return { error: "Ad Soyad en az 2 karakter olmalı." };
+  }
 
-  if (!phone || !password)
+  if (!phoneRaw || !password) {
     return { error: "Telefon numarası ve şifre gerekli." };
+  }
 
-  // Telefon numarası doğrulama: sadece rakam, 10-11 hane, @ içermemeli
-  const digits = phone.replace(/\D/g, "");
-  if (phone.includes("@") || digits.length < 10 || digits.length > 11)
+  const digits = normalizePhoneDigits(phoneRaw);
+  if (phoneRaw.includes("@") || digits.length < 10 || digits.length > 12) {
     return { error: "Geçerli bir telefon numarası girin (örn: 05XX XXX XX XX)." };
+  }
 
-  if (password.length < 6)
+  if (password.length < 6) {
     return { error: "Şifre en az 6 karakter olmalı." };
+  }
 
-  const exists = await prisma.siteUser.findUnique({ where: { phone } });
+  const phone = canonicalPhone(phoneRaw);
+  const exists = await prisma.siteUser.findFirst({
+    where: { phone: { in: phoneLookupVariants(phoneRaw) } },
+  });
   if (exists) return { error: "Bu telefon numarası zaten kayıtlı." };
 
   const passwordHash = await bcrypt.hash(password, 12);
@@ -32,7 +39,6 @@ export async function register(formData: FormData) {
     data: { phone, name, passwordHash },
   });
 
-  // Admin müşteriler listesinde görünsün
   const existingCustomer = await prisma.customer.findFirst({ where: { phone } });
   if (!existingCustomer) {
     await prisma.customer.create({ data: { name, phone, tags: [] } });
@@ -48,17 +54,20 @@ export async function register(formData: FormData) {
 }
 
 export async function login(formData: FormData) {
-  const phone    = (formData.get("phone")    as string)?.trim().replace(/\s/g, "");
+  const phoneRaw = (formData.get("phone") as string)?.trim();
   const password = (formData.get("password") as string);
 
-  if (!phone || !password)
+  if (!phoneRaw || !password) {
     return { error: "Telefon numarası ve şifre gerekli." };
+  }
 
-  const user = await prisma.siteUser.findUnique({ where: { phone } });
+  const user = await prisma.siteUser.findFirst({
+    where: { phone: { in: phoneLookupVariants(phoneRaw) } },
+  });
   if (!user) return { error: "Telefon numarası veya şifre hatalı." };
 
   const ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok)  return { error: "Telefon numarası veya şifre hatalı." };
+  if (!ok) return { error: "Telefon numarası veya şifre hatalı." };
 
   await createSession({ userId: user.id, phone: user.phone, name: user.name, segment: user.segment ?? null });
   return { success: true, mustChangePassword: user.mustChangePassword };
@@ -70,12 +79,14 @@ export async function changePassword(formData: FormData) {
   if (!session) return { error: "Oturum açık değil." };
 
   const newPassword = (formData.get("password") as string);
-  const confirm     = (formData.get("confirm")   as string);
+  const confirm = (formData.get("confirm") as string);
 
-  if (!newPassword || newPassword.length < 8)
+  if (!newPassword || newPassword.length < 8) {
     return { error: "Şifre en az 8 karakter olmalı." };
-  if (newPassword !== confirm)
+  }
+  if (newPassword !== confirm) {
     return { error: "Şifreler eşleşmiyor." };
+  }
 
   const hash = await bcrypt.hash(newPassword, 12);
   await prisma.siteUser.update({
@@ -104,9 +115,8 @@ export async function updateSiteUserProfile(data: { name?: string; phone?: strin
   }
 
   if (data.phone !== undefined) {
-    const phone = data.phone.trim().replace(/\s/g, "");
+    const phone = canonicalPhone(data.phone);
     if (!phone || phone.length < 10) return { error: "Geçerli bir telefon numarası girin." };
-    // Aynı telefon başka kullanıcıda kayıtlı mı?
     const existing = await prisma.siteUser.findFirst({ where: { phone, id: { not: session.userId } } });
     if (existing) return { error: "Bu telefon numarası zaten kullanımda." };
     updateData.phone = phone;
@@ -126,9 +136,8 @@ export async function updateSiteUserProfile(data: { name?: string; phone?: strin
 
   const updatedUser = await prisma.siteUser.update({ where: { id: session.userId }, data: updateData });
 
-  // Customer kaydını da senkron tut
   const customerPhone = (updateData.phone as string | undefined) ?? session.phone;
-  const existingCust  = await prisma.customer.findFirst({ where: { phone: customerPhone } });
+  const existingCust = await prisma.customer.findFirst({ where: { phone: customerPhone } });
   if (existingCust) {
     if (updateData.name) await prisma.customer.update({ where: { id: existingCust.id }, data: { name: updateData.name as string } });
   } else {

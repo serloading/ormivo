@@ -1,5 +1,7 @@
 "use client";
 
+import { normalizeOrderItems } from "@/lib/order-items";
+
 const STATUS_LABELS: Record<string, string> = {
   PENDING:   "Hazırlanıyor",
   CONFIRMED: "Onaylandı",
@@ -43,10 +45,10 @@ export default function HesabimSiparisler({ orders, userPhone }: Props) {
       ) : (
         <div className="space-y-4">
           {orders.map((order) => {
-            const itemsArr = order.items as { name: string; qty: number; price: number }[];
-            const total    = Number(order.total);
+            const itemsArr = normalizeOrderItems(order.items);
+            const net      = Number(order.total);
             const discount = Number(order.discount ?? 0);
-            const net      = Math.max(0, total - discount);
+            const gross    = Math.max(0, net + discount);
 
             // WhatsApp mesajı
             const lines = [
@@ -54,8 +56,9 @@ export default function HesabimSiparisler({ orders, userPhone }: Props) {
               ``,
               ...itemsArr.map((i) => `• ${i.name} ×${i.qty} = ${(i.price * i.qty).toLocaleString("tr-TR")} ₺`),
               ``,
-              ...(discount > 0 ? [`İndirim: -${discount.toLocaleString("tr-TR")} ₺`] : []),
-              `Toplam: ${net.toLocaleString("tr-TR")} ₺`,
+              `Ana tutar: ${gross.toLocaleString("tr-TR")} ₺`,
+              ...(discount > 0 ? [`Aldığı indirim: -${discount.toLocaleString("tr-TR")} ₺`] : []),
+              `Son ödeyeceği: ${net.toLocaleString("tr-TR")} ₺`,
               `Durum: ${STATUS_LABELS[order.status] ?? order.status}`,
             ];
             const waUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(lines.join("\n"))}`;
@@ -90,17 +93,17 @@ export default function HesabimSiparisler({ orders, userPhone }: Props) {
 
                 <div className="border-t border-[#E8E4DE] pt-3 mb-3 space-y-1">
                   <div className="flex justify-between font-sans text-xs text-[#9A9A9A]">
-                    <span>Ara toplam</span>
-                    <span>{total.toLocaleString("tr-TR")} ₺</span>
+                    <span>Ana tutar</span>
+                    <span>{gross.toLocaleString("tr-TR")} ₺</span>
                   </div>
                   {discount > 0 && (
                     <div className="flex justify-between font-sans text-xs text-orange-600">
-                      <span>İndirim</span>
+                      <span>Aldığı indirim</span>
                       <span>-{discount.toLocaleString("tr-TR")} ₺</span>
                     </div>
                   )}
                   <div className="flex justify-between font-sans text-sm font-semibold text-[#1A1A1A]">
-                    <span>Toplam</span>
+                    <span>Son ödeyeceği</span>
                     <span className="text-[#C4A882]">{net.toLocaleString("tr-TR")} ₺</span>
                   </div>
                 </div>

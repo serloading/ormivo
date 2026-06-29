@@ -39,7 +39,7 @@ export default async function MarkalarsPage() {
                 {grouped[letter].map((brand) => (
                   <Link
                     key={brand.slug}
-                    href={`/?marka=${brand.slug}`}
+                    href={`/urunler?marka=${brand.slug}`}
                     className="bg-white border border-[#E8E4DE] hover:border-[#C4A882] hover:shadow-sm transition-all duration-200 p-4 flex flex-col items-center gap-3 group"
                   >
                     {brand.logo ? (

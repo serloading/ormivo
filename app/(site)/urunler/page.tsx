@@ -8,6 +8,7 @@ import FavoriteButton       from "@/components/site/FavoriteButton";
 import UrunlerMobileFilter  from "@/components/site/UrunlerMobileFilter";
 import { getUserFavoriteIds } from "@/lib/actions/favorite";
 import { getSegmentPrice, SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/segment";
+import { getSegmentSettings } from "@/lib/actions/settings";
 
 export const metadata = { title: "Koleksiyon — Ormivo" };
 export const dynamic = "force-dynamic";
@@ -66,7 +67,7 @@ export default async function UrunlerPage({
   const loggedIn    = !!session;
   const userSegment = session?.segment ?? null;
 
-  const [rawProducts, categories, brands, favoritedIds] = await Promise.all([
+  const [rawProducts, categories, brands, favoritedIds, segmentSettings] = await Promise.all([
     prisma.product.findMany({
       where,
       include: { category: true, brand: true },
@@ -75,6 +76,7 @@ export default async function UrunlerPage({
     prisma.category.findMany({ orderBy: { name: "asc" } }),
     prisma.brand.findMany({ orderBy: { name: "asc" } }),
     getUserFavoriteIds(),
+    getSegmentSettings(),
   ]);
 
   type UrunCat   = { id: string; name: string; slug: string };
@@ -240,8 +242,6 @@ export default async function UrunlerPage({
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                 {products.map((product) => {
                   const price    = Number(product.price);
-                  const compare  = product.comparePrice ? Number(product.comparePrice) : null;
-                  const discount = compare ? Math.round((1 - price / compare) * 100) : null;
                   const img      = product.images?.[0] ?? null;
                   const inStock  = product.stock > 0;
                   return (
@@ -261,9 +261,6 @@ export default async function UrunlerPage({
                         {!inStock && (
                           <div className="absolute top-2 right-2 bg-[#1A1A1A]/80 text-white font-sans text-[8px] tracking-[0.18em] uppercase px-2 py-1 pointer-events-none">Tükendi</div>
                         )}
-                        {compare && inStock && (
-                          <div className="absolute top-2 left-2 bg-[#C4A882] text-white font-sans text-[8px] tracking-[0.1em] uppercase px-2 py-1 pointer-events-none">%20 İndirim</div>
-                        )}
                         {product.isBestSeller && inStock && (
                           <div className="absolute top-2 right-2 bg-[#1A1A1A] text-[#C4A882] font-sans text-[8px] tracking-[0.1em] uppercase px-2 py-1 pointer-events-none">★ En Çok Satan</div>
                         )}
@@ -273,7 +270,7 @@ export default async function UrunlerPage({
 
                       <div className="p-3 md:p-4 flex flex-col flex-1">
                         {product.brand?.name && (
-                          <Link href={`/?marka=${product.brand.slug}`}
+                          <Link href={`/urunler?marka=${product.brand.slug}`}
                             className="font-sans text-[8px] md:text-[9px] tracking-[0.22em] text-[#C4A882] hover:text-[#8B6F4E] mb-1 block transition-colors">
                             {product.brand.name}
                           </Link>
@@ -286,7 +283,7 @@ export default async function UrunlerPage({
                         )}
                         <div className="flex items-center justify-between gap-1 mt-auto">
                           {(() => {
-                            const segPrice = getSegmentPrice(price, userSegment);
+                            const segPrice = getSegmentPrice(price, userSegment, segmentSettings);
                             return segPrice ? (
                               <div className="flex flex-col gap-0.5">
                                 <span className={`font-sans text-[8px] px-1 py-px rounded font-semibold self-start ${SEGMENT_COLORS[userSegment!]}`}>
@@ -300,7 +297,6 @@ export default async function UrunlerPage({
                             ) : (
                               <div className="flex items-baseline gap-1.5">
                                 <span className="font-sans text-sm font-medium text-[#1A1A1A]">{price.toLocaleString("tr-TR")} ₺</span>
-                                {compare && <span className="font-sans text-xs text-[#C4A882] line-through">{compare.toLocaleString("tr-TR")} ₺</span>}
                               </div>
                             );
                           })()}

@@ -144,6 +144,7 @@ model Finance {
   date         DateTime    @default(now())
   createdAt    DateTime    @default(now())
   siteOrderId  String?
+  depoSiparisId String?     @unique
 }
 
 enum FinanceType {
@@ -319,6 +320,7 @@ model SupplierDebt {
   status       String           @default("BEKLIYOR")
   createdAt    DateTime         @default(now())
   payments     SupplierPayment[]
+  depoSiparisId String?         @unique
 }
 
 model SupplierPayment {
@@ -339,7 +341,10 @@ model DepoSiparis {
   items        Json     // [{ productId?, name, qty, unitPrice }]
   total        Float    @default(0)
   paidAmount   Float    @default(0)
+  shippingFee  Float    @default(0)
   supplierName String?
+  depoName     String?
+  depoPhone    String?
   status       String   @default("HAZIRLANIYOR") // HAZIRLANIYOR | ILETILDI
   notes        String?
   createdAt    DateTime @default(now())

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { normalizeOrderItems } from "@/lib/order-items";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +58,7 @@ export default async function SiparisDetayPage({
       discount:      Number(raw.discount ?? 0),
       note:          raw.note,
       createdAt:     raw.createdAt,
-      items:         raw.items as Item[],
+      items:         normalizeOrderItems(raw.items),
       recipientName: raw.recipientName,
       recipientPhone: raw.recipientPhone,
       addressLine:   raw.addressLine,
@@ -82,7 +83,7 @@ export default async function SiparisDetayPage({
       discount:      0,
       note:          raw.note,
       createdAt:     raw.createdAt,
-      items:         raw.items as Item[],
+      items:         normalizeOrderItems(raw.items),
       recipientName: raw.customer?.name ?? "Silinmiş Müşteri",
       recipientPhone: raw.customer?.phone ?? null,
       addressLine:   null,

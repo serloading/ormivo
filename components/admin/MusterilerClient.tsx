@@ -13,6 +13,7 @@ type SortKey = "name" | "segment" | "orders" | "createdAt";
 type SortDir = "asc" | "desc";
 
 const SEGMENT_ICONS: Record<string, { letter: string; cls: string }> = {
+  DIAMOND: { letter: "D", cls: "bg-cyan-500 text-white" },
   GOLD:   { letter: "G", cls: "bg-yellow-400 text-yellow-900" },
   SILVER: { letter: "S", cls: "bg-gray-300 text-gray-700" },
   BRONZE: { letter: "B", cls: "bg-orange-400 text-orange-900" },
@@ -26,7 +27,7 @@ type Customer = {
 };
 
 const EMPTY = { name: "", phone: "", email: "", address: "", note: "" };
-const SEGMENT_ORDER: Record<string, number> = { GOLD: 1, SILVER: 2, BRONZE: 3 };
+const SEGMENT_ORDER: Record<string, number> = { DIAMOND: 0, GOLD: 1, SILVER: 2, BRONZE: 3 };
 
 export default function MusterilerClient({ customers }: { customers: Customer[] }) {
   const router = useRouter();

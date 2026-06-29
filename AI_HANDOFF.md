@@ -381,3 +381,168 @@ Etkilenen dosyalar:
 
 Sonraki adım:
 - Deploy tamamlanma durumunu Vercel tarafında izlemek
+
+---
+
+## 13. 2026-06-29 Sipariş, Login ve UI Düzeltmeleri
+
+Yapılanlar:
+- Manuel sipariş kalemleri için ortak normalize katmanı eklendi
+- Admin sipariş listesi, detay, rapor ve tamamlandı ekranları `name/qty` ile `productName/quantity` farkını tolere edecek hale getirildi
+- Site tarafında sahte indirim görünümü azaltıldı ve brand tıklamaları ürün listesine yönlendirildi
+- Telefon numarası canonical hale getirilerek kayıt/login ve müşteri senkron akışı güçlendirildi
+
+Etkilenen dosyalar:
+- `lib/order-items.ts`
+- `lib/phone.ts`
+- `lib/actions/auth.ts`
+- `lib/actions/customer.ts`
+- `lib/site-user-sync.ts`
+- `lib/actions/site-order-admin.ts`
+- `app/(admin)/admin/siparisler/page.tsx`
+- `app/(admin)/admin/siparisler/detay/page.tsx`
+- `app/(admin)/admin/rapor/page.tsx`
+- `app/(site)/page.tsx`
+- `app/(site)/urunler/page.tsx`
+- `app/(site)/urunler/[slug]/page.tsx`
+- `app/(site)/markalar/page.tsx`
+- `components/site/ProductCard.tsx`
+- `components/site/ProductGrid.tsx`
+- `components/site/GuestCart.tsx`
+- `components/site/LoggedInCart.tsx`
+- `components/site/CartItemRow.tsx`
+
+Notlar:
+- `siteUser` lookup kısmında yanlış `findUnique` kullanımı düzeltiliyor
+- `comparePrice` tabanlı fake indirim gösterimi kademeli olarak kaldırılıyor
+- Mevcut eski kayıtlar için ek veri backfill scripti gerekirse ayrıca eklenebilir
+
+Sonraki adım:
+- `npm run build` ile derleme kontrolü yapmak
+- Derlemede çıkan varsa kalan tip/hata noktalarını düzeltmek
+- Gerekirse telefon ve sipariş backfill scripti eklemek
+
+---
+
+## 14. 2026-06-29 Build Doğrulaması Tamamlandı
+
+Yapılanlar:
+- Google font bağımlılığı kaldırıldı ve yerel font stack ile değiştirildi
+- `LoggedInCart` içindeki brand link tipi hatası düzeltildi
+- Proje derlemesi başarıyla tamamlandı
+
+Sonuç:
+- `npm run build` başarılı
+- TypeScript kontrolü geçti
+- Static page generation tamamlandı
+
+Etkilenen dosyalar:
+- `app/layout.tsx`
+- `components/site/LoggedInCart.tsx`
+
+Sonraki adım:
+- İstenirse değişiklikler commitlenip deploy edilebilir
+- Eski telefon formatları için toplu backfill scripti ayrıca çıkarılabilir
+
+---
+
+## 15. 2026-06-29 Depo Siparişi Genişletmeleri
+
+Yapılanlar:
+- Depo siparişlerine `depoName`, `depoPhone` ve elle girilebilir `shippingFee` alanları eklendi
+- Depo siparişleri düzenlenebilir hale getirildi
+- `Depoya İlet` butonu depo telefonuna göre WhatsApp mesajı açacak şekilde bağlandı
+- Depo kargo gideri finans kaydına da yazılıyor, böylece toplam giderde görünür oldu
+- Sipariş özeti ekranında ana tutar, alınan indirim ve son ödenecek tutar ayrı gösterildi
+- Misafir sipariş submit akışı `finally` ile güvene alındı
+
+Etkilenen dosyalar:
+- `components/admin/DepoSiparisClient.tsx`
+- `lib/actions/depo-siparis.ts`
+- `prisma/schema.prisma`
+- `prisma/migrations/20260629070000_add_depo_shipping_and_links/migration.sql`
+- `components/site/GuestCart.tsx`
+- `app/(site)/hesabim/HesabimSiparisler.tsx`
+- `lib/actions/order-site.ts`
+
+Notlar:
+- Prisma client yeniden üretildi
+- `npm run build` başarılı
+
+Sonraki adım:
+- Deploy öncesi migration’ın canlı veritabanına uygulanması
+- İstenirse logged-in checkout için de aynı submit güvenliği eklenebilir
+
+---
+
+## 16. 2026-06-29 Manuel Siparişten Depoya Aktarım
+
+Yapılanlar:
+- Elle girilen sipariş formuna `Siparişi kaydettikten sonra depoya da ekle` seçeneği eklendi
+- Sipariş detay modaline ayrıca `Depoya Aktar` butonu eklendi
+- Depo aktarımı en son açık bekleyen depo siparişini bulup ona ürünleri ekleyecek şekilde bağlandı
+- Açık depo siparişi yoksa otomatik yeni bir bekleyen depo siparişi oluşturuluyor
+- Kaynak sipariş numarası ve müşteri adı depo siparişi notlarına ekleniyor
+
+Etkilenen dosyalar:
+- `components/admin/SiparislerClient.tsx`
+- `lib/actions/depo-siparis.ts`
+
+Notlar:
+- Depo aktarım akışı build kontrolünden geçti
+- Aynı ürünler açık depo siparişine eklenirken adetler birleştiriliyor
+
+Sonraki adım:
+- İstenirse depo aktarımı için görünür bir başarı bildirimi/toast eklenebilir
+- İstenirse açık depo siparişini kapatma/temizleme akışı ayrıca tasarlanabilir
+
+---
+
+## 17. 2026-06-29 Diamond Segmenti
+
+Yapılanlar:
+- `DIAMOND` segmenti hem kullanıcı segment listesine hem de site fiyat hesap sistemine eklendi
+- Diamond için sabit tutar mantığı getirildi: ürün maliyetinin üstüne varsayılan `500 ₺` ekleniyor
+- Admin segment ayar kartına Diamond için ayrı bir sabit tutar alanı eklendi
+- Site ürün listesi, ürün detayı ve sepet ekranları Diamond ayarını server-side okuyacak şekilde güncellendi
+- Müşteri listesi ve segment etiketleri Diamond’ı gösterecek şekilde genişletildi
+
+Etkilenen dosyalar:
+- `lib/segment.ts`
+- `lib/customer-constants.ts`
+- `lib/actions/settings.ts`
+- `app/(admin)/admin/kuponlar/KuponlarClient.tsx`
+- `app/(site)/page.tsx`
+- `app/(site)/urunler/page.tsx`
+- `app/(site)/urunler/[slug]/page.tsx`
+- `app/(site)/sepet/page.tsx`
+- `components/site/ProductGrid.tsx`
+- `components/site/LoggedInCart.tsx`
+- `components/site/CartItemRow.tsx`
+- `components/admin/MusterilerClient.tsx`
+
+Notlar:
+- Diamond ayarı admin panelden elle değiştirilebilir
+- `npm run build` başarılı
+
+Sonraki adım:
+- İstenirse Diamond segmenti için admin müşteri profil kartına özel ikon da eklenebilir
+- İstenirse mevcut kullanıcıların segment backfill listesi de Diamond’ı destekleyecek şekilde ayrıca kontrol edilebilir
+
+---
+
+## 18. 2026-06-29 Sepet Kontrolü ve Deploy Hazırlığı
+
+Yapılanlar:
+- Logged-in sepet görünümü kontrol edildi
+- Sepette ürün satırlarında segment fiyatı, özet panelinde ana tutar, segment indirimi ve son toplamın göründüğü doğrulandı
+- Misafir sepette segment fiyatı yerine normal fiyat + kupon akışı korunuyor
+- Canlıya çıkış için commit/push hazırlığı yapılıyor
+
+Notlar:
+- Build kontrolü daha önce başarılıydı
+- Diamond fiyatı ve segment ayarları sepet ekranına da taşındı
+
+Sonraki adım:
+- Değişiklikleri commit edip `origin/main` üzerine pushlamak
+- Push sonrası canlı ortamı doğrulamak

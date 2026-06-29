@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import ProductGallery from "@/components/site/ProductGallery";
 import { getSegmentPrice, SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/segment";
+import { getSegmentSettings } from "@/lib/actions/settings";
 import ProductTabs from "@/components/site/ProductTabs";
 import ProductAddToCart from "@/components/site/ProductAddToCart";
 import AddToCartButton from "@/components/site/AddToCartButton";
@@ -59,6 +60,7 @@ export default async function UrunDetayPage({
   const session     = await getSession();
   const loggedIn    = !!session;
   const userSegment = session?.segment ?? null;
+  const segmentSettings = await getSegmentSettings();
 
   const product = await prisma.product.findFirst({
     where: { slug, deletedAt: null, isActive: true },
@@ -80,9 +82,8 @@ export default async function UrunDetayPage({
     orderBy: { createdAt: "desc" },
   })) as RelatedProduct[];
 
-  const price    = Number(product.price);
-  const compare  = product.comparePrice ? Number(product.comparePrice) : null;
-  const discount = compare ? Math.round((1 - price / compare) * 100) : null;
+  const price = Number(product.price);
+  const segPrice = getSegmentPrice(price, userSegment, segmentSettings);
   const inStock  = product.stock > 0;
 
   return (
@@ -115,7 +116,7 @@ export default async function UrunDetayPage({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 lg:gap-16 mb-16">
 
           {/* Sol: Galeri */}
-          <ProductGallery images={product.images ?? []} name={product.name} showDiscountBadge={!!compare} isBestSeller={product.isBestSeller} />
+          <ProductGallery images={product.images ?? []} name={product.name} showDiscountBadge={!!segPrice} isBestSeller={product.isBestSeller} />
 
           {/* Sağ: Ürün bilgisi */}
           <div className="flex flex-col">
@@ -157,7 +158,7 @@ export default async function UrunDetayPage({
 
             {/* Fiyat */}
             {(() => {
-              const segPrice = getSegmentPrice(price, userSegment);
+              const segPrice = getSegmentPrice(price, userSegment, segmentSettings);
               return segPrice ? (
                 <div className="mb-3 space-y-1.5">
                   <span className={`inline-block font-sans text-[11px] px-2.5 py-1 rounded font-semibold ${SEGMENT_COLORS[userSegment!]}`}>
@@ -177,11 +178,6 @@ export default async function UrunDetayPage({
                   <span className="font-serif text-3xl text-[#1A1A1A]">
                     {price.toLocaleString("tr-TR")} ₺
                   </span>
-                  {compare && (
-                    <span className="font-sans text-lg text-[#C4A882] line-through">
-                      {compare.toLocaleString("tr-TR")} ₺
-                    </span>
-                  )}
                 </div>
               );
             })()}
@@ -249,7 +245,6 @@ export default async function UrunDetayPage({
             <div className="flex gap-4 overflow-x-auto pb-4 md:overflow-x-visible md:grid md:grid-cols-4 md:gap-5 scrollbar-hide">
               {related.map((r) => {
                 const rPrice   = Number(r.price);
-                const rCompare = r.comparePrice ? Number(r.comparePrice) : null;
                 const rImg     = r.images?.[0] ?? null;
                 return (
                   <article
@@ -271,7 +266,7 @@ export default async function UrunDetayPage({
                     </div>
                     <div className="p-3 flex flex-col flex-1">
                       {r.brand?.name && (
-                        <Link href={`/?marka=${r.brand.slug}`}
+                        <Link href={`/urunler?marka=${r.brand.slug}`}
                           className="font-sans text-[8px] tracking-[0.2em] text-[#C4A882] hover:text-[#8B6F4E] mb-1 block transition-colors">
                           {r.brand.name}
                         </Link>
@@ -283,7 +278,7 @@ export default async function UrunDetayPage({
                       </Link>
                       <div className="mt-auto">
                         {(() => {
-                          const rSeg = getSegmentPrice(rPrice, userSegment);
+              const rSeg = getSegmentPrice(rPrice, userSegment, segmentSettings);
                           return rSeg ? (
                             <div className="flex flex-col gap-0.5">
                               <span className={`font-sans text-[8px] px-1 py-px rounded font-semibold self-start ${SEGMENT_COLORS[userSegment!]}`}>
@@ -297,7 +292,6 @@ export default async function UrunDetayPage({
                           ) : (
                             <div className="flex items-baseline gap-1.5">
                               <span className="font-sans text-sm font-medium text-[#1A1A1A]">{rPrice.toLocaleString("tr-TR")} ₺</span>
-                              {rCompare && <span className="font-sans text-xs text-[#C4A882] line-through">{rCompare.toLocaleString("tr-TR")} ₺</span>}
                             </div>
                           );
                         })()}

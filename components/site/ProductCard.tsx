@@ -19,7 +19,6 @@ type Product = {
 export default function ProductCard({ product }: { product: Product }) {
   const image = product.images?.[0] ?? null;
   const price = Number(product.price);
-  const compare = product.comparePrice ? Number(product.comparePrice) : null;
 
   return (
     <article className="group flex flex-col bg-white border border-[#E8E4DE] hover:border-[#C4A882] hover:shadow-lg transition-all duration-500">
@@ -36,12 +35,6 @@ export default function ProductCard({ product }: { product: Product }) {
           <div className="absolute inset-0 flex items-center justify-center">
             <span className="font-serif text-5xl text-[#C4A882] opacity-30">◈</span>
           </div>
-        )}
-        {/* Sol üst: %20 indirim badge */}
-        {compare && (
-          <span className="absolute top-2 left-2 bg-[#C4A882] text-white font-sans text-[10px] tracking-widest px-3 py-1.5 uppercase font-semibold shadow-sm">
-            %20 İndirim
-          </span>
         )}
         {/* Sağ üst: En çok satan badge */}
         {product.isBestSeller && (
@@ -68,11 +61,6 @@ export default function ProductCard({ product }: { product: Product }) {
             <span className="font-sans text-base font-medium text-[#1A1A1A]">
               {price.toLocaleString("tr-TR")} ₺
             </span>
-            {compare && (
-              <span className="font-sans text-xs text-[#9A9A9A] line-through">
-                {compare.toLocaleString("tr-TR")} ₺
-              </span>
-            )}
           </div>
           {product.isBestSeller && (
             <p className="font-sans text-[9px] tracking-widest text-[#C4A882] uppercase mb-2">★ En Çok Tercih Edilenler</p>

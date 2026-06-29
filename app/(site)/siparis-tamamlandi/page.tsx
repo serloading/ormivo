@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
+import { normalizeOrderItems } from "@/lib/order-items";
 
 export const metadata = { title: "Siparişiniz Alındı — Ormivo" };
 
@@ -39,7 +40,7 @@ export default async function SiparisTamamlandiPage({
     });
     if (order) {
       orderDetails = {
-        items: order.items as { name: string; qty: number; price: number }[],
+        items: normalizeOrderItems(order.items),
         total: Number(order.total),
         discount: Number(order.discount ?? 0),
         customerPhone: order.user?.phone ?? null,

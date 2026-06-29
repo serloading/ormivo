@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { placeOrder } from "@/lib/actions/order-site";
@@ -10,27 +10,30 @@ interface GuestItem { productId: string; qty: number; }
 interface ProductInfo { id: string; name: string; slug: string; price: number; images: string[] | null; brand?: string | null; }
 
 export default function GuestCart() {
-  const [items, setItems]         = useState<GuestItem[]>([]);
-  const [products, setProducts]   = useState<ProductInfo[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [showForm, setShowForm]   = useState(false);
+  const [items, setItems] = useState<GuestItem[]>([]);
+  const [products, setProducts] = useState<ProductInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
-  const [couponInput, setCouponInput]   = useState("");
-  const [couponError, setCouponError]   = useState("");
+  const [couponInput, setCouponInput] = useState("");
+  const [couponError, setCouponError] = useState("");
   const [couponDiscount, setCouponDiscount] = useState(0);
-  const [appliedCoupon, setAppliedCoupon]   = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState("");
   const [, startCouponT] = useTransition();
 
   useEffect(() => {
     const cart: GuestItem[] = JSON.parse(localStorage.getItem("guest_cart") ?? "[]");
     setItems(cart);
-    if (cart.length === 0) { setLoading(false); return; }
+    if (cart.length === 0) {
+      setLoading(false);
+      return;
+    }
 
     fetch("/api/products/batch", {
-      method:  "POST",
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ ids: cart.map((i) => i.productId) }),
+      body: JSON.stringify({ ids: cart.map((i) => i.productId) }),
     })
       .then((r) => r.json())
       .then((data: ProductInfo[]) => setProducts(data))
@@ -60,21 +63,32 @@ export default function GuestCart() {
     e.preventDefault();
     setSubmitting(true);
     setFormError("");
-    const fd = new FormData(e.currentTarget);
-    const result = await placeOrder({
-      recipientName:  fd.get("recipientName")  as string,
-      recipientPhone: fd.get("recipientPhone") as string,
-      addressLine:    fd.get("addressLine")    as string,
-      city:           fd.get("city")           as string,
-      district:       fd.get("district")       as string,
-      note:           fd.get("note")           as string,
-      guestItems:     items,
-    });
-    setSubmitting(false);
-    if (result.error) { setFormError(result.error); return; }
-    localStorage.removeItem("guest_cart");
-    window.dispatchEvent(new Event("guest-cart-updated"));
-    window.location.href = `/siparis-tamamlandi?orderNo=${result.orderNo}`;
+
+    try {
+      const fd = new FormData(e.currentTarget);
+      const result = await placeOrder({
+        recipientName: fd.get("recipientName") as string,
+        recipientPhone: fd.get("recipientPhone") as string,
+        addressLine: fd.get("addressLine") as string,
+        city: fd.get("city") as string,
+        district: fd.get("district") as string,
+        note: fd.get("note") as string,
+        guestItems: items,
+      });
+
+      if (result.error) {
+        setFormError(result.error);
+        return;
+      }
+
+      localStorage.removeItem("guest_cart");
+      window.dispatchEvent(new Event("guest-cart-updated"));
+      window.location.href = `/siparis-tamamlandi?orderNo=${result.orderNo}`;
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Sipariş oluşturulamadı.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   const enriched = items.map((item) => ({
@@ -90,13 +104,21 @@ export default function GuestCart() {
     setCouponError("");
     startCouponT(async () => {
       const result = await validateCoupon(couponInput, itemsTotal);
-      if (!result.valid) { setCouponError(result.error ?? "Geçersiz kupon."); return; }
+      if (!result.valid) {
+        setCouponError(result.error ?? "Geçersiz kupon.");
+        return;
+      }
       setCouponDiscount(result.discount ?? 0);
       setAppliedCoupon(couponInput.toUpperCase().trim());
       setCouponInput("");
     });
   }
-  function removeCoupon() { setAppliedCoupon(""); setCouponDiscount(0); setCouponInput(""); }
+
+  function removeCoupon() {
+    setAppliedCoupon("");
+    setCouponDiscount(0);
+    setCouponInput("");
+  }
 
   if (loading) {
     return <div className="py-32 text-center font-sans text-sm text-[#9A9A9A]">Yükleniyor...</div>;
@@ -117,7 +139,6 @@ export default function GuestCart() {
 
   return (
     <div className="grid md:grid-cols-3 gap-6">
-      {/* Ürün listesi */}
       <div className="md:col-span-2 space-y-3">
         {enriched.map(({ productId, qty, product }) => (
           <div key={productId} className="bg-white border border-[#E8E4DE] p-4 flex gap-4 items-start">
@@ -127,19 +148,35 @@ export default function GuestCart() {
               )}
             </Link>
             <div className="flex-1 min-w-0">
-              {product?.brand && <p className="font-sans text-[9px] tracking-[0.2em] text-[#C4A882] mb-0.5">{product.brand as string}</p>}
-              <Link href={product?.slug ? `/urunler/${product.slug}` : "#"} className="font-sans text-sm text-[#1A1A1A] leading-snug line-clamp-2 hover:text-[#C4A882] transition-colors">{product?.name ?? productId}</Link>
+              {product?.brand && (
+                <Link href={`/urunler?marka=${encodeURIComponent(product.brand)}`} className="font-sans text-[9px] tracking-[0.2em] text-[#C4A882] mb-0.5 hover:text-[#8B6F4E] transition-colors block">
+                  {product.brand}
+                </Link>
+              )}
+              <Link href={product?.slug ? `/urunler/${product.slug}` : "#"} className="font-sans text-sm text-[#1A1A1A] leading-snug line-clamp-2 hover:text-[#C4A882] transition-colors">
+                {product?.name ?? productId}
+              </Link>
               <p className="font-sans text-sm font-semibold text-[#1A1A1A] mt-1">
                 {((product?.price ?? 0) * qty).toLocaleString("tr-TR")} ₺
               </p>
               <div className="flex items-center gap-2 mt-2">
-                <button onClick={() => updateQty(productId, -1)}
-                  className="w-6 h-6 border border-[#E8E4DE] flex items-center justify-center text-[#1A1A1A] hover:border-[#C4A882] transition-colors font-sans text-sm">−</button>
+                <button
+                  onClick={() => updateQty(productId, -1)}
+                  className="w-6 h-6 border border-[#E8E4DE] flex items-center justify-center text-[#1A1A1A] hover:border-[#C4A882] transition-colors font-sans text-sm"
+                >
+                  −
+                </button>
                 <span className="font-sans text-sm w-5 text-center">{qty}</span>
-                <button onClick={() => updateQty(productId, 1)}
-                  className="w-6 h-6 border border-[#E8E4DE] flex items-center justify-center text-[#1A1A1A] hover:border-[#C4A882] transition-colors font-sans text-sm">+</button>
-                <button onClick={() => removeItem(productId)}
-                  className="ml-auto font-sans text-[10px] text-[#9A9A9A] hover:text-red-500 transition-colors tracking-wide uppercase">
+                <button
+                  onClick={() => updateQty(productId, 1)}
+                  className="w-6 h-6 border border-[#E8E4DE] flex items-center justify-center text-[#1A1A1A] hover:border-[#C4A882] transition-colors font-sans text-sm"
+                >
+                  +
+                </button>
+                <button
+                  onClick={() => removeItem(productId)}
+                  className="ml-auto font-sans text-[10px] text-[#9A9A9A] hover:text-red-500 transition-colors tracking-wide uppercase"
+                >
                   Kaldır
                 </button>
               </div>
@@ -148,10 +185,10 @@ export default function GuestCart() {
         ))}
       </div>
 
-      {/* Özet & Sipariş */}
       <div className="md:col-span-1">
         <div className="bg-white border border-[#E8E4DE] p-6 sticky top-24">
           <h2 className="font-serif text-lg text-[#1A1A1A] mb-5 pb-4 border-b border-[#E8E4DE]">Sipariş Özeti</h2>
+
           <div className="space-y-2 mb-5">
             {enriched.map(({ productId, qty, product }) => (
               <div key={productId} className="flex justify-between font-sans text-xs text-[#6B6B6B]">
@@ -161,7 +198,6 @@ export default function GuestCart() {
             ))}
           </div>
 
-          {/* Kupon */}
           {!appliedCoupon ? (
             <div className="border-t border-[#E8E4DE] pt-4 mb-4">
               <p className="font-sans text-[10px] tracking-[0.15em] uppercase text-[#9A9A9A] mb-2">İndirim Kodu</p>
@@ -173,8 +209,12 @@ export default function GuestCart() {
                   placeholder="KUPON KODU"
                   className="w-full border border-[#E8E4DE] px-3 py-2 font-sans text-xs outline-none focus:border-[#C4A882] uppercase tracking-widest transition-colors"
                 />
-                <button type="button" onClick={applyCoupon} disabled={!couponInput.trim()}
-                  className="w-full bg-[#1A1A1A] text-white font-sans text-[10px] tracking-widest uppercase px-3 py-2 hover:bg-[#C4A882] disabled:opacity-40 transition-colors">
+                <button
+                  type="button"
+                  onClick={applyCoupon}
+                  disabled={!couponInput.trim()}
+                  className="w-full bg-[#1A1A1A] text-white font-sans text-[10px] tracking-widest uppercase px-3 py-2 hover:bg-[#C4A882] disabled:opacity-40 transition-colors"
+                >
                   Uygula
                 </button>
               </div>
@@ -188,26 +228,26 @@ export default function GuestCart() {
               </div>
               <div className="text-right">
                 <p className="font-sans text-sm font-semibold text-green-600">−{couponDiscount.toLocaleString("tr-TR")} ₺</p>
-                <button type="button" onClick={removeCoupon} className="font-sans text-[10px] text-[#9A9A9A] hover:text-red-500">Kaldır</button>
+                <button type="button" onClick={removeCoupon} className="font-sans text-[10px] text-[#9A9A9A] hover:text-red-500">
+                  Kaldır
+                </button>
               </div>
             </div>
           )}
 
           <div className="border-t border-[#E8E4DE] pt-4 mb-6 space-y-1">
-            {couponDiscount > 0 && (
-              <div className="flex justify-between font-sans text-xs text-[#6B6B6B]">
-                <span>Ara toplam</span>
-                <span>{itemsTotal.toLocaleString("tr-TR")} ₺</span>
-              </div>
-            )}
+            <div className="flex justify-between font-sans text-xs text-[#9A9A9A]">
+              <span>Ana tutar</span>
+              <span>{itemsTotal.toLocaleString("tr-TR")} ₺</span>
+            </div>
             {couponDiscount > 0 && (
               <div className="flex justify-between font-sans text-xs text-green-600">
-                <span>İndirim ({appliedCoupon})</span>
+                <span>Aldığı indirim</span>
                 <span>−{couponDiscount.toLocaleString("tr-TR")} ₺</span>
               </div>
             )}
             <div className="flex justify-between font-sans text-sm font-semibold text-[#1A1A1A]">
-              <span>Toplam</span>
+              <span>Son ödeyeceği</span>
               <span>{total.toLocaleString("tr-TR")} ₺</span>
             </div>
           </div>
@@ -218,24 +258,24 @@ export default function GuestCart() {
                 onClick={() => setShowForm(true)}
                 className="w-full bg-[#1A1A1A] text-white font-sans text-[11px] tracking-[0.25em] uppercase py-3 hover:bg-[#C4A882] transition-colors"
               >
-                Sipariş Ver
+                Siparişi Onayla
               </button>
               <p className="font-sans text-[10px] text-center text-[#9A9A9A] mt-3">
                 veya{" "}
                 <Link href="/giris" className="text-[#C4A882] hover:underline">giriş yapın</Link>
-                {" "}/ <Link href="/kayit" className="text-[#C4A882] hover:underline">kayıt olun</Link>
+                {" "} / <Link href="/kayit" className="text-[#C4A882] hover:underline">kayıt olun</Link>
               </p>
             </>
           ) : (
             <form onSubmit={handleOrder} className="space-y-3">
               <p className="font-sans text-[10px] tracking-[0.2em] uppercase text-[#C4A882] mb-3">Teslimat Bilgileri</p>
               {[
-                { name: "recipientName",  label: "Ad Soyad *",       type: "text",  placeholder: "Ahmet Yılmaz" },
-                { name: "recipientPhone", label: "Telefon *",         type: "tel",   placeholder: "05XX XXX XX XX" },
-                { name: "addressLine",    label: "Adres *",           type: "text",  placeholder: "Mahalle, cadde, no, daire" },
-                { name: "city",           label: "Şehir *",           type: "text",  placeholder: "İstanbul" },
-                { name: "district",       label: "İlçe",              type: "text",  placeholder: "Kadıköy" },
-                { name: "note",           label: "Sipariş Notu",      type: "text",  placeholder: "Opsiyonel" },
+                { name: "recipientName", label: "Ad Soyad *", type: "text", placeholder: "Ahmet Yılmaz" },
+                { name: "recipientPhone", label: "Telefon *", type: "tel", placeholder: "05XX XXX XX XX" },
+                { name: "addressLine", label: "Adres *", type: "text", placeholder: "Mahalle, cadde, no, daire" },
+                { name: "city", label: "Şehir *", type: "text", placeholder: "İstanbul" },
+                { name: "district", label: "İlçe", type: "text", placeholder: "Kadıköy" },
+                { name: "note", label: "Sipariş Notu", type: "text", placeholder: "Opsiyonel" },
               ].map((f) => (
                 <div key={f.name}>
                   <label className="block font-sans text-[10px] tracking-[0.1em] uppercase text-[#6B6B6B] mb-1">{f.label}</label>
@@ -249,12 +289,18 @@ export default function GuestCart() {
                 </div>
               ))}
               {formError && <p className="font-sans text-xs text-red-500 bg-red-50 border border-red-200 px-3 py-2">{formError}</p>}
-              <button type="submit" disabled={submitting}
-                className="w-full bg-[#1A1A1A] text-white font-sans text-[11px] tracking-[0.25em] uppercase py-3 hover:bg-[#C4A882] transition-colors disabled:opacity-60 mt-2">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-[#1A1A1A] text-white font-sans text-[11px] tracking-[0.25em] uppercase py-3 hover:bg-[#C4A882] transition-colors disabled:opacity-60 mt-2"
+              >
                 {submitting ? "Gönderiliyor..." : "Siparişi Onayla"}
               </button>
-              <button type="button" onClick={() => setShowForm(false)}
-                className="w-full font-sans text-[10px] text-[#9A9A9A] hover:text-[#1A1A1A] py-1 transition-colors">
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="w-full font-sans text-[10px] text-[#9A9A9A] hover:text-[#1A1A1A] py-1 transition-colors"
+              >
                 İptal
               </button>
             </form>

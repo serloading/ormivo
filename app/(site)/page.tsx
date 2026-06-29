@@ -10,6 +10,7 @@ import AddToCartButton    from "@/components/site/AddToCartButton";
 import FavoriteButton    from "@/components/site/FavoriteButton";
 import { getUserFavoriteIds } from "@/lib/actions/favorite";
 import { getSegmentPrice, SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/segment";
+import { getSegmentSettings } from "@/lib/actions/settings";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Ormivo — Parfüm Kataloğu" };
@@ -78,7 +79,7 @@ export default async function HomePage({
   const loggedIn   = !!session;
   const userSegment = session?.segment ?? null;
 
-  const [rawProducts, categories, brands, topSellers, favoritedIds] = await Promise.all([
+  const [rawProducts, categories, brands, topSellers, favoritedIds, segmentSettings] = await Promise.all([
     prisma.product.findMany({
       where,
       include: { category: true, brand: true },
@@ -92,6 +93,7 @@ export default async function HomePage({
     // Sadece filtre yokken en çok satanları getir (ana sayfa görünümü)
     (kategori || marka || q || sirala) ? Promise.resolve([]) : getTopSellers(10),
     getUserFavoriteIds(),
+    getSegmentSettings(),
   ]);
 
   type RawProduct = { id: string; slug: string; name: string; price: unknown; comparePrice: unknown; images: string[]; stock: number; brand: { name: string; slug: string } | null };
@@ -217,7 +219,6 @@ export default async function HomePage({
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                 {topSellers.map((p) => {
                   const price   = Number(p.price);
-                  const compare = p.comparePrice ? Number(p.comparePrice) : null;
                   const img     = p.images?.[0] ?? null;
                   return (
                     <article key={p.id} className="group bg-white border border-[#E8E4DE] hover:border-[#C4A882] hover:shadow-md transition-all duration-300 flex flex-col">
@@ -231,11 +232,6 @@ export default async function HomePage({
                             <span className="font-serif text-3xl text-[#C4A882] opacity-20">◈</span>
                           </div>
                         )}
-                        {compare && (
-                          <span className="absolute top-2 left-2 z-10 bg-[#C4A882] text-white font-sans text-[10px] tracking-widest px-2.5 py-1 uppercase font-semibold pointer-events-none shadow-sm">
-                            %20 İndirim
-                          </span>
-                        )}
                         <span className="absolute top-2 right-2 z-10 bg-[#1A1A1A] text-[#C4A882] font-sans text-[10px] tracking-widest px-2.5 py-1 uppercase font-semibold pointer-events-none shadow-sm">
                           ★ En Çok Satan
                         </span>
@@ -244,7 +240,7 @@ export default async function HomePage({
                       </div>
                       <div className="p-2.5 flex flex-col flex-1">
                         {p.brand && (
-                          <Link href={`/?marka=${p.brand.slug}`} className="font-sans text-[8px] tracking-[0.2em] text-[#C4A882] hover:text-[#8B6F4E] mb-0.5 block transition-colors">
+                          <Link href={`/urunler?marka=${p.brand.slug}`} className="font-sans text-[8px] tracking-[0.2em] text-[#C4A882] hover:text-[#8B6F4E] mb-0.5 block transition-colors">
                             {p.brand.name}
                           </Link>
                         )}
@@ -253,7 +249,7 @@ export default async function HomePage({
                         </Link>
                         <div className="flex items-center justify-between gap-1 mt-auto">
                           {(() => {
-                            const segPrice = getSegmentPrice(price, userSegment);
+                            const segPrice = getSegmentPrice(price, userSegment, segmentSettings);
                             return segPrice ? (
                               <div className="flex flex-col gap-0.5">
                                 <span className={`font-sans text-[9px] px-1.5 py-0.5 rounded font-semibold ${SEGMENT_COLORS[userSegment!]}`}>
@@ -267,7 +263,6 @@ export default async function HomePage({
                             ) : (
                               <div className="flex items-baseline gap-1">
                                 <span className="font-sans text-xs font-medium text-[#1A1A1A]">{price.toLocaleString("tr-TR")} ₺</span>
-                                {compare && <span className="font-sans text-[10px] text-[#C4A882] line-through">{compare.toLocaleString("tr-TR")} ₺</span>}
                               </div>
                             );
                           })()}
@@ -293,6 +288,7 @@ export default async function HomePage({
             loggedIn={loggedIn}
             favoritedIds={favoritedIds}
             userSegment={userSegment}
+            segmentSettings={segmentSettings}
             filters={{ kategori, marka, q, sirala }}
           />
         </div>

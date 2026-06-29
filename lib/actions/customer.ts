@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/actions/activity-log";
 import { auth } from "@/lib/auth";
 import { syncSiteUserFromCustomerPhone } from "@/lib/site-user-sync";
+import { canonicalPhone, phoneLookupVariants } from "@/lib/phone";
 
 // Varsayılan şifre: admin tarafından oluşturulan müşterilere atanır
 const DEFAULT_PASSWORD = "Ormivo2025!@#";
@@ -18,10 +19,6 @@ export type CustomerFormData = {
   address?: string;
   note?: string;
 };
-
-function normalizePhone(phone: string) {
-  return phone.trim().replace(/\s/g, "");
-}
 
 export async function getCustomers() {
   return prisma.customer.findMany({
@@ -62,8 +59,8 @@ export async function createCustomer(data: CustomerFormData) {
 
     // Telefon varsa otomatik SiteUser oluştur (müşteri siteye girebilsin)
     if (data.phone) {
-      const phone = normalizePhone(data.phone);
-      const existing = await prisma.siteUser.findUnique({ where: { phone } });
+      const phone = canonicalPhone(data.phone);
+      const existing = await prisma.siteUser.findFirst({ where: { phone: { in: phoneLookupVariants(data.phone) } } });
       if (!existing) {
         const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 12);
         await prisma.siteUser.create({
@@ -96,8 +93,8 @@ export async function createSiteUserForCustomer(customerId: string) {
   });
   if (!customer?.phone) return { error: "Müşteri telefon numarası yok." };
 
-  const phone = normalizePhone(customer.phone);
-  const existing = await prisma.siteUser.findUnique({ where: { phone } });
+  const phone = canonicalPhone(customer.phone);
+  const existing = await prisma.siteUser.findFirst({ where: { phone: { in: phoneLookupVariants(customer.phone) } } });
   if (existing) {
     await syncSiteUserFromCustomerPhone(phone);
     return { success: true, alreadyExists: true };
@@ -158,7 +155,7 @@ export async function updateCustomerSegment(id: string, segment: string | null) 
   await prisma.customer.update({ where: { id }, data: { segment } });
   // Aynı telefona sahip SiteUser'a da segmenti yansıt
   if (prev?.phone) {
-    await prisma.siteUser.updateMany({ where: { phone: prev.phone }, data: { segment } });
+    await prisma.siteUser.updateMany({ where: { phone: { in: phoneLookupVariants(prev.phone) } }, data: { segment } });
   }
   await logActivity({
     action: "CUSTOMER_SEGMENT_CHANGED",
@@ -211,7 +208,7 @@ export async function setSiteUserSegment(customerId: string, segment: string | n
   const customer = await prisma.customer.findUnique({ where: { id: customerId }, select: { phone: true } });
   if (!customer?.phone) return { error: "Müşterinin telefon numarası yok." };
 
-  const siteUser = await prisma.siteUser.findFirst({ where: { phone: customer.phone } });
+  const siteUser = await prisma.siteUser.findFirst({ where: { phone: { in: phoneLookupVariants(customer.phone) } } });
   if (!siteUser) return { error: "Bu telefona ait site üyesi bulunamadı." };
 
   await prisma.siteUser.update({ where: { id: siteUser.id }, data: { segment } });

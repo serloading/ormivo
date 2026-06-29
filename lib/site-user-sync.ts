@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
+import { canonicalPhone, phoneLookupVariants } from "@/lib/phone";
 
 function normalizePhone(phone: string) {
-  return phone.trim().replace(/\s/g, "");
+  return canonicalPhone(phone);
 }
 
 export async function syncSiteUserFromCustomerPhone(phone: string) {
@@ -10,11 +11,11 @@ export async function syncSiteUserFromCustomerPhone(phone: string) {
 
   const [customer, siteUser] = await Promise.all([
     prisma.customer.findFirst({
-      where: { phone: normalizedPhone },
+      where: { phone: { in: phoneLookupVariants(normalizedPhone) } },
       select: { name: true, segment: true },
     }),
-    prisma.siteUser.findUnique({
-      where: { phone: normalizedPhone },
+    prisma.siteUser.findFirst({
+      where: { phone: { in: phoneLookupVariants(normalizedPhone) } },
       select: { id: true, phone: true, name: true, segment: true },
     }),
   ]);

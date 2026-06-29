@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import SiparislerClient from "./SiparislerClient";
+import { normalizeOrderItems } from "@/lib/order-items";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Siparişler — Admin" };
@@ -59,7 +60,7 @@ export default async function SiparislerPage({
       addressLine:   o.addressLine,
       city:          o.city,
       district:      o.district,
-      items:         o.items as { name: string; qty: number; price: number }[],
+      items:         normalizeOrderItems(o.items),
       total:         Number(o.total),
       discount:      Number(o.discount ?? 0),
       note:          o.note,
@@ -83,7 +84,7 @@ export default async function SiparislerPage({
       addressLine:   null,
       city:          null,
       district:      null,
-      items:         o.items as { name: string; qty: number; price: number }[],
+      items:         normalizeOrderItems(o.items),
       total:         Number(o.total),
       discount:      0,
       note:          o.note,

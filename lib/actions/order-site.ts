@@ -5,6 +5,7 @@ import { getSession } from "@/lib/session";
 import { getCart } from "@/lib/actions/cart";
 import { useCoupon } from "@/lib/actions/coupon";
 import { getSegmentPrice } from "@/lib/segment";
+import { canonicalPhone } from "@/lib/phone";
 
 const CARGO_FEE = 200;
 
@@ -76,7 +77,7 @@ export async function placeOrder(input: PlaceOrderInput) {
     total = orderItems.reduce((s, i) => s + i.price * i.qty, 0);
   }
 
-  const phone = recipientPhone.trim().replace(/\s/g, "");
+  const phone = canonicalPhone(recipientPhone);
 
   let customer = await prisma.customer.findFirst({ where: { phone } });
   if (!customer) {

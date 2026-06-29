@@ -7,7 +7,7 @@ import { placeOrder } from "@/lib/actions/order-site";
 import { validateCoupon } from "@/lib/actions/coupon";
 import { addToCart } from "@/lib/actions/cart";
 import CartItemRow from "./CartItemRow";
-import { getSegmentPrice, SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/segment";
+import { getSegmentPrice, SEGMENT_LABELS, SEGMENT_COLORS, type SegmentPricingSettings } from "@/lib/segment";
 
 interface Product {
   id: string; name: string; price: unknown; brand?: { name: string; slug: string } | null;
@@ -20,7 +20,7 @@ interface Address {
 }
 interface CrossSellProduct {
   id: string; name: string; slug: string; price: number; comparePrice: number | null;
-  images: string[]; brand?: { name: string } | null;
+  images: string[]; brand?: { name: string; slug?: string } | null;
 }
 
 export default function LoggedInCart({
@@ -28,11 +28,13 @@ export default function LoggedInCart({
   addresses,
   crossSellProducts = [],
   userSegment = null,
+  segmentSettings,
 }: {
   items: CartItem[];
   addresses: Address[];
   crossSellProducts?: CrossSellProduct[];
   userSegment?: string | null;
+  segmentSettings?: SegmentPricingSettings;
 }) {
   const [showForm,   setShowForm]   = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -57,7 +59,7 @@ export default function LoggedInCart({
 
   const originalTotal  = items.reduce((s, i) => s + Number(i.product.price) * i.quantity, 0);
   const segmentTotal   = items.reduce((s, i) => {
-    const sp = getSegmentPrice(Number(i.product.price), userSegment);
+    const sp = getSegmentPrice(Number(i.product.price), userSegment, segmentSettings);
     return s + (sp ?? Number(i.product.price)) * i.quantity;
   }, 0);
   const segmentDiscount = Math.round(originalTotal - segmentTotal);
@@ -143,7 +145,7 @@ export default function LoggedInCart({
       <div className="grid md:grid-cols-3 gap-6">
         {/* Ürün listesi */}
         <div className="md:col-span-2 space-y-3">
-          {items.map((item) => <CartItemRow key={item.id} item={item} userSegment={userSegment} />)}
+          {items.map((item) => <CartItemRow key={item.id} item={item} userSegment={userSegment} segmentSettings={segmentSettings} />)}
         </div>
 
         {/* Özet + sipariş formu */}
@@ -161,7 +163,7 @@ export default function LoggedInCart({
             {/* Ürünler */}
             <div className="space-y-2">
               {items.map((i) => {
-                const sp = getSegmentPrice(Number(i.product.price), userSegment);
+                const sp = getSegmentPrice(Number(i.product.price), userSegment, segmentSettings);
                 const lineTotal = (sp ?? Number(i.product.price)) * i.quantity;
                 return (
                   <div key={i.id} className="flex justify-between font-sans text-xs text-[#6B6B6B]">
@@ -336,7 +338,11 @@ export default function LoggedInCart({
                     </div>
                   </div>
                   <div className="p-3 flex flex-col flex-1">
-                    {p.brand?.name && <p className="font-sans text-[8px] tracking-[0.2em] text-[#C4A882] mb-1">{p.brand.name}</p>}
+                    {p.brand?.name && (
+                      <Link href={`/urunler?marka=${encodeURIComponent(p.brand.slug ?? p.brand.name)}`} className="font-sans text-[8px] tracking-[0.2em] text-[#C4A882] mb-1 hover:text-[#8B6F4E] transition-colors block">
+                        {p.brand.name}
+                      </Link>
+                    )}
                     <Link href={`/urunler/${p.slug}`}>
                       <h3 className="font-serif text-xs leading-snug text-[#1A1A1A] hover:text-[#C4A882] line-clamp-2 mb-2">{p.name}</h3>
                     </Link>

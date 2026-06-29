@@ -1,34 +1,83 @@
 "use client";
 
-import { useState, useTransition, useRef, useEffect } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Modal from "./Modal";
 import { Field, SubmitRow } from "./FormField";
 import {
   createDepoSiparis,
-  iletDepoSiparis,
   deleteDepoSiparis,
+  iletDepoSiparis,
+  updateDepoSiparis,
   type DepoSiparisItem,
 } from "@/lib/actions/depo-siparis";
 
 type DepoSiparis = {
-  id: string; title: string; orderDate: Date | string;
-  items: unknown; total: number; paidAmount: number; supplierName: string | null;
-  status: string; notes: string | null; createdAt: Date | string;
+  id: string;
+  title: string;
+  orderDate: Date | string;
+  items: unknown;
+  total: number;
+  paidAmount: number;
+  shippingFee?: number | null;
+  depoName?: string | null;
+  depoPhone?: string | null;
+  supplierName: string | null;
+  status: string;
+  notes: string | null;
+  createdAt: Date | string;
 };
 
 type ProductSuggestion = { id: string; name: string; costPrice: number | null };
 
-const EMPTY_DEPO = {
+type FormState = {
+  title: string;
+  orderDate: string;
+  depoName: string;
+  depoPhone: string;
+  shippingFee: string;
+  paidAmount: string;
+  notes: string;
+};
+
+const EMPTY_FORM: FormState = {
   title: "Haftalık Sipariş",
   orderDate: new Date().toISOString().split("T")[0],
-  supplierName: "",
+  depoName: "",
+  depoPhone: "",
+  shippingFee: "",
   paidAmount: "",
   notes: "",
 };
+
 const EMPTY_ITEM = (): DepoSiparisItem => ({ productId: undefined, name: "", qty: 1, unitPrice: 0 });
 
-// ── Ürün arama satırı ────────────────────────────────────────
+function normalizeItems(raw: unknown): DepoSiparisItem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => ({
+      productId: typeof item?.productId === "string" ? item.productId : undefined,
+      name: String(item?.name ?? "").trim(),
+      qty: Math.max(1, Number(item?.qty) || 1),
+      unitPrice: Math.max(0, Number(item?.unitPrice) || 0),
+    }))
+    .filter((item) => item.name.length > 0);
+}
+
+function toWaPhone(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("90")) return digits;
+  if (digits.startsWith("0")) return `9${digits}`;
+  return `90${digits}`;
+}
+
+function buildWhatsAppUrl(phone: string, message: string) {
+  const waPhone = toWaPhone(phone);
+  if (!waPhone) return "";
+  return `https://wa.me/${waPhone}?text=${encodeURIComponent(message)}`;
+}
+
 function ItemRow({
   item,
   idx,
@@ -63,7 +112,11 @@ function ItemRow({
     onUpdate(idx, "name", val);
     onUpdate(idx, "productId" as keyof DepoSiparisItem, "");
     if (debounce.current) clearTimeout(debounce.current);
-    if (val.length < 1) { setSuggestions([]); setOpen(false); return; }
+    if (val.length < 1) {
+      setSuggestions([]);
+      setOpen(false);
+      return;
+    }
     debounce.current = setTimeout(async () => {
       const res = await fetch(`/api/products/search?q=${encodeURIComponent(val)}`);
       const data: ProductSuggestion[] = await res.json();
@@ -84,7 +137,6 @@ function ItemRow({
 
   return (
     <div className="grid grid-cols-12 gap-2 items-start">
-      {/* Ürün adı + autocomplete */}
       <div className="col-span-5 relative" ref={containerRef}>
         <input
           className="w-full border border-[#d4c5ba] px-2 py-1.5 text-sm focus:outline-none focus:border-[#8b6f5e]"
@@ -113,24 +165,24 @@ function ItemRow({
         )}
       </div>
 
-      {/* Adet */}
       <input
-        type="number" min="1"
+        type="number"
+        min="1"
         className="col-span-2 border border-[#d4c5ba] px-2 py-1.5 text-sm text-right focus:outline-none focus:border-[#8b6f5e]"
         value={item.qty}
         onChange={(e) => onUpdate(idx, "qty", e.target.value)}
       />
 
-      {/* Alış fiyatı */}
       <input
-        type="number" min="0" step="0.01"
+        type="number"
+        min="0"
+        step="0.01"
         className="col-span-3 border border-[#d4c5ba] px-2 py-1.5 text-sm text-right focus:outline-none focus:border-[#8b6f5e]"
         placeholder="0.00"
         value={item.unitPrice || ""}
         onChange={(e) => onUpdate(idx, "unitPriceStr", e.target.value)}
       />
 
-      {/* Sil */}
       <button
         type="button"
         onClick={() => onRemove(idx)}
@@ -143,62 +195,136 @@ function ItemRow({
   );
 }
 
-// ── Ana bileşen ──────────────────────────────────────────────
 export default function DepoSiparisClient({ siparisler }: { siparisler: DepoSiparis[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [depoModal, setDepoModal] = useState(false);
-  const [depoForm, setDepoForm] = useState(EMPTY_DEPO);
-  const [depoItems, setDepoItems] = useState<DepoSiparisItem[]>([EMPTY_ITEM()]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [items, setItems] = useState<DepoSiparisItem[]>([EMPTY_ITEM()]);
 
-  const total = depoItems.reduce((s, i) => s + (i.qty || 0) * (i.unitPrice || 0), 0);
-  const paid = Number(depoForm.paidAmount) || 0;
-  const remaining = Math.max(0, total - paid);
+  const shippingFee = Number(form.shippingFee) || 0;
+  const paid = Number(form.paidAmount) || 0;
+  const itemsTotal = items.reduce((sum, item) => sum + (Number(item.qty) || 0) * (Number(item.unitPrice) || 0), 0);
+  const grandTotal = itemsTotal + shippingFee;
+  const remaining = Math.max(0, grandTotal - paid);
 
   function updateItem(idx: number, field: keyof DepoSiparisItem | "unitPriceStr", value: string) {
-    setDepoItems((prev) =>
+    setItems((prev) =>
       prev.map((item, i) => {
         if (i !== idx) return item;
-        if (field === "unitPriceStr") return { ...item, unitPrice: Number(value) };
-        if (field === "qty") return { ...item, qty: Number(value) };
+        if (field === "unitPriceStr") return { ...item, unitPrice: Number(value) || 0 };
+        if (field === "qty") return { ...item, qty: Math.max(1, Number(value) || 1) };
         if (field === "productId") return { ...item, productId: value || undefined };
         return { ...item, [field]: value };
-      })
+      }),
     );
   }
 
-  function addItem() { setDepoItems((p) => [...p, EMPTY_ITEM()]); }
-  function removeItem(idx: number) { setDepoItems((p) => p.filter((_, i) => i !== idx)); }
+  function resetForm() {
+    setForm(EMPTY_FORM);
+    setItems([EMPTY_ITEM()]);
+    setEditingId(null);
+  }
+
+  function openCreate() {
+    resetForm();
+    setModalOpen(true);
+  }
+
+  function openEdit(order: DepoSiparis) {
+    const normalizedItems = normalizeItems(order.items);
+    setEditingId(order.id);
+    setForm({
+      title: order.title,
+      orderDate: new Date(order.orderDate).toISOString().split("T")[0],
+      depoName: order.depoName ?? order.supplierName ?? "",
+      depoPhone: order.depoPhone ?? "",
+      shippingFee: String(order.shippingFee ?? 0),
+      paidAmount: String(order.paidAmount ?? 0),
+      notes: order.notes ?? "",
+    });
+    setItems(normalizedItems.length > 0 ? normalizedItems : [EMPTY_ITEM()]);
+    setModalOpen(true);
+  }
+
+  function closeModal() {
+    setModalOpen(false);
+    resetForm();
+  }
+
+  function addItem() {
+    setItems((prev) => [...prev, EMPTY_ITEM()]);
+  }
+
+  function removeItem(idx: number) {
+    setItems((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev));
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const validItems = depoItems.filter((i) => i.name.trim());
+    const validItems = items.filter((item) => item.name.trim());
     if (validItems.length === 0) return;
+
+    const payload = {
+      title: form.title || "Haftalık Sipariş",
+      orderDate: form.orderDate,
+      items: validItems,
+      paidAmount: paid,
+      shippingFee,
+      depoName: form.depoName.trim(),
+      depoPhone: form.depoPhone.trim(),
+      supplierName: form.depoName.trim(),
+      notes: form.notes.trim() || undefined,
+    };
+
     startTransition(async () => {
-      await createDepoSiparis({
-        title: depoForm.title || "Haftalık Sipariş",
-        orderDate: depoForm.orderDate,
-        items: validItems,
-        paidAmount: paid,
-        supplierName: depoForm.supplierName || undefined,
-        notes: depoForm.notes || undefined,
-      });
+      if (editingId) {
+        await updateDepoSiparis(editingId, payload);
+      } else {
+        await createDepoSiparis(payload);
+      }
       router.refresh();
-      setDepoForm(EMPTY_DEPO);
-      setDepoItems([EMPTY_ITEM()]);
-      setDepoModal(false);
+      closeModal();
     });
   }
 
-  function handleIlet(id: string) {
-    if (confirm("Siparişi depoya iletmek istiyor musunuz?")) {
-      startTransition(async () => { await iletDepoSiparis(id); router.refresh(); });
+  function handleIlet(order: DepoSiparis) {
+    const itemsForMsg = normalizeItems(order.items);
+    const phone = order.depoPhone ?? order.supplierName ?? "";
+    const message = [
+      `Merhaba ${order.depoName || order.supplierName || "Depo"},`,
+      "",
+      `Depo siparişi: ${order.title}`,
+      `Tarih: ${new Date(order.orderDate).toLocaleDateString("tr-TR")}`,
+      "",
+      ...itemsForMsg.map((item) => `- ${item.name} ×${item.qty} = ${(item.qty * item.unitPrice).toLocaleString("tr-TR")} ₺`),
+      "",
+      `Ürün toplamı: ${itemsTotal.toLocaleString("tr-TR")} ₺`,
+      `Kargo: ${shippingFee.toLocaleString("tr-TR")} ₺`,
+      `Genel toplam: ${grandTotal.toLocaleString("tr-TR")} ₺`,
+    ].join("\n");
+
+    const url = buildWhatsAppUrl(phone, message);
+    if (url) {
+      window.open(url, "_blank", "noopener,noreferrer");
+    } else {
+      alert("Bu sipariş için depo telefonu girilmemiş.");
+      return;
     }
+
+    startTransition(async () => {
+      await iletDepoSiparis(order.id);
+      router.refresh();
+    });
   }
 
   function handleDelete(id: string) {
     if (confirm("Bu siparişi silmek istiyor musunuz?")) {
-      startTransition(async () => { await deleteDepoSiparis(id); router.refresh(); });
+      startTransition(async () => {
+        await deleteDepoSiparis(id);
+        router.refresh();
+      });
     }
   }
 
@@ -207,9 +333,12 @@ export default function DepoSiparisClient({ siparisler }: { siparisler: DepoSipa
       <div className="flex items-center justify-between mb-8">
         <div>
           <h2 className="text-2xl font-light tracking-wide text-[#2c1810]">Depo Siparişleri</h2>
-          <p className="text-xs text-[#8b6f5e] mt-1">Stok sistemini etkilemez — yalnızca depo takibi için</p>
+          <p className="text-xs text-[#8b6f5e] mt-1">Stok sistemini etkilemez - yalnızca depo takibi için</p>
         </div>
-        <button onClick={() => setDepoModal(true)} className="bg-[#2c1810] text-[#f5f0eb] text-xs tracking-widest uppercase px-6 py-3 hover:bg-[#3d2418] transition-colors">
+        <button
+          onClick={openCreate}
+          className="bg-[#2c1810] text-[#f5f0eb] text-xs tracking-widest uppercase px-6 py-3 hover:bg-[#3d2418] transition-colors"
+        >
           + Yeni Sipariş
         </button>
       </div>
@@ -220,47 +349,65 @@ export default function DepoSiparisClient({ siparisler }: { siparisler: DepoSipa
         </div>
       ) : (
         <div className="space-y-4">
-          {siparisler.map((ds) => {
-            const items = ds.items as DepoSiparisItem[];
-            const isIletildi = ds.status === "ILETILDI";
-            const dsRemaining = ds.total - ds.paidAmount;
+          {siparisler.map((order) => {
+            const normalizedItems = normalizeItems(order.items);
+            const isSent = order.status === "ILETILDI";
+            const total = Number(order.total) || 0;
+            const paidAmount = Number(order.paidAmount) || 0;
+            const shipping = Number(order.shippingFee ?? 0) || 0;
+            const productTotal = Math.max(0, total - shipping);
+            const remainingAmount = Math.max(0, total - paidAmount);
+
             return (
-              <div key={ds.id} className={`bg-white border rounded-sm overflow-hidden ${isIletildi ? "border-green-200" : "border-[#e8ddd6]"}`}>
-                <div className={`flex items-center justify-between px-6 py-4 ${isIletildi ? "bg-green-50" : "bg-[#faf8f6]"}`}>
+              <div key={order.id} className={`bg-white border rounded-sm overflow-hidden ${isSent ? "border-green-200" : "border-[#e8ddd6]"}`}>
+                <div className={`flex items-center justify-between px-6 py-4 ${isSent ? "bg-green-50" : "bg-[#faf8f6]"}`}>
                   <div className="flex items-center gap-3">
-                    <span className={`text-[10px] px-2.5 py-1 rounded-full font-medium tracking-wide ${isIletildi ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
-                      {isIletildi ? "İletildi" : "Hazırlanıyor"}
+                    <span className={`text-[10px] px-2.5 py-1 rounded-full font-medium tracking-wide ${isSent ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                      {isSent ? "İletildi" : "Hazırlanıyor"}
                     </span>
                     <div>
-                      <p className="text-sm font-medium text-[#2c1810]">{ds.title}</p>
+                      <p className="text-sm font-medium text-[#2c1810]">{order.title}</p>
                       <p className="text-[11px] text-[#8b6f5e]">
-                        {new Date(ds.orderDate).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" })}
-                        {ds.supplierName && <span className="ml-2 text-[#8b6f5e]">· {ds.supplierName}</span>}
+                        {new Date(order.orderDate).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" })}
+                        {(order.depoName || order.supplierName) && <span className="ml-2 text-[#8b6f5e]">· {order.depoName || order.supplierName}</span>}
+                        {order.depoPhone && <span className="ml-2 text-[#8b6f5e]">· {order.depoPhone}</span>}
                       </p>
                     </div>
                   </div>
+
                   <div className="flex items-center gap-6">
                     <div className="text-right">
-                      <p className="text-lg font-semibold text-[#2c1810]">{Number(ds.total).toLocaleString("tr-TR")} ₺</p>
-                      {dsRemaining > 0 && (
-                        <p className="text-[11px] text-red-600">Kalan borç: {dsRemaining.toLocaleString("tr-TR")} ₺</p>
+                      <p className="text-lg font-semibold text-[#2c1810]">{total.toLocaleString("tr-TR")} ₺</p>
+                      <p className="text-[11px] text-[#8b6f5e]">
+                        Ürün: {productTotal.toLocaleString("tr-TR")} ₺ · Kargo: {shipping.toLocaleString("tr-TR")} ₺
+                      </p>
+                      {remainingAmount > 0 && (
+                        <p className="text-[11px] text-red-600">Kalan borç: {remainingAmount.toLocaleString("tr-TR")} ₺</p>
                       )}
-                      {dsRemaining === 0 && ds.paidAmount > 0 && (
-                        <p className="text-[11px] text-green-600">Ödendi</p>
-                      )}
+                      {remainingAmount === 0 && paidAmount > 0 && <p className="text-[11px] text-green-600">Ödendi</p>}
                     </div>
                     <div className="flex items-center gap-2">
-                      {!isIletildi && (
-                        <button onClick={() => handleIlet(ds.id)} className="text-xs bg-[#2c1810] text-white px-4 py-2 hover:bg-[#3d2418] transition-colors tracking-wide">
+                      <button
+                        onClick={() => openEdit(order)}
+                        className="text-xs text-[#8b6f5e] hover:text-[#2c1810] px-2 py-2"
+                      >
+                        Düzenle
+                      </button>
+                      {!isSent && (
+                        <button
+                          onClick={() => handleIlet(order)}
+                          className="text-xs bg-[#2c1810] text-white px-4 py-2 hover:bg-[#3d2418] transition-colors tracking-wide"
+                        >
                           Depoya İlet
                         </button>
                       )}
-                      <button onClick={() => handleDelete(ds.id)} className="text-xs text-red-400 hover:text-red-600 px-2 py-2">
+                      <button onClick={() => handleDelete(order.id)} className="text-xs text-red-400 hover:text-red-600 px-2 py-2">
                         Sil
                       </button>
                     </div>
                   </div>
                 </div>
+
                 <div className="px-6 py-3 border-t border-[#f0ebe6]">
                   <table className="w-full text-sm">
                     <thead>
@@ -272,8 +419,8 @@ export default function DepoSiparisClient({ siparisler }: { siparisler: DepoSipa
                       </tr>
                     </thead>
                     <tbody>
-                      {items.map((item, i) => (
-                        <tr key={i} className="border-b border-[#f9f6f3] last:border-0">
+                      {normalizedItems.map((item, index) => (
+                        <tr key={index} className="border-b border-[#f9f6f3] last:border-0">
                           <td className="py-2 text-[#2c1810]">{item.name}</td>
                           <td className="py-2 text-right text-[#5c4033]">{item.qty}</td>
                           <td className="py-2 text-right text-[#5c4033]">{Number(item.unitPrice).toLocaleString("tr-TR")} ₺</td>
@@ -282,8 +429,8 @@ export default function DepoSiparisClient({ siparisler }: { siparisler: DepoSipa
                       ))}
                     </tbody>
                   </table>
-                  {ds.notes && (
-                    <p className="mt-3 text-xs text-[#8b6f5e] italic border-t border-[#f0ebe6] pt-2">Not: {ds.notes}</p>
+                  {order.notes && (
+                    <p className="mt-3 text-xs text-[#8b6f5e] italic border-t border-[#f0ebe6] pt-2">Not: {order.notes}</p>
                   )}
                 </div>
               </div>
@@ -292,17 +439,44 @@ export default function DepoSiparisClient({ siparisler }: { siparisler: DepoSipa
         </div>
       )}
 
-      {/* ── Yeni Sipariş Modal ── */}
-      <Modal open={depoModal} onClose={() => setDepoModal(false)} title="Yeni Depo Siparişi">
+      <Modal
+        open={modalOpen}
+        onClose={closeModal}
+        title={editingId ? "Depo Siparişi Düzenle" : "Yeni Depo Siparişi"}
+        width="max-w-3xl"
+      >
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Sipariş Başlığı" required value={depoForm.title} onChange={(e) => setDepoForm((p) => ({ ...p, title: e.target.value }))} placeholder="Haftalık Sipariş" />
-            <Field label="Sipariş Tarihi" required type="date" value={depoForm.orderDate} onChange={(e) => setDepoForm((p) => ({ ...p, orderDate: e.target.value }))} />
+            <Field label="Sipariş Başlığı" required value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} placeholder="Haftalık Sipariş" />
+            <Field label="Sipariş Tarihi" required type="date" value={form.orderDate} onChange={(e) => setForm((p) => ({ ...p, orderDate: e.target.value }))} />
           </div>
 
-          <Field label="Tedarikçi Adı" value={depoForm.supplierName} onChange={(e) => setDepoForm((p) => ({ ...p, supplierName: e.target.value }))} placeholder="Depo / tedarikçi adı" />
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Depo Adı" required value={form.depoName} onChange={(e) => setForm((p) => ({ ...p, depoName: e.target.value }))} placeholder="Depo adı" />
+            <Field label="Depo Telefonu" required value={form.depoPhone} onChange={(e) => setForm((p) => ({ ...p, depoPhone: e.target.value }))} placeholder="05XX XXX XX XX" />
+          </div>
 
-          {/* Ürün satırları */}
+          <div className="grid grid-cols-2 gap-4">
+            <Field
+              label="Kargo Ücreti"
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.shippingFee}
+              onChange={(e) => setForm((p) => ({ ...p, shippingFee: e.target.value }))}
+              placeholder="0.00"
+            />
+            <Field
+              label="Ödenen Tutar"
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.paidAmount}
+              onChange={(e) => setForm((p) => ({ ...p, paidAmount: e.target.value }))}
+              placeholder="0.00"
+            />
+          </div>
+
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs uppercase tracking-widest text-[#8b6f5e] font-medium">Ürünler</label>
@@ -313,56 +487,43 @@ export default function DepoSiparisClient({ siparisler }: { siparisler: DepoSipa
                 <span className="col-span-5">Ürün Adı</span>
                 <span className="col-span-2 text-right">Adet</span>
                 <span className="col-span-3 text-right">Alış Fiyatı (₺)</span>
-                <span className="col-span-2"></span>
+                <span className="col-span-2" />
               </div>
-              {depoItems.map((item, idx) => (
+              {items.map((item, idx) => (
                 <ItemRow
                   key={idx}
                   item={item}
                   idx={idx}
                   onUpdate={updateItem}
                   onRemove={removeItem}
-                  canRemove={depoItems.length > 1}
+                  canRemove={items.length > 1}
                 />
               ))}
             </div>
 
-            {/* Toplam + ödeme */}
             <div className="mt-4 pt-4 border-t border-[#f0ebe6] space-y-3">
               <div className="flex items-center justify-between">
+                <span className="text-sm text-[#8b6f5e]">Ürün Toplamı</span>
+                <span className="text-sm font-semibold text-[#2c1810]">{itemsTotal.toLocaleString("tr-TR")} ₺</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-[#8b6f5e]">Kargo</span>
+                <span className="text-sm font-semibold text-[#2c1810]">{shippingFee.toLocaleString("tr-TR")} ₺</span>
+              </div>
+              <div className="flex items-center justify-between">
                 <span className="text-sm text-[#8b6f5e]">Sipariş Toplamı</span>
-                <span className="text-lg font-semibold text-[#2c1810]">{total.toLocaleString("tr-TR")} ₺</span>
+                <span className="text-lg font-semibold text-[#2c1810]">{grandTotal.toLocaleString("tr-TR")} ₺</span>
               </div>
-
-              <div className="flex items-center gap-3">
-                <label className="text-sm text-[#5c4033] whitespace-nowrap">Ödenen Tutar (₺)</label>
-                <input
-                  type="number" min="0" step="0.01"
-                  className="flex-1 border border-[#d4c5ba] px-3 py-1.5 text-sm text-right focus:outline-none focus:border-[#8b6f5e]"
-                  placeholder="0.00"
-                  value={depoForm.paidAmount}
-                  onChange={(e) => setDepoForm((p) => ({ ...p, paidAmount: e.target.value }))}
-                />
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-[#8b6f5e]">Kalan Borç</span>
+                <span className="text-sm font-semibold text-red-600">{remaining.toLocaleString("tr-TR")} ₺</span>
               </div>
-
-              {remaining > 0 && (
-                <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-sm px-3 py-2">
-                  <span className="text-xs text-red-600">Tedarikçi borcu olarak eklenecek</span>
-                  <span className="text-sm font-semibold text-red-600">{remaining.toLocaleString("tr-TR")} ₺</span>
-                </div>
-              )}
-              {paid > 0 && remaining === 0 && (
-                <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-sm px-3 py-2">
-                  <span className="text-xs text-green-600">Tamamen ödendi</span>
-                  <span className="text-sm font-semibold text-green-600">{total.toLocaleString("tr-TR")} ₺</span>
-                </div>
-              )}
             </div>
           </div>
 
-          <Field label="Notlar" value={depoForm.notes} onChange={(e) => setDepoForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Öncelikli ürünler, teslimat notu..." />
+          <Field label="Notlar" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Öncelikli ürünler, teslimat notu..." />
 
-          <SubmitRow onCancel={() => setDepoModal(false)} label={isPending ? "Kaydediliyor..." : "Sipariş Oluştur"} />
+          <SubmitRow onCancel={closeModal} label={editingId ? "Güncelle" : "Sipariş Oluştur"} loading={isPending} />
         </form>
       </Modal>
     </div>

@@ -6,6 +6,7 @@ import Modal from "./Modal";
 import { Field, TextareaField, SubmitRow } from "./FormField";
 import { createOrder, updateOrderStatus, deleteOrder } from "@/lib/actions/order";
 import { createCustomerDebt } from "@/lib/actions/debt";
+import { addManualOrderToDepo } from "@/lib/actions/depo-siparis";
 
 type OrderItem = { productName: string; price: number; quantity: number };
 type Customer = { id: string; name: string; phone: string | null };
@@ -48,11 +49,12 @@ export default function SiparislerClient({
   const [paymentType, setPaymentType]       = useState<"tam" | "kismi" | "veresiye">("tam");
   const [paidAmount,  setPaidAmount]        = useState("");
   const [debtDueDate, setDebtDueDate]       = useState("");
+  const [sendToDepot, setSendToDepot]       = useState(false);
 
   function reset() {
     setCustomerId(""); setNote(""); setSelProduct(""); setQty(1);
     setItems([]); setFreeShipping(true); setShippingFee("");
-    setPaymentType("tam"); setPaidAmount(""); setDebtDueDate("");
+    setPaymentType("tam"); setPaidAmount(""); setDebtDueDate(""); setSendToDepot(false);
   }
 
   function addItem() {
@@ -75,42 +77,62 @@ export default function SiparislerClient({
     if (!items.length) { alert("En az bir ürün ekleyin."); return; }
     if (!customerId) { alert("Müşteri seçin."); return; }
     startTransition(async () => {
-      const order = await createOrder({
-        customerId,
-        items,
-        total: grandTotal,
-        shippingFee: freeShipping ? null : shipping,
-        note: note || undefined,
-      });
-      // Borç/alacak kaydı oluştur
-      if (paymentType === "veresiye") {
-        await createCustomerDebt({
+      try {
+        const order = await createOrder({
           customerId,
-          orderId: order?.id,
-          description: `Sipariş #${order?.orderNo ?? ""} — veresiye`,
-          totalAmount: grandTotal,
-          initialPayment: 0,
-          dueDate: debtDueDate || undefined,
+          items,
+          total: grandTotal,
+          shippingFee: freeShipping ? null : shipping,
+          note: note || undefined,
         });
-      } else if (paymentType === "kismi") {
-        const paid = parseFloat(paidAmount) || 0;
-        await createCustomerDebt({
-          customerId,
-          orderId: order?.id,
-          description: `Sipariş #${order?.orderNo ?? ""} — kısmi ödeme`,
-          totalAmount: grandTotal,
-          initialPayment: paid,
-          dueDate: debtDueDate || undefined,
-        });
+        // Borç/alacak kaydı oluştur
+        if (paymentType === "veresiye") {
+          await createCustomerDebt({
+            customerId,
+            orderId: order?.id,
+            description: `Sipariş #${order?.orderNo ?? ""} — veresiye`,
+            totalAmount: grandTotal,
+            initialPayment: 0,
+            dueDate: debtDueDate || undefined,
+          });
+        } else if (paymentType === "kismi") {
+          const paid = parseFloat(paidAmount) || 0;
+          await createCustomerDebt({
+            customerId,
+            orderId: order?.id,
+            description: `Sipariş #${order?.orderNo ?? ""} — kısmi ödeme`,
+            totalAmount: grandTotal,
+            initialPayment: paid,
+            dueDate: debtDueDate || undefined,
+          });
+        }
+
+        if (sendToDepot && order?.id) {
+          const depotResult = await addManualOrderToDepo(order.id);
+          if (depotResult?.success === false) {
+            alert(depotResult.error ?? "Sipariş depoya aktarılamadı.");
+          }
+        }
+
+        router.refresh();
+        reset(); setModal(false);
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Sipariş kaydedilemedi.");
       }
-      router.refresh();
-      reset(); setModal(false);
     });
   }
 
   function handleStatusChange(id: string, status: string) {
     startTransition(async () => {
       await updateOrderStatus(id, status as never);
+      router.refresh();
+    });
+  }
+
+  function handleSendToDepot(id: string) {
+    if (!confirm("Bu siparişi depo siparişine eklemek istiyor musunuz?")) return;
+    startTransition(async () => {
+      await addManualOrderToDepo(id);
       router.refresh();
     });
   }
@@ -288,8 +310,8 @@ export default function SiparislerClient({
                 </label>
               ))}
             </div>
-            {(paymentType === "kismi" || paymentType === "veresiye") && (
-              <div className="space-y-2 mt-2">
+          {(paymentType === "kismi" || paymentType === "veresiye") && (
+            <div className="space-y-2 mt-2">
                 {paymentType === "kismi" && (
                   <input type="number" min="0" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)}
                     placeholder="Ödenen miktar (₺)" className="w-full border border-[#d4c5ba] rounded-sm px-3 py-2 text-sm text-[#2c1810] focus:outline-none focus:border-[#8b6f5e] bg-[#faf8f6]" />
@@ -299,8 +321,20 @@ export default function SiparislerClient({
                 <p className="text-[11px] text-[#8b6f5e]">
                   {paymentType === "veresiye" ? "Tüm tutar Borç/Alacak modülüne kaydedilecek." : "Kalan tutar Borç/Alacak modülüne kaydedilecek."}
                 </p>
-              </div>
-            )}
+            </div>
+          )}
+
+          <label className="flex items-start gap-2 border border-[#e8ddd6] rounded-sm p-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={sendToDepot}
+              onChange={(e) => setSendToDepot(e.target.checked)}
+              className="mt-0.5 accent-[#2c1810]"
+            />
+            <span className="text-sm text-[#2c1810] leading-relaxed">
+              Siparişi kaydettikten sonra depoya da ekle
+            </span>
+          </label>
           </div>
 
           <TextareaField label="Not" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Hediye paketi, özel not..." />
@@ -341,6 +375,15 @@ export default function SiparislerClient({
                 <span>Toplam</span>
                 <span>{Number(detail.total).toLocaleString("tr-TR")} ₺</span>
               </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => handleSendToDepot(detail.id)}
+                className="flex-1 bg-[#2c1810] text-[#f5f0eb] text-xs tracking-widest uppercase px-4 py-2 hover:bg-[#3d2418] transition-colors"
+              >
+                Depoya Aktar
+              </button>
             </div>
             {detail.note && (
               <div className="bg-[#faf8f6] rounded-sm p-3 text-sm text-[#5c4033]">

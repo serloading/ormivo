@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import RaporClient from "./RaporClient";
+import { normalizeOrderItems } from "@/lib/order-items";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Rapor — Admin" };
@@ -41,7 +42,7 @@ export default async function RaporPage() {
   for (const order of siteOrders) {
     if (order.paymentStatus !== "PAID" && order.paymentStatus !== "FREE") continue;
 
-    const items = order.items as { productId?: string; name: string; qty: number; price: number }[];
+    const items = normalizeOrderItems(order.items);
     const originalTotal = items.reduce((s, i) => s + i.price * i.qty, 0);
     const discount = Number(order.discount ?? 0);
     const saleTotal = Math.max(0, Number(order.total) - discount);
@@ -78,16 +79,16 @@ export default async function RaporPage() {
   for (const order of b2bOrders) {
     if (order.paymentStatus !== "PAID" && order.paymentStatus !== "FREE") continue;
 
-    const items = order.items as { productId?: string; productName?: string; name?: string; quantity?: number; qty?: number; price: number }[];
+    const items = normalizeOrderItems(order.items);
     const orderTotal = Number(order.total);
 
     // İndirim hesabı: sipariş toplam < kalem toplamı ise fark indirimdedir
-    const itemsTotal = items.reduce((s, i) => s + i.price * (i.quantity ?? i.qty ?? 1), 0);
+    const itemsTotal = items.reduce((s, i) => s + i.price * i.qty, 0);
     const scale = itemsTotal > 0 ? orderTotal / itemsTotal : 1;
 
     for (const item of items) {
-      const name = item.productName ?? item.name ?? "—";
-      const qty  = item.quantity ?? item.qty ?? 1;
+      const name = item.name;
+      const qty = item.qty;
       const prod = item.productId ? productMap.get(item.productId) : null;
       const origLine = item.price * qty;
       soldItems.push({
