@@ -532,6 +532,10 @@ export default function DepoSiparisClient({ siparisler, usdRate, suppliers: init
             const shipping = Number(order.shippingFee ?? 0) || 0;
             const productTotal = Math.max(0, total - shipping);
             const remainingAmount = Math.max(0, total - paidAmount);
+            // Dolar bazlı gösterim
+            const totalUSD = usdRate > 0 ? total / usdRate : 0;
+            const remainingUSD = usdRate > 0 ? remainingAmount / usdRate : 0;
+            const productTotalUSD = usdRate > 0 ? productTotal / usdRate : 0;
 
             return (
               <div key={order.id} className={`bg-white border rounded-sm overflow-hidden ${isSent ? "border-green-200" : "border-[#e8ddd6]"}`}>
@@ -555,8 +559,9 @@ export default function DepoSiparisClient({ siparisler, usdRate, suppliers: init
                   {/* Sağ: tutar + butonlar */}
                   <div className="flex items-center gap-4 shrink-0 ml-4">
                     <div className="text-right">
-                      <p className="text-base font-semibold text-[#2c1810]">{total.toLocaleString("tr-TR")} ₺</p>
-                      {remainingAmount > 0 && <p className="text-[11px] text-red-600">Kalan: {remainingAmount.toLocaleString("tr-TR")} ₺</p>}
+                      <p className="text-base font-semibold text-[#2c1810]">${totalUSD.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                      <p className="text-[11px] text-[#b8a89e]">{total.toLocaleString("tr-TR")} ₺</p>
+                      {remainingAmount > 0 && <p className="text-[11px] text-red-600">Kalan: ${remainingUSD.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>}
                       {remainingAmount === 0 && paidAmount > 0 && <p className="text-[11px] text-green-600">Ödendi</p>}
                     </div>
                     <div className="flex items-center gap-1">
@@ -576,7 +581,7 @@ export default function DepoSiparisClient({ siparisler, usdRate, suppliers: init
                 {isOpen && (
                   <div className="px-6 py-3 border-t border-[#f0ebe6]">
                     <p className="text-[11px] text-[#8b6f5e] mb-2">
-                      Ürün: {productTotal.toLocaleString("tr-TR")} ₺ · Kargo: {shipping.toLocaleString("tr-TR")} ₺
+                      Ürün: ${productTotalUSD.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · Kur: {usdRate.toLocaleString("tr-TR")} ₺/$
                       {order.depoPhone && <span className="ml-3">· {order.depoPhone}</span>}
                     </p>
                     <table className="w-full text-sm">
@@ -584,19 +589,23 @@ export default function DepoSiparisClient({ siparisler, usdRate, suppliers: init
                         <tr className="text-left border-b border-[#f0ebe6]">
                           <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium">Ürün Adı</th>
                           <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium text-right">Adet</th>
-                          <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium text-right">Alış Fiyatı</th>
-                          <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium text-right">Toplam</th>
+                          <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium text-right">Alış ($)</th>
+                          <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium text-right">Toplam ($)</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {normalizedItems.map((item, index) => (
+                        {normalizedItems.map((item, index) => {
+                          const unitUSD = usdRate > 0 ? item.unitPrice / usdRate : 0;
+                          const lineUSD = unitUSD * item.qty;
+                          return (
                           <tr key={index} className="border-b border-[#f9f6f3] last:border-0">
                             <td className="py-2 text-[#2c1810]">{item.name}</td>
                             <td className="py-2 text-right text-[#5c4033]">{item.qty}</td>
-                            <td className="py-2 text-right text-[#5c4033]">{Number(item.unitPrice).toLocaleString("tr-TR")} ₺</td>
-                            <td className="py-2 text-right font-medium text-[#2c1810]">{(item.qty * item.unitPrice).toLocaleString("tr-TR")} ₺</td>
+                            <td className="py-2 text-right text-[#5c4033]">${unitUSD.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td className="py-2 text-right font-medium text-[#2c1810]">${lineUSD.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                     {order.notes && (
