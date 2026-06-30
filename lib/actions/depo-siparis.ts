@@ -242,13 +242,27 @@ export async function deleteDepoSiparis(id: string) {
   revalidatePath("/admin/finans");
 }
 
-export async function addManualOrderToDepo(orderId: string) {
-  const order = await prisma.order.findUniqueOrThrow({
-    where: { id: orderId },
-    include: { customer: true },
-  });
+export async function addManualOrderToDepo(orderId: string, source: "manuel" | "web" = "manuel") {
+  let orderNo: string;
+  let customerName: string;
+  let rawItems: unknown;
 
-  const orderItems = normalizeOrderItems(order.items).map<DepoSiparisItem>((item) => ({
+  if (source === "web") {
+    const siteOrder = await prisma.siteOrder.findUniqueOrThrow({ where: { id: orderId } });
+    orderNo = siteOrder.orderNo;
+    customerName = siteOrder.recipientName ?? "Müşteri";
+    rawItems = siteOrder.items;
+  } else {
+    const order = await prisma.order.findUniqueOrThrow({
+      where: { id: orderId },
+      include: { customer: true },
+    });
+    orderNo = order.orderNo;
+    customerName = order.customer?.name ?? "Müşteri";
+    rawItems = order.items;
+  }
+
+  const orderItems = normalizeOrderItems(rawItems).map<DepoSiparisItem>((item) => ({
     productId: undefined,
     name: item.name,
     qty: item.qty,
@@ -256,7 +270,7 @@ export async function addManualOrderToDepo(orderId: string) {
   }));
 
   if (orderItems.length === 0) {
-    return { success: false, error: "Sipariş içinde aktarılacak ürün bulunamadı." };
+    return { success: false as const, error: "Sipariş içinde aktarılacak ürün bulunamadı." };
   }
 
   const latestPending = await prisma.depoSiparis.findFirst({
@@ -264,7 +278,7 @@ export async function addManualOrderToDepo(orderId: string) {
     orderBy: { createdAt: "desc" },
   });
 
-  const sourceNote = `Kaynak sipariş: #${order.orderNo} - ${order.customer?.name ?? "Müşteri"}`;
+  const sourceNote = `Kaynak sipariş: #${orderNo} - ${customerName}`;
 
   if (latestPending) {
     const baseItems = Array.isArray(latestPending.items) ? (latestPending.items as DepoSiparisItem[]) : [];
@@ -293,8 +307,51 @@ export async function addManualOrderToDepo(orderId: string) {
     revalidatePath("/admin/depo-siparisler");
     revalidatePath("/admin/borc-alacak");
     revalidatePath("/admin/finans");
-    return { success: true, mode: "updated" as const, depoSiparisId: latestPending.id };
+    return { success: true as const, mode: "updated" as const, depoSiparisId: latestPending.id };
   }
+
+  // No open HAZIRLANIYOR order — caller should prompt user to create one
+  return {
+    success: false as const,
+    needsNewOrder: true as const,
+    items: orderItems,
+    sourceNote,
+  };
+}
+
+export async function createDepoSiparisFromOrder(
+  orderId: string,
+  source: "manuel" | "web",
+  depoName: string,
+  depoPhone: string,
+) {
+  let orderNo: string;
+  let customerName: string;
+  let rawItems: unknown;
+
+  if (source === "web") {
+    const siteOrder = await prisma.siteOrder.findUniqueOrThrow({ where: { id: orderId } });
+    orderNo = siteOrder.orderNo;
+    customerName = siteOrder.recipientName ?? "Müşteri";
+    rawItems = siteOrder.items;
+  } else {
+    const order = await prisma.order.findUniqueOrThrow({
+      where: { id: orderId },
+      include: { customer: true },
+    });
+    orderNo = order.orderNo;
+    customerName = order.customer?.name ?? "Müşteri";
+    rawItems = order.items;
+  }
+
+  const orderItems = normalizeOrderItems(rawItems).map<DepoSiparisItem>((item) => ({
+    productId: undefined,
+    name: item.name,
+    qty: item.qty,
+    unitPrice: item.price,
+  }));
+
+  const sourceNote = `Kaynak sipariş: #${orderNo} - ${customerName}`;
 
   const created = await createDepoSiparis({
     title: "Bekleyen Depo Siparişi",
@@ -302,15 +359,47 @@ export async function addManualOrderToDepo(orderId: string) {
     items: orderItems,
     paidAmount: 0,
     shippingFee: 0,
-    depoName: "",
-    depoPhone: "",
-    supplierName: "",
+    depoName: depoName.trim(),
+    depoPhone: depoPhone.trim(),
+    supplierName: depoName.trim(),
     notes: sourceNote,
   });
 
   revalidatePath("/admin/depo-siparisler");
   revalidatePath("/admin/borc-alacak");
   revalidatePath("/admin/finans");
-  return { success: true, mode: "created" as const, depoSiparisId: created.id };
+  return { success: true as const, mode: "created" as const, depoSiparisId: created.id };
+}
+
+export async function getDepoSuppliers(): Promise<{ name: string; phone: string }[]> {
+  const row = await prisma.setting.findUnique({ where: { key: "depo_suppliers" } });
+  if (!row) return [];
+  try { return JSON.parse(row.value) as { name: string; phone: string }[]; } catch { return []; }
+}
+
+export async function saveDepoSupplier(name: string, phone: string) {
+  const existing = await getDepoSuppliers();
+  if (existing.some((s) => s.name.toLowerCase() === name.toLowerCase())) {
+    return { error: "Bu tedarikçi zaten kayıtlı." };
+  }
+  const updated = [...existing, { name: name.trim(), phone: phone.trim() }];
+  await prisma.setting.upsert({
+    where: { key: "depo_suppliers" },
+    create: { key: "depo_suppliers", value: JSON.stringify(updated) },
+    update: { value: JSON.stringify(updated) },
+  });
+  revalidatePath("/admin/depo-siparisler");
+  return { success: true };
+}
+
+export async function deleteDepoSupplier(name: string) {
+  const existing = await getDepoSuppliers();
+  const updated = existing.filter((s) => s.name !== name);
+  await prisma.setting.upsert({
+    where: { key: "depo_suppliers" },
+    create: { key: "depo_suppliers", value: JSON.stringify(updated) },
+    update: { value: JSON.stringify(updated) },
+  });
+  revalidatePath("/admin/depo-siparisler");
 }
 

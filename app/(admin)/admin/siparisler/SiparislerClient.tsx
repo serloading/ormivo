@@ -15,7 +15,7 @@ import { createOrder } from "@/lib/actions/order";
 import { createCustomer } from "@/lib/actions/customer";
 import { createProduct } from "@/lib/actions/product";
 import { createCustomerDebt, addCustomerPayment } from "@/lib/actions/debt";
-import { addManualOrderToDepo } from "@/lib/actions/depo-siparis";
+import { addManualOrderToDepo, createDepoSiparisFromOrder } from "@/lib/actions/depo-siparis";
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING:   "Beklemede",
@@ -1075,25 +1075,70 @@ function OrderSummaryModal({ order, onClose }: { order: OrderRow; onClose: () =>
   );
 }
 
-// ---- Delete Button ----
+// ---- Send to Depo Button ----
 function SendToDepoButton({ order }: { order: OrderRow }) {
   const [pending, startTransition] = useTransition();
+  const [showModal, setShowModal] = useState(false);
+  const [depoName, setDepoName] = useState("");
+  const [depoPhone, setDepoPhone] = useState("");
   const router = useRouter();
+
   function handleSend() {
     if (!confirm(`#${order.orderNo} siparişindeki ürünler depo siparişine eklensin mi?`)) return;
     startTransition(async () => {
       try {
-        const res = await addManualOrderToDepo(order.id);
-        if (!res.success) { alert(res.error ?? "Aktarım başarısız."); return; }
-        alert(res.mode === "created" ? "Yeni depo siparişi oluşturuldu." : "Mevcut açık depo siparişine eklendi.");
+        const res = await addManualOrderToDepo(order.id, order.source);
+        if ("needsNewOrder" in res && res.needsNewOrder) {
+          setShowModal(true);
+          return;
+        }
+        if (!res.success) { alert((res as { error?: string }).error ?? "Aktarım başarısız."); return; }
+        alert(res.mode === "updated" ? "Mevcut açık depo siparişine eklendi." : "Depo siparişine eklendi.");
         router.refresh();
       } catch (e) { alert("Hata: " + (e instanceof Error ? e.message : "Bilinmeyen hata")); }
     });
   }
+
+  function handleCreate() {
+    if (!depoName.trim()) { alert("Depo adı gerekli."); return; }
+    startTransition(async () => {
+      try {
+        await createDepoSiparisFromOrder(order.id, order.source, depoName, depoPhone);
+        setShowModal(false);
+        alert("Yeni depo siparişi oluşturuldu.");
+        router.refresh();
+      } catch (e) { alert("Hata: " + (e instanceof Error ? e.message : "Bilinmeyen hata")); }
+    });
+  }
+
   return (
-    <button onClick={handleSend} disabled={pending} className="text-xs text-emerald-600 hover:text-emerald-800 mr-3 disabled:opacity-50">
-      Depoya Ekle
-    </button>
+    <>
+      <button onClick={handleSend} disabled={pending} className="text-xs text-emerald-600 hover:text-emerald-800 mr-3 disabled:opacity-50">
+        Depoya Ekle
+      </button>
+      {showModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded shadow-xl max-w-sm w-full p-6 space-y-4">
+            <h3 className="text-sm font-semibold text-[#2c1810]">Yeni Depo Siparişi Oluştur</h3>
+            <p className="text-xs text-[#8b6f5e]">Açık bir depo siparişi bulunamadı. Yeni oluşturmak için depo bilgilerini girin.</p>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-[#5c4033] block mb-1">Depo / Tedarikçi Adı *</label>
+                <input value={depoName} onChange={(e) => setDepoName(e.target.value)} className="w-full border border-[#d4c5ba] px-3 py-2 text-sm focus:outline-none focus:border-[#8b6f5e]" placeholder="Depo adı" />
+              </div>
+              <div>
+                <label className="text-xs text-[#5c4033] block mb-1">Telefon</label>
+                <input value={depoPhone} onChange={(e) => setDepoPhone(e.target.value)} className="w-full border border-[#d4c5ba] px-3 py-2 text-sm focus:outline-none focus:border-[#8b6f5e]" placeholder="05XX XXX XX XX" />
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setShowModal(false)} className="text-xs text-[#8b6f5e] hover:text-[#2c1810] px-4 py-2">İptal</button>
+              <button onClick={handleCreate} disabled={pending} className="bg-[#2c1810] text-white text-xs px-5 py-2 hover:bg-[#3d2418] disabled:opacity-50">Oluştur</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

@@ -9,6 +9,8 @@ import {
   deleteDepoSiparis,
   iletDepoSiparis,
   updateDepoSiparis,
+  saveDepoSupplier,
+  deleteDepoSupplier,
   type DepoSiparisItem,
 } from "@/lib/actions/depo-siparis";
 import { createSupplierDebt } from "@/lib/actions/debt";
@@ -228,7 +230,7 @@ function ItemRow({
   );
 }
 
-export default function DepoSiparisClient({ siparisler, usdRate }: { siparisler: DepoSiparis[]; usdRate: number }) {
+export default function DepoSiparisClient({ siparisler, usdRate, suppliers: initSuppliers }: { siparisler: DepoSiparis[]; usdRate: number; suppliers: { name: string; phone: string }[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [modalOpen, setModalOpen] = useState(false);
@@ -237,6 +239,10 @@ export default function DepoSiparisClient({ siparisler, usdRate }: { siparisler:
   const [items, setItems] = useState<DepoSiparisItem[]>([EMPTY_ITEM()]);
   const [supplierModalOpen, setSupplierModalOpen] = useState(false);
   const [supplierForm, setSupplierForm] = useState<SupplierFormState>(EMPTY_SUPPLIER_FORM);
+  const [supplierMgmtOpen, setSupplierMgmtOpen] = useState(false);
+  const [newSupplierName, setNewSupplierName] = useState("");
+  const [newSupplierPhone, setNewSupplierPhone] = useState("");
+  const suppliers = initSuppliers;
 
   const shippingFee = Number(form.shippingFee) || 0;
   const paid = Number(form.paidAmount) || 0;
@@ -389,6 +395,29 @@ export default function DepoSiparisClient({ siparisler, usdRate }: { siparisler:
     }
   }
 
+  function handleAddSupplier(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newSupplierName.trim()) return;
+    startTransition(async () => {
+      const res = await saveDepoSupplier(newSupplierName.trim(), newSupplierPhone.trim());
+      if ("error" in res) { alert(res.error); return; }
+      setNewSupplierName(""); setNewSupplierPhone("");
+      router.refresh();
+    });
+  }
+
+  function handleDeleteSupplier(name: string) {
+    if (!confirm(`"${name}" tedarikçisini silmek istiyor musunuz?`)) return;
+    startTransition(async () => {
+      await deleteDepoSupplier(name);
+      router.refresh();
+    });
+  }
+
+  function applySupplier(s: { name: string; phone: string }) {
+    setForm((p) => ({ ...p, depoName: s.name, depoPhone: s.phone }));
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
@@ -397,6 +426,12 @@ export default function DepoSiparisClient({ siparisler, usdRate }: { siparisler:
           <p className="text-xs text-[#8b6f5e] mt-1">Stok sistemini etkilemez - yalnızca depo takibi için</p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setSupplierMgmtOpen(true)}
+            className="border border-[#d4c5ba] text-[#5c4033] text-xs tracking-widest uppercase px-5 py-3 hover:bg-[#f5f0eb] transition-colors"
+          >
+            Tedarikçiler
+          </button>
           <button
             onClick={() => setSupplierModalOpen(true)}
             className="border border-[#d4c5ba] text-[#5c4033] text-xs tracking-widest uppercase px-5 py-3 hover:bg-[#f5f0eb] transition-colors"
@@ -520,6 +555,19 @@ export default function DepoSiparisClient({ siparisler, usdRate }: { siparisler:
             <Field label="Sipariş Tarihi" required type="date" value={form.orderDate} onChange={(e) => setForm((p) => ({ ...p, orderDate: e.target.value }))} />
           </div>
 
+          {suppliers.length > 0 && (
+            <div>
+              <label className="block text-xs uppercase tracking-widest text-[#8b6f5e] font-medium mb-1.5">Kayıtlı Tedarikçi Seç</label>
+              <div className="flex flex-wrap gap-2">
+                {suppliers.map((s) => (
+                  <button key={s.name} type="button" onClick={() => applySupplier(s)}
+                    className={`text-xs px-3 py-1.5 border transition-colors ${form.depoName === s.name ? "bg-[#2c1810] text-white border-[#2c1810]" : "border-[#d4c5ba] text-[#5c4033] hover:bg-[#f5f0eb]"}`}>
+                    {s.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <Field label="Depo Adı" required value={form.depoName} onChange={(e) => setForm((p) => ({ ...p, depoName: e.target.value }))} placeholder="Depo adı" />
             <Field label="Depo Telefonu" required value={form.depoPhone} onChange={(e) => setForm((p) => ({ ...p, depoPhone: e.target.value }))} placeholder="05XX XXX XX XX" />
@@ -614,6 +662,38 @@ export default function DepoSiparisClient({ siparisler, usdRate }: { siparisler:
           <Field label="Vade Tarihi" type="date" value={supplierForm.dueDate} onChange={(e) => setSupplierForm((p) => ({ ...p, dueDate: e.target.value }))} />
           <SubmitRow onCancel={closeSupplierModal} label="Borç Ekle" loading={isPending} />
         </form>
+      </Modal>
+
+      <Modal open={supplierMgmtOpen} onClose={() => setSupplierMgmtOpen(false)} title="Tedarikçi Yönetimi" width="max-w-lg">
+        <div className="space-y-5">
+          <form onSubmit={handleAddSupplier} className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Tedarikçi Adı" required value={newSupplierName} onChange={(e) => setNewSupplierName(e.target.value)} placeholder="Depo adı" />
+              <Field label="Telefon" value={newSupplierPhone} onChange={(e) => setNewSupplierPhone(e.target.value)} placeholder="05XX XXX XX XX" />
+            </div>
+            <button type="submit" disabled={isPending || !newSupplierName.trim()}
+              className="bg-[#2c1810] text-[#f5f0eb] text-xs tracking-widest uppercase px-5 py-2.5 hover:bg-[#3d2418] transition-colors disabled:opacity-40">
+              + Ekle
+            </button>
+          </form>
+
+          {suppliers.length > 0 && (
+            <div className="border-t border-[#e8ddd6] pt-4">
+              <p className="text-xs text-[#8b6f5e] uppercase tracking-widest mb-3">Kayıtlı Tedarikçiler</p>
+              <div className="space-y-2">
+                {suppliers.map((s) => (
+                  <div key={s.name} className="flex items-center justify-between py-2 border-b border-[#f0ebe6] last:border-0">
+                    <div>
+                      <p className="text-sm text-[#2c1810] font-medium">{s.name}</p>
+                      {s.phone && <p className="text-xs text-[#8b6f5e]">{s.phone}</p>}
+                    </div>
+                    <button onClick={() => handleDeleteSupplier(s.name)} className="text-xs text-red-400 hover:text-red-600">Sil</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </Modal>
     </div>
   );

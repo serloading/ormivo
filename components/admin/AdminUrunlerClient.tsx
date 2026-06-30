@@ -234,7 +234,7 @@ export default function AdminUrunlerClient({
         <select value={kategori} onChange={(e) => setKategori(e.target.value)}
           className="border border-[#d4c5ba] rounded-sm px-3 py-2 text-sm text-[#5c4033] focus:outline-none focus:border-[#8b6f5e] bg-[#faf8f6]">
           <option value="">Tüm Kategoriler</option>
-          {categories.map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
+          {categories.filter((c) => c.slug !== "ozel-koleksiyon").map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
         </select>
         <select value={marka} onChange={(e) => setMarka(e.target.value)}
           className="border border-[#d4c5ba] rounded-sm px-3 py-2 text-sm text-[#5c4033] focus:outline-none focus:border-[#8b6f5e] bg-[#faf8f6]">

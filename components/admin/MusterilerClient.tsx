@@ -8,6 +8,7 @@ import { Field, TextareaField, SubmitRow } from "./FormField";
 import { createCustomer, updateCustomer, deleteCustomer, backfillCustomerNos } from "@/lib/actions/customer";
 import { updateCustomerSegment } from "@/lib/actions/customer";
 import { SEGMENTS, SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/customer-constants";
+import { CITY_NAMES } from "@/lib/data/turkey-cities";
 
 type SortKey = "name" | "segment" | "orders" | "createdAt";
 type SortDir = "asc" | "desc";
@@ -26,7 +27,7 @@ type Customer = {
   createdAt: Date | string;
 };
 
-const EMPTY = { name: "", phone: "", email: "", address: "", note: "" };
+const EMPTY = { name: "", phone: "", email: "", city: "", address: "", note: "" };
 const SEGMENT_ORDER: Record<string, number> = { DIAMOND: 0, GOLD: 1, SILVER: 2, BRONZE: 3 };
 
 export default function MusterilerClient({ customers }: { customers: Customer[] }) {
@@ -94,7 +95,7 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
   }
   function openEdit(c: Customer) {
     setEditing(c);
-    setForm({ name: c.name, phone: c.phone ?? "", email: c.email ?? "", address: c.address ?? "", note: c.note ?? "" });
+    setForm({ name: c.name, phone: c.phone ?? "", email: c.email ?? "", city: c.city ?? "", address: c.address ?? "", note: c.note ?? "" });
     setFormSegment(c.segment ?? "");
     setModal(true);
   }
@@ -240,7 +241,15 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
           <Field label="Ad Soyad" required value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="Ayşe Kaya" />
           <Field label="Telefon" type="tel" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} placeholder="0532 000 0000" />
           <Field label="E-posta" type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} placeholder="ayse@email.com" />
-          <Field label="Adres" value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} placeholder="İstanbul, Kadıköy..." />
+          <div>
+            <label className="block text-xs font-medium text-[#5c4033] mb-1.5">İl</label>
+            <select value={form.city} onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))}
+              className="w-full border border-[#d4c5ba] rounded-sm px-3 py-2 text-sm text-[#2c1810] bg-white focus:outline-none focus:border-[#8b6f5e]">
+              <option value="">— İl Seçin —</option>
+              {CITY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <Field label="Açık Adres" value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} placeholder="Mahalle, sokak, no..." />
           <TextareaField label="Not" value={form.note} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))} placeholder="Özel not..." />
 
           {editing && (
