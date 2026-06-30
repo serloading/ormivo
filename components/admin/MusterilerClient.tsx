@@ -110,10 +110,20 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
   function openEdit(c: Customer) {
     setEditing(c);
     const rawPhone = c.phone ?? "";
-    // Ülke kodunu telefon numarasından ayır
-    const matchedCode = COUNTRY_CODES.find((cc) => rawPhone.startsWith(cc.code));
-    const countryCode = matchedCode?.code ?? "+90";
-    const phone = matchedCode ? rawPhone.slice(matchedCode.code.length).trimStart() : rawPhone;
+    // Ülke kodunu telefon numarasından ayır — hem "+90xxx" hem "90xxx" formatını destekle
+    let matchedCode = COUNTRY_CODES.find((cc) => rawPhone.startsWith(cc.code));
+    let countryCode = "+90";
+    let phone = rawPhone;
+    if (matchedCode) {
+      countryCode = matchedCode.code;
+      phone = rawPhone.slice(matchedCode.code.length).trimStart();
+    } else {
+      const digitsCode = COUNTRY_CODES.find((cc) => rawPhone.startsWith(cc.code.replace("+", "")));
+      if (digitsCode) {
+        countryCode = digitsCode.code;
+        phone = rawPhone.slice(digitsCode.code.replace("+", "").length);
+      }
+    }
     setForm({ name: c.name, phone, email: c.email ?? "", city: c.city ?? "", district: c.district ?? "", address: c.address ?? "", note: c.note ?? "", countryCode });
     setFormSegment(c.segment ?? "");
     setModal(true);

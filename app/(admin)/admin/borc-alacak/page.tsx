@@ -66,16 +66,31 @@ export default async function BorcAlacakPage() {
   const rawNames = (supplierDebts as Array<{ supplierName: string }>).map((d) => d.supplierName);
   const supplierNames: string[] = Array.from(new Set<string>(rawNames)).sort();
 
+  // Pending sipariş toplamını stats'a ekle (henüz CustomerDebt'e alınmamış alacaklar)
+  const pendingOrdersTotal =
+    pendingSiteOrders.reduce((s, o) => s + Number(o.total), 0) +
+    pendingB2BOrders.reduce((s, o) => s + Number(o.total), 0);
+  const enrichedStats = { ...stats, pendingOrdersTotal };
+
+  // Decimal → number serialization (React 19 RSC güvenlik kuralı)
+  const serializeDebt = (d: typeof customerDebts[number]) => ({
+    ...d,
+    order: d.order ? { ...d.order, total: Number(d.order.total), discount: Number((d.order as never as { discount?: unknown }).discount ?? 0) } : null,
+    payments: d.payments.map((p) => ({ ...p, amount: Number(p.amount) })),
+    totalAmount: Number(d.totalAmount),
+    paidAmount: Number(d.paidAmount),
+  });
+
   return (
     <BorcAlacakClient
-      customerDebts={customerDebts as never}
+      customerDebts={customerDebts.map(serializeDebt) as never}
       supplierDebts={supplierDebts as never}
       customers={customers}
       orders={orders}
       supplierNames={supplierNames}
-      stats={stats}
-      pendingSiteOrders={pendingSiteOrders as never}
-      pendingB2BOrders={pendingB2BOrders as never}
+      stats={enrichedStats}
+      pendingSiteOrders={pendingSiteOrders.map((o) => ({ ...o, total: Number(o.total), discount: Number(o.discount ?? 0) })) as never}
+      pendingB2BOrders={pendingB2BOrders.map((o) => ({ ...o, total: Number(o.total), shippingFee: Number((o as never as { shippingFee?: unknown }).shippingFee ?? 0) })) as never}
     />
   );
 }

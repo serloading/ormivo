@@ -138,7 +138,7 @@ export async function backfillCustomerNos() {
 }
 
 export async function updateCustomer(id: string, data: Partial<CustomerFormData>) {
-  const { birthDate, ...rest } = data;
+  const { birthDate, countryCode: _cc, ...rest } = data as Partial<CustomerFormData> & { countryCode?: string };
   const updateData = {
     ...rest,
     ...(birthDate !== undefined ? { birthDate: birthDate ? new Date(birthDate as string) : null } : {}),

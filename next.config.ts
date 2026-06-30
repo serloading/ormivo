@@ -27,9 +27,7 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   images: {
     localPatterns: [
-      { pathname: "/uploads/**" },
-      { pathname: "/logos/**" },
-      { pathname: "/*.svg" },
+      { pathname: "/**" },
     ],
     remotePatterns: [
       { protocol: "https", hostname: "*.supabase.co" },

@@ -32,6 +32,7 @@ interface SDebt {
 interface Stats {
   totalReceivable: number; totalOwed: number;
   collectedMonth: number; overdue: number;
+  pendingOrdersTotal?: number;
 }
 
 interface PendingSiteOrder {
@@ -250,12 +251,11 @@ export default function BorcAlacakClient({
       </div>
 
       {/* ── STAT KARTLARI ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { label: "Müşteri Alacaklarımız", value: `${fmt(stats.totalReceivable)} ₺`, color: "text-green-700", bg: "bg-green-50 border-green-200" },
-          { label: "Tedarikçi Borcumuz",    value: `${fmt(stats.totalOwed)} ₺`,       color: "text-red-700",   bg: "bg-red-50 border-red-200" },
-          { label: "Bu Ay Tahsil",          value: `${fmt(stats.collectedMonth)} ₺`,  color: "text-blue-700",  bg: "bg-blue-50 border-blue-200" },
-          { label: "Vadesi Geçmiş",         value: `${stats.overdue}`,                color: "text-orange-700", bg: "bg-orange-50 border-orange-200" },
+          { label: "Müşteri Alacaklarımız", value: `${fmt((stats.totalReceivable || 0) + (stats.pendingOrdersTotal || 0))} ₺`, color: "text-green-700", bg: "bg-green-50 border-green-200" },
+          { label: "Tedarikçi Borcumuz",    value: `${fmt(stats.totalOwed)} ₺`,      color: "text-red-700",  bg: "bg-red-50 border-red-200" },
+          { label: "Bu Ay Tahsil",          value: `${fmt(stats.collectedMonth)} ₺`, color: "text-blue-700", bg: "bg-blue-50 border-blue-200" },
         ].map((s) => (
           <div key={s.label} className={`border rounded p-4 ${s.bg}`}>
             <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-1">{s.label}</p>
@@ -427,18 +427,17 @@ export default function BorcAlacakClient({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50 text-left">
-                  {["Müşteri", "Açıklama", "Toplam", "Ödenen", "Kalan", "Vade", "Durum", "İşlemler"].map((h) => (
+                  {["Müşteri", "Açıklama", "Toplam", "Ödenen", "Kalan", "Durum", "İşlemler"].map((h) => (
                     <th key={h} className="px-4 py-3 text-[11px] uppercase tracking-wide text-gray-400 font-medium whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {initCD.length === 0 && (
-                  <tr><td colSpan={8} className="text-center py-12 text-gray-400 text-sm">Henüz alacak kaydı yok.</td></tr>
+                  <tr><td colSpan={7} className="text-center py-12 text-gray-400 text-sm">Henüz alacak kaydı yok.</td></tr>
                 )}
                 {initCD.map((d) => {
                   const remaining = d.totalAmount - d.paidAmount;
-                  const overdue   = isOverdue(d);
                   return (
                     <tr key={d.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 whitespace-nowrap">
@@ -451,16 +450,8 @@ export default function BorcAlacakClient({
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap font-medium">{fmt(d.totalAmount)} ₺</td>
                       <td className="px-4 py-3 whitespace-nowrap text-green-700">{fmt(d.paidAmount)} ₺</td>
-                      <td className={`px-4 py-3 whitespace-nowrap font-semibold ${overdue ? "text-red-600" : remaining > 0 ? "text-orange-600" : "text-gray-400"}`}>
+                      <td className={`px-4 py-3 whitespace-nowrap font-semibold ${remaining > 0 ? "text-orange-600" : "text-gray-400"}`}>
                         {fmt(remaining)} ₺
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-xs">
-                        {d.dueDate
-                          ? <span className={overdue ? "text-red-600 font-medium" : "text-gray-600"}>
-                              {new Date(d.dueDate).toLocaleDateString("tr-TR")}
-                            </span>
-                          : <span className="text-gray-300">—</span>
-                        }
                       </td>
                       <td className="px-4 py-3"><StatusBadge status={d.status} /></td>
                       <td className="px-4 py-3">
@@ -516,34 +507,25 @@ export default function BorcAlacakClient({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50 text-left">
-                  {["Tedarikçi", "Açıklama", "Toplam", "Ödenen", "Kalan", "Vade", "Durum", "İşlemler"].map((h) => (
+                  {["Tedarikçi", "Açıklama", "Toplam", "Ödenen", "Kalan", "Durum", "İşlemler"].map((h) => (
                     <th key={h} className="px-4 py-3 text-[11px] uppercase tracking-wide text-gray-400 font-medium whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {initSD.length === 0 && (
-                  <tr><td colSpan={8} className="text-center py-12 text-gray-400 text-sm">Henüz borç kaydı yok.</td></tr>
+                  <tr><td colSpan={7} className="text-center py-12 text-gray-400 text-sm">Henüz borç kaydı yok.</td></tr>
                 )}
                 {initSD.map((d) => {
                   const remaining = d.totalAmount - d.paidAmount;
-                  const overdue   = isOverdue(d);
                   return (
                     <tr key={d.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium text-[#2c1810] whitespace-nowrap">{d.supplierName}</td>
                       <td className="px-4 py-3 max-w-[200px]"><p className="truncate text-gray-700">{d.description}</p></td>
                       <td className="px-4 py-3 whitespace-nowrap font-medium">{fmt(d.totalAmount)} ₺</td>
                       <td className="px-4 py-3 whitespace-nowrap text-green-700">{fmt(d.paidAmount)} ₺</td>
-                      <td className={`px-4 py-3 whitespace-nowrap font-semibold ${overdue ? "text-red-600" : remaining > 0 ? "text-orange-600" : "text-gray-400"}`}>
+                      <td className={`px-4 py-3 whitespace-nowrap font-semibold ${remaining > 0 ? "text-orange-600" : "text-gray-400"}`}>
                         {fmt(remaining)} ₺
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-xs">
-                        {d.dueDate
-                          ? <span className={overdue ? "text-red-600 font-medium" : "text-gray-600"}>
-                              {new Date(d.dueDate).toLocaleDateString("tr-TR")}
-                            </span>
-                          : <span className="text-gray-300">—</span>
-                        }
                       </td>
                       <td className="px-4 py-3"><StatusBadge status={d.status} /></td>
                       <td className="px-4 py-3">
@@ -611,9 +593,6 @@ export default function BorcAlacakClient({
                 <input type="number" min="0" value={cdForm.initialPayment} onChange={(e) => setCdForm((f) => ({ ...f, initialPayment: e.target.value }))} placeholder="0.00" className={inputCls} />
               </Field>
             </div>
-            <Field label="Vade Tarihi">
-              <input type="date" value={cdForm.dueDate} onChange={(e) => setCdForm((f) => ({ ...f, dueDate: e.target.value }))} className={inputCls} />
-            </Field>
             <div className="flex justify-end gap-3 pt-2">
               <button onClick={() => setModal(null)} className="text-sm text-gray-400 hover:text-gray-700 px-4 py-2">İptal</button>
               <button
@@ -698,9 +677,6 @@ export default function BorcAlacakClient({
                 <input type="number" min="0" value={sdForm.initialPayment} onChange={(e) => setSdForm((f) => ({ ...f, initialPayment: e.target.value }))} placeholder="0.00" className={inputCls} />
               </Field>
             </div>
-            <Field label="Vade Tarihi">
-              <input type="date" value={sdForm.dueDate} onChange={(e) => setSdForm((f) => ({ ...f, dueDate: e.target.value }))} className={inputCls} />
-            </Field>
             <div className="flex justify-end gap-3 pt-2">
               <button onClick={() => setModal(null)} className="text-sm text-gray-400 hover:text-gray-700 px-4 py-2">İptal</button>
               <button
