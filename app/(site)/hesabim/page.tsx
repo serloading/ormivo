@@ -4,6 +4,7 @@ import { prisma }            from "@/lib/prisma";
 import Image                 from "next/image";
 import Link                  from "next/link";
 import AddressActions        from "./AddressActions";
+import AdminAddressActions   from "./AdminAddressActions";
 import HesabimProfileCard    from "./HesabimProfileCard";
 import HesabimSiparisler     from "./HesabimSiparisler";
 
@@ -230,6 +231,7 @@ export default async function HesabimPage() {
                       {customer.city && <p className="text-[#6B6B6B]">{customer.city}</p>}
                       <p className="text-[#6B6B6B]">{customer.address}</p>
                       <span className="inline-block mt-1 font-sans text-[8px] tracking-widest uppercase bg-[#EDE5D8] text-[#C4A882] px-1.5 py-0.5">Kayıtlı Adres</span>
+                      <AdminAddressActions currentAddress={customer.address} city={customer.city} />
                     </div>
                   )}
                   {(user.addresses as UserAddress[]).map((addr) => (

@@ -93,7 +93,7 @@ export default function SiteHeader({
     router.push(`/?q=${encodeURIComponent(searchQ.trim())}`);
   }
 
-  const totalCart  = cartCount + guestCount;
+  const totalCart  = user ? cartCount : cartCount + guestCount;
   const avatarChar = user?.name?.[0]?.toUpperCase() ?? user?.phone?.slice(-2) ?? "?";
 
   return (

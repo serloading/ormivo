@@ -32,7 +32,7 @@ export default function BottomNav({ cartCount, loggedIn }: Props) {
   // Sayfa değişince search kapat
   useEffect(() => { setSearchOpen(false); setSearchQ(""); }, [pathname]);
 
-  const total = cartCount + guestCount;
+  const total = loggedIn ? cartCount : cartCount + guestCount;
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { updateSiteUserProfile } from "@/lib/actions/auth";
 import { SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/segment";
 
@@ -9,6 +9,20 @@ const SEGMENT_ICONS: Record<string, string> = {
   SILVER: "🥈",
   GOLD:   "🏅",
 };
+
+const COUNTRY_CODES = [
+  { code: "+90", label: "🇹🇷 Türkiye (+90)" },
+  { code: "+1",  label: "🇺🇸 ABD/Kanada (+1)" },
+  { code: "+44", label: "🇬🇧 İngiltere (+44)" },
+  { code: "+49", label: "🇩🇪 Almanya (+49)" },
+  { code: "+33", label: "🇫🇷 Fransa (+33)" },
+  { code: "+31", label: "🇳🇱 Hollanda (+31)" },
+  { code: "+43", label: "🇦🇹 Avusturya (+43)" },
+  { code: "+41", label: "🇨🇭 İsviçre (+41)" },
+  { code: "+971", label: "🇦🇪 BAE (+971)" },
+  { code: "+966", label: "🇸🇦 S. Arabistan (+966)" },
+  { code: "+7",  label: "🇷🇺 Rusya (+7)" },
+];
 
 type Mode = null | "profile" | "password";
 
@@ -39,6 +53,12 @@ export default function HesabimProfileCard({
   const [dispName, setDispName] = useState(name);
   const [dispPhone, setDispPhone] = useState(phone);
 
+  // WhatsApp ülke kodu (localStorage)
+  const [waCountryCode, setWaCountryCode] = useState("+90");
+  useEffect(() => {
+    try { const s = localStorage.getItem("wa_country_code"); if (s) setWaCountryCode(s); } catch {}
+  }, []);
+
   // Şifre alanları
   const [curPw,  setCurPw]  = useState("");
   const [newPw,  setNewPw]  = useState("");
@@ -62,6 +82,7 @@ export default function HesabimProfileCard({
   function submitProfile(e: React.FormEvent) {
     e.preventDefault();
     reset();
+    try { localStorage.setItem("wa_country_code", waCountryCode); } catch {}
     startT(async () => {
       const res = await updateSiteUserProfile({ name: curName, phone: curPhone, email: curEmail });
       if (res.error) { setError(res.error); return; }
@@ -159,6 +180,12 @@ export default function HesabimProfileCard({
                 <label className="block font-sans text-[9px] tracking-[0.15em] uppercase text-[#9A9A9A] mb-1.5">E-posta</label>
                 <input type="email" value={curEmail} onChange={(e) => setCurEmail(e.target.value)}
                   placeholder="ornek@mail.com" className={inp} />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block font-sans text-[9px] tracking-[0.15em] uppercase text-[#9A9A9A] mb-1.5">WhatsApp Ülke Kodu</label>
+                <select value={waCountryCode} onChange={(e) => setWaCountryCode(e.target.value)} className={inp}>
+                  {COUNTRY_CODES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
+                </select>
               </div>
             </div>
             {error   && <p className="font-sans text-xs text-red-500 bg-red-50 px-3 py-2">{error}</p>}

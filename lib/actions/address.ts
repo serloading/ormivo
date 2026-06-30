@@ -82,3 +82,25 @@ export async function adminDeleteAddress(id: string) {
   revalidatePath("/admin/musteriler");
   return { success: true };
 }
+
+export async function deleteMyCustomerAddress() {
+  const session = await getSession();
+  if (!session) return { error: "Giriş gerekli." };
+  await prisma.customer.updateMany({
+    where: { phone: session.phone },
+    data: { address: null },
+  });
+  revalidatePath("/hesabim");
+  return { success: true };
+}
+
+export async function updateMyCustomerAddress(newAddress: string) {
+  const session = await getSession();
+  if (!session) return { error: "Giriş gerekli." };
+  await prisma.customer.updateMany({
+    where: { phone: session.phone },
+    data: { address: newAddress.trim() || null },
+  });
+  revalidatePath("/hesabim");
+  return { success: true };
+}
