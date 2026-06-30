@@ -114,10 +114,24 @@ function ItemRow({
   usdRate: number;
 }) {
   const [query, setQuery] = useState(item.name);
+  const [priceStr, setPriceStr] = useState(item.unitPrice ? String(item.unitPrice) : "");
+  const [usdStr, setUsdStr] = useState(() =>
+    item.unitPrice && usdRate ? String(Math.round((item.unitPrice / usdRate) * 100) / 100) : ""
+  );
   const [suggestions, setSuggestions] = useState<ProductSuggestion[]>([]);
   const [open, setOpen] = useState(false);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Dışarıdan (ürün seçimi) fiyat değişince string state'i senkronize et
+  const prevUnitPrice = useRef(item.unitPrice);
+  useEffect(() => {
+    if (item.unitPrice !== prevUnitPrice.current) {
+      prevUnitPrice.current = item.unitPrice;
+      setPriceStr(item.unitPrice ? String(item.unitPrice) : "");
+      setUsdStr(item.unitPrice && usdRate ? String(Math.round((item.unitPrice / usdRate) * 100) / 100) : "");
+    }
+  }, [item.unitPrice, usdRate]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -206,15 +220,18 @@ function ItemRow({
         <div className="flex items-center gap-1 shrink-0">
           <span className="text-[10px] uppercase tracking-wide text-[#5e8b73] w-6">$</span>
           <input
-            type="number"
-            min="0"
-            step="0.01"
+            type="text"
+            inputMode="decimal"
             className="w-20 border border-[#5e8b73] px-2 py-1.5 text-sm text-right focus:outline-none focus:border-[#3d7a5e] text-[#5e8b73] bg-white"
             placeholder="0.00"
-            value={item.unitPrice && usdRate ? (Math.round((item.unitPrice / usdRate) * 100) / 100) || "" : ""}
+            value={usdStr}
             onChange={(e) => {
-              const usd = parseFloat(e.target.value) || 0;
-              onUpdate(idx, "unitPriceStr", String(Math.round(usd * usdRate * 100) / 100));
+              const raw = e.target.value;
+              setUsdStr(raw);
+              const usd = parseFloat(raw.replace(",", ".")) || 0;
+              const tl = Math.round(usd * usdRate * 100) / 100;
+              setPriceStr(tl ? String(tl) : "");
+              onUpdate(idx, "unitPriceStr", String(tl));
             }}
           />
         </div>
@@ -222,13 +239,19 @@ function ItemRow({
         <div className="flex items-center gap-1 shrink-0">
           <span className="text-[10px] uppercase tracking-wide text-[#8b6f5e] w-4">₺</span>
           <input
-            type="number"
-            min="0"
-            step="0.01"
+            type="text"
+            inputMode="decimal"
             className="w-24 border border-[#d4c5ba] px-2 py-1.5 text-sm text-right focus:outline-none focus:border-[#8b6f5e] bg-white"
             placeholder="0.00"
-            value={item.unitPrice || ""}
-            onChange={(e) => onUpdate(idx, "unitPriceStr", e.target.value)}
+            value={priceStr}
+            onChange={(e) => {
+              const raw = e.target.value;
+              setPriceStr(raw);
+              const tl = parseFloat(raw.replace(",", ".")) || 0;
+              // USD alanını ters hesapla
+              setUsdStr(tl && usdRate ? String(Math.round((tl / usdRate) * 100) / 100) : "");
+              onUpdate(idx, "unitPriceStr", String(tl));
+            }}
           />
         </div>
 
