@@ -18,6 +18,7 @@ export type CustomerFormData = {
   city?: string;
   address?: string;
   note?: string;
+  birthDate?: Date | string | null;
 };
 
 export async function getCustomers() {
@@ -136,7 +137,12 @@ export async function backfillCustomerNos() {
 }
 
 export async function updateCustomer(id: string, data: Partial<CustomerFormData>) {
-  await prisma.customer.update({ where: { id }, data });
+  const { birthDate, ...rest } = data;
+  const updateData = {
+    ...rest,
+    ...(birthDate !== undefined ? { birthDate: birthDate ? new Date(birthDate as string) : null } : {}),
+  };
+  await prisma.customer.update({ where: { id }, data: updateData });
   revalidatePath("/admin/musteriler");
   revalidatePath(`/admin/musteriler/${id}`);
   revalidatePath("/admin/siparisler");

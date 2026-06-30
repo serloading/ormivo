@@ -51,6 +51,7 @@ model Product {
   isActive           Boolean    @default(true)
   isOzelKoleksiyon   Boolean    @default(false)
   isBestSeller       Boolean    @default(false)
+  isNew              Boolean    @default(false)
   deletedAt          DateTime?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
@@ -64,6 +65,7 @@ model Customer {
   name       String
   phone      String?
   email      String?
+  birthDate  DateTime?
   city       String?
   address    String?
   note       String?
@@ -158,6 +160,7 @@ model SiteUser {
   id                 String      @id @default(cuid())
   phone              String      @unique
   name               String?
+  email              String?
   passwordHash       String
   mustChangePassword Boolean     @default(false)
   segment            String?     // BRONZE | SILVER | GOLD | null

@@ -227,16 +227,6 @@ export default function AdminUrunlerClient({
 
   return (
     <>
-      {/* Toolbar */}
-      <div className="flex justify-end mb-4">
-        <button
-          onClick={handleBackfill}
-          className="border border-[#d4c5ba] text-[#8b6f5e] text-xs tracking-widest uppercase px-4 py-2 hover:bg-[#f5f0eb] transition-colors"
-        >
-          Numara Ata
-        </button>
-      </div>
-
       {/* Filters */}
       <div className="bg-white border border-[#e8ddd6] rounded-sm p-4 mb-6 flex flex-wrap gap-3">
         <input type="text" placeholder="Ürün ara..." value={search} onChange={(e) => setSearch(e.target.value)}

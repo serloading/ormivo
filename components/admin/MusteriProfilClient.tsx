@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateCustomer, updateCustomerSegment, updateCustomerTags, addCustomerNote, deleteCustomerNote, createSiteUserForCustomer } from "@/lib/actions/customer";
+import { updateCustomer, updateCustomerSegment, updateCustomerTags, addCustomerNote, deleteCustomerNote } from "@/lib/actions/customer";
 import { adminAddAddress, adminDeleteAddress } from "@/lib/actions/address";
 import { SEGMENTS, SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/customer-constants";
 import { TURKEY_CITIES, CITY_NAMES } from "@/lib/data/turkey-cities";
@@ -38,6 +38,7 @@ type CustomerData = {
   id: string; name: string; phone: string | null; email: string | null;
   city: string | null; address: string | null; note: string | null;
   segment: string | null; tags: string[];
+  birthDate?: string | null;
   siteUserId?: string | null;
   addresses?: UserAddress[];
   notes: { id: string; content: string; createdBy: string; createdAt: string }[];
@@ -62,11 +63,12 @@ export default function MusteriProfilClient({
   // Müşteri bilgileri düzenleme
   const [editingInfo, setEditingInfo] = useState(false);
   const [infoForm, setInfoForm] = useState({
-    name:    customer.name,
-    phone:   customer.phone ?? "",
-    email:   customer.email ?? "",
-    address: customer.address ?? "",
-    note:    customer.note ?? "",
+    name:      customer.name,
+    phone:     customer.phone ?? "",
+    email:     customer.email ?? "",
+    address:   customer.address ?? "",
+    note:      customer.note ?? "",
+    birthDate: customer.birthDate ? new Date(customer.birthDate).toISOString().split("T")[0] : "",
   });
   const [infoSaving, startInfoT] = useTransition();
 
@@ -74,11 +76,12 @@ export default function MusteriProfilClient({
     e.preventDefault();
     startInfoT(async () => {
       await updateCustomer(customer.id, {
-        name:    infoForm.name.trim(),
-        phone:   infoForm.phone.trim() || undefined,
-        email:   infoForm.email.trim() || undefined,
-        address: infoForm.address.trim() || undefined,
-        note:    infoForm.note.trim() || undefined,
+        name:      infoForm.name.trim(),
+        phone:     infoForm.phone.trim() || undefined,
+        email:     infoForm.email.trim() || undefined,
+        address:   infoForm.address.trim() || undefined,
+        note:      infoForm.note.trim() || undefined,
+        birthDate: infoForm.birthDate || undefined,
       });
       setEditingInfo(false);
       router.refresh();
@@ -156,11 +159,17 @@ export default function MusteriProfilClient({
               ].map(({ label, key, type }) => (
                 <div key={key}>
                   <label className="text-xs text-[#8b6f5e] block mb-0.5">{label}</label>
-                  <input type={type} value={infoForm[key as keyof typeof infoForm]}
+                  <input type={type} value={infoForm[key as keyof typeof infoForm] as string}
                     onChange={(e) => setInfoForm((p) => ({ ...p, [key]: e.target.value }))}
                     className="w-full border border-[#d4c5ba] rounded-sm px-3 py-1.5 text-sm bg-[#faf8f6] focus:outline-none focus:border-[#8b6f5e]" />
                 </div>
               ))}
+              <div>
+                <label className="text-xs text-[#8b6f5e] block mb-0.5">Doğum Tarihi</label>
+                <input type="date" value={infoForm.birthDate}
+                  onChange={(e) => setInfoForm((p) => ({ ...p, birthDate: e.target.value }))}
+                  className="w-full border border-[#d4c5ba] rounded-sm px-3 py-1.5 text-sm bg-[#faf8f6] focus:outline-none focus:border-[#8b6f5e]" />
+              </div>
               <div>
                 <label className="text-xs text-[#8b6f5e] block mb-0.5">Not</label>
                 <textarea value={infoForm.note} onChange={(e) => setInfoForm((p) => ({ ...p, note: e.target.value }))} rows={2}
@@ -179,12 +188,13 @@ export default function MusteriProfilClient({
             <>
               <div className="space-y-3">
                 {[
-                  ["Telefon",     customer.phone   || "—"],
-                  ["E-posta",    customer.email   || "—"],
-                  ["Adres",      customer.address || "—"],
-                  ["Not",        customer.note    || "—"],
-                  ["Kayıt",      new Date(customer.createdAt).toLocaleDateString("tr-TR")],
-                  ["Son Sipariş", lastOrder ? new Date(lastOrder.createdAt).toLocaleDateString("tr-TR") : "—"],
+                  ["Telefon",       customer.phone   || "—"],
+                  ["E-posta",      customer.email   || "—"],
+                  ["Adres",        customer.address || "—"],
+                  ["Doğum Tarihi", customer.birthDate ? new Date(customer.birthDate).toLocaleDateString("tr-TR") : "—"],
+                  ["Not",          customer.note    || "—"],
+                  ["Kayıt",        new Date(customer.createdAt).toLocaleDateString("tr-TR")],
+                  ["Son Sipariş",  lastOrder ? new Date(lastOrder.createdAt).toLocaleDateString("tr-TR") : "—"],
                 ].map(([k, v]) => (
                   <div key={k} className="flex justify-between text-sm border-b border-[#f0ebe6] pb-2 last:border-0">
                     <span className="text-[#8b6f5e]">{k}</span>
@@ -198,7 +208,6 @@ export default function MusteriProfilClient({
                   WhatsApp&apos;tan Yaz
                 </a>
               )}
-              <SiteHesapButonu customerId={customer.id} phone={customer.phone} />
             </>
           )}
         </div>
@@ -447,31 +456,3 @@ function AddressSection({ siteUserId, addresses }: { siteUserId: string | null; 
   );
 }
 
-function SiteHesapButonu({ customerId, phone }: { customerId: string; phone: string | null }) {
-  const [msg, setMsg] = useState("");
-  const [pending, start] = useTransition();
-
-  if (!phone) return (
-    <p className="text-[10px] text-[#8b6f5e] text-center mt-3">Telefon numarası eklenince site hesabı oluşturulabilir.</p>
-  );
-
-  function handleCreate() {
-    start(async () => {
-      const r = await createSiteUserForCustomer(customerId);
-      setMsg(r.error ? `Hata: ${r.error}` : "Site hesabı oluşturuldu. Müşteri telefonu ve varsayılan şifre ile giriş yapabilir.");
-    });
-  }
-
-  return (
-    <div className="mt-3">
-      {msg ? (
-        <p className="text-[11px] text-center text-green-700 bg-green-50 border border-green-200 px-3 py-2 rounded">{msg}</p>
-      ) : (
-        <button onClick={handleCreate} disabled={pending}
-          className="block w-full text-center border border-[#c4a882] text-[#8b6f5e] text-xs tracking-widest uppercase py-2.5 hover:bg-[#f5ede4] transition-colors disabled:opacity-50">
-          {pending ? "Oluşturuluyor..." : "Site Hesabı Oluştur"}
-        </button>
-      )}
-    </div>
-  );
-}

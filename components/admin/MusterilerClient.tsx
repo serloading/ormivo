@@ -152,8 +152,6 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
               {selected.size} Müşteriyi Sil
             </button>
           )}
-          <button onClick={() => startTransition(async () => { await backfillCustomerNos(); router.refresh(); })}
-            className="border border-[#d4c5ba] text-[#8b6f5e] text-xs tracking-widest uppercase px-4 py-3 hover:bg-[#f5f0eb] transition-colors">Numara Ata</button>
           <button onClick={openAdd} className="bg-[#2c1810] text-[#f5f0eb] text-xs tracking-widest uppercase px-6 py-3 hover:bg-[#3d2418] transition-colors">+ Müşteri Ekle</button>
         </div>
       </div>

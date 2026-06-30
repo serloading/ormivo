@@ -37,12 +37,13 @@ function buildHref(current: { kategori: string; marka: string; sirala: string },
 export default async function UrunlerPage({
   searchParams,
 }: {
-  searchParams: Promise<{ kategori?: string; marka?: string; sirala?: string }>;
+  searchParams: Promise<{ kategori?: string; marka?: string; sirala?: string; yeni?: string }>;
 }) {
   const sp      = await searchParams;
   const kategori = sp.kategori ?? "";
   const marka    = sp.marka    ?? "";
   const sirala   = sp.sirala   ?? "";
+  const yeni     = sp.yeni     === "1";
 
   // Kategori filtresi: hem primary (category.slug) hem extra (extraCategoryIds has id)
   const kategoriFilt = kategori ? await (async () => {
@@ -56,6 +57,7 @@ export default async function UrunlerPage({
     isActive: true,
     ...kategoriFilt,
     ...(marka ? { brand: { slug: marka } } : {}),
+    ...(yeni ? { isNew: true } : {}),
   };
 
   const orderBy =

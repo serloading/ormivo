@@ -46,11 +46,19 @@ export default async function SiparislerPage({
     }),
   ]);
 
+  // Build phone→customerId map for siteOrders
+  const sitePhones = [...new Set(siteOrders.map((o) => o.user?.phone).filter(Boolean) as string[])];
+  const phoneCustomers = sitePhones.length > 0
+    ? await prisma.customer.findMany({ where: { phone: { in: sitePhones } }, select: { id: true, phone: true } })
+    : [];
+  const customerByPhone: Record<string, { id: string }> = {};
+  for (const c of phoneCustomers) { if (c.phone) customerByPhone[c.phone] = { id: c.id }; }
+
   // Normalize both into a single shape
   const unified = [
     ...siteOrders.map((o) => ({
       id:            o.id,
-      customerId:    null,
+      customerId:    customerByPhone[o.user?.phone ?? ""]?.id ?? null,
       source:        "web" as const,
       orderNo:       o.orderNo,
       status:        o.status,

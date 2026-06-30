@@ -12,7 +12,7 @@ type Product = {
   scentNotes?: string | null;
   price: number | string; comparePrice?: number | string | null;
   costPrice?: number | string | null; costPriceUsd?: number | string | null;
-  stock: number; isActive: boolean; isOzelKoleksiyon?: boolean; isBestSeller?: boolean; images: string[];
+  stock: number; isActive: boolean; isOzelKoleksiyon?: boolean; isBestSeller?: boolean; isNew?: boolean; images: string[];
   categoryId?: string | null; extraCategoryIds?: string[]; brandId?: string | null;
 };
 
@@ -47,6 +47,7 @@ export default function ProductForm({ product, categories, brands, usdRate = 38 
     isActive: product?.isActive ?? true,
     isOzelKoleksiyon: product?.isOzelKoleksiyon ?? false,
     isBestSeller: product?.isBestSeller ?? false,
+    isNew: product?.isNew ?? false,
   });
 
   // Çoklu kategori: primary + extra birleştir, primary ilk sırada
@@ -112,6 +113,7 @@ export default function ProductForm({ product, categories, brands, usdRate = 38 
       isActive: form.isActive,
       isOzelKoleksiyon: form.isOzelKoleksiyon,
       isBestSeller: form.isBestSeller,
+      isNew: form.isNew,
       images,
     };
     if (isEdit && product) {
@@ -197,6 +199,10 @@ export default function ProductForm({ product, categories, brands, usdRate = 38 
               <label className="flex items-center gap-3 cursor-pointer">
                 <input type="checkbox" checked={form.isBestSeller} onChange={(e) => setForm((p) => ({ ...p, isBestSeller: e.target.checked }))} className="w-4 h-4 accent-[#2c1810]" />
                 <span className="text-sm text-[#5c4033]">En Çok Satan</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={form.isNew} onChange={(e) => setForm((p) => ({ ...p, isNew: e.target.checked }))} className="w-4 h-4 accent-[#2c1810]" />
+                <span className="text-sm text-[#5c4033]">Yeni Ürün (Yeni Gelenler&apos;de göster)</span>
               </label>
             </div>
           </div>

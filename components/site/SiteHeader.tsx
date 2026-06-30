@@ -17,6 +17,7 @@ const KATEGORILER = [
   { href: "/?kategori=kadin",  label: "Kadın"  },
   { href: "/?kategori=erkek",  label: "Erkek"  },
   { href: "/?kategori=unisex", label: "UNISEX" },
+  { href: "/urunler?yeni=1",   label: "Yeni"   },
   { href: "/markalar",         label: "Markalar" },
 ];
 

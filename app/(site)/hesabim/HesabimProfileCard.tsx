@@ -15,6 +15,7 @@ type Mode = null | "profile" | "password";
 interface Props {
   name:      string;
   phone:     string;
+  email?:    string | null;
   segment:   string | null;
   initials:  string;
   orderCount: number;
@@ -23,7 +24,7 @@ interface Props {
 }
 
 export default function HesabimProfileCard({
-  name, phone, segment, initials,
+  name, phone, email: initEmail, segment, initials,
   orderCount, addressCount, favoriteCount,
 }: Props) {
   const [mode,    setMode]    = useState<Mode>(null);
@@ -34,6 +35,7 @@ export default function HesabimProfileCard({
   // Profil alanları
   const [curName, setCurName] = useState(name);
   const [curPhone, setCurPhone] = useState(phone);
+  const [curEmail, setCurEmail] = useState(initEmail ?? "");
   const [dispName, setDispName] = useState(name);
   const [dispPhone, setDispPhone] = useState(phone);
 
@@ -53,6 +55,7 @@ export default function HesabimProfileCard({
     setMode("profile");
   }
 
+
   function openPassword() { reset(); setCurPw(""); setNewPw(""); setNewPw2(""); setMode("password"); }
   function closeAll() { setMode(null); reset(); }
 
@@ -60,7 +63,7 @@ export default function HesabimProfileCard({
     e.preventDefault();
     reset();
     startT(async () => {
-      const res = await updateSiteUserProfile({ name: curName, phone: curPhone });
+      const res = await updateSiteUserProfile({ name: curName, phone: curPhone, email: curEmail });
       if (res.error) { setError(res.error); return; }
       setDispName(curName);
       setDispPhone(curPhone);
@@ -151,6 +154,11 @@ export default function HesabimProfileCard({
                 <label className="block font-sans text-[9px] tracking-[0.15em] uppercase text-[#9A9A9A] mb-1.5">Telefon</label>
                 <input type="tel" value={curPhone} onChange={(e) => setCurPhone(e.target.value)}
                   placeholder="05xx xxx xx xx" className={inp} />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block font-sans text-[9px] tracking-[0.15em] uppercase text-[#9A9A9A] mb-1.5">E-posta</label>
+                <input type="email" value={curEmail} onChange={(e) => setCurEmail(e.target.value)}
+                  placeholder="ornek@mail.com" className={inp} />
               </div>
             </div>
             {error   && <p className="font-sans text-xs text-red-500 bg-red-50 px-3 py-2">{error}</p>}

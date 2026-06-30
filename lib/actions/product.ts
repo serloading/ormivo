@@ -20,6 +20,7 @@ export type ProductFormData = {
   isActive: boolean;
   isOzelKoleksiyon?: boolean;
   isBestSeller?: boolean;
+  isNew?: boolean;
   images: string[];
 };
 
@@ -29,7 +30,7 @@ export async function getProducts() {
     select: {
       id: true, productNo: true, name: true, slug: true,
       price: true, comparePrice: true, costPrice: true, costPriceUsd: true,
-      stock: true, isActive: true, images: true, extraCategoryIds: true,
+      stock: true, isActive: true, isNew: true, images: true, extraCategoryIds: true,
       category: { select: { id: true, name: true, slug: true } },
       brand:    { select: { id: true, name: true, slug: true } },
     },
@@ -41,6 +42,7 @@ export async function getProducts() {
     comparePrice: p.comparePrice != null ? Number(p.comparePrice) : null,
     costPrice:    p.costPrice    != null ? Number(p.costPrice)    : null,
     costPriceUsd: p.costPriceUsd != null ? Number(p.costPriceUsd) : null,
+    isNew:        p.isNew,
   }));
 }
 

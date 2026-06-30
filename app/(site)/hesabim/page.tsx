@@ -114,6 +114,7 @@ export default async function HesabimPage() {
         <HesabimProfileCard
           name={user.name ?? ""}
           phone={user.phone}
+          email={(user as { email?: string | null }).email ?? null}
           segment={session.segment ?? null}
           initials={initials}
           orderCount={orders.length}

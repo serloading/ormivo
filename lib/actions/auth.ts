@@ -41,7 +41,13 @@ export async function register(formData: FormData) {
 
   const existingCustomer = await prisma.customer.findFirst({ where: { phone } });
   if (!existingCustomer) {
-    await prisma.customer.create({ data: { name, phone, tags: [] } });
+    const allNos = await prisma.customer.findMany({ where: { customerNo: { not: null } }, select: { customerNo: true } });
+    const maxNum = allNos.reduce((m, c) => {
+      const n = c.customerNo ? parseInt(c.customerNo.replace("MUS-", ""), 10) : 0;
+      return Math.max(m, isNaN(n) ? 0 : n);
+    }, 0);
+    const customerNo = `MUS-${String(maxNum + 1).padStart(4, "0")}`;
+    await prisma.customer.create({ data: { name, phone, tags: [], customerNo } });
   }
 
   await createSession({
@@ -100,7 +106,7 @@ export async function logout() {
   await deleteSession();
 }
 
-export async function updateSiteUserProfile(data: { name?: string; phone?: string; currentPassword?: string; newPassword?: string }) {
+export async function updateSiteUserProfile(data: { name?: string; phone?: string; email?: string; currentPassword?: string; newPassword?: string }) {
   const { getSession } = await import("@/lib/session");
   const session = await getSession();
   if (!session) return { error: "Oturum açık değil." };
@@ -112,6 +118,11 @@ export async function updateSiteUserProfile(data: { name?: string; phone?: strin
     if (!name || name.length < 2) return { error: "Ad en az 2 karakter olmalı." };
     if (name.length > 60) return { error: "Ad en fazla 60 karakter olabilir." };
     updateData.name = name;
+  }
+
+  if (data.email !== undefined) {
+    const email = data.email.trim();
+    updateData.email = email || null;
   }
 
   if (data.phone !== undefined) {
