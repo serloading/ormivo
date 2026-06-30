@@ -740,6 +740,7 @@ export default function SiparislerClient({
 }) {
   const [filter, setFilter] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("PENDING");
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [editOrder, setEditOrder] = useState<OrderRow | null>(null);
   const [summaryOrder, setSummaryOrder] = useState<OrderRow | null>(null);
@@ -752,8 +753,18 @@ export default function SiparislerClient({
     const matchQ = !q || o.orderNo.toLowerCase().includes(q)
       || (o.recipientName ?? "").toLowerCase().includes(q)
       || (o.recipientPhone ?? "").includes(q);
-    return matchQ && (!sourceFilter || o.source === sourceFilter);
+    const matchSource = !sourceFilter || o.source === sourceFilter;
+    const matchStatus = statusFilter === "ALL" || o.status === statusFilter;
+    return matchQ && matchSource && matchStatus;
   });
+
+  const statusCounts = {
+    PENDING:   orders.filter((o) => o.status === "PENDING").length,
+    SHIPPED:   orders.filter((o) => o.status === "SHIPPED").length,
+    DELIVERED: orders.filter((o) => o.status === "DELIVERED").length,
+    CANCELLED: orders.filter((o) => o.status === "CANCELLED").length,
+    ALL:       orders.length,
+  };
 
   function toggleSelect(id: string) {
     setSelected((prev) => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
@@ -791,7 +802,33 @@ export default function SiparislerClient({
         </div>
       </div>
 
-      <div className="flex gap-3 mb-5 flex-wrap">
+      {/* ── Status Tabs ── */}
+      <div className="flex gap-0 border-b border-gray-200 mb-5 overflow-x-auto">
+        {([
+          { key: "PENDING",   label: "Yeni",             color: "text-yellow-700 border-yellow-500" },
+          { key: "SHIPPED",   label: "Kargoya Verildi",  color: "text-indigo-700 border-indigo-500" },
+          { key: "DELIVERED", label: "Teslim Edildi",    color: "text-green-700 border-green-500" },
+          { key: "CANCELLED", label: "İptal Edildi",     color: "text-red-600 border-red-400" },
+          { key: "ALL",       label: "Tüm Siparişler",   color: "text-gray-600 border-gray-500" },
+        ] as const).map(({ key, label, color }) => (
+          <button key={key} onClick={() => setStatusFilter(key)}
+            className={`px-5 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+              statusFilter === key
+                ? `${color} bg-gray-50`
+                : "border-transparent text-gray-400 hover:text-gray-600"
+            }`}>
+            {label}
+            <span className={`ml-1.5 text-[11px] px-1.5 py-0.5 rounded-full font-semibold ${
+              statusFilter === key ? "bg-gray-200 text-gray-700" : "bg-gray-100 text-gray-400"
+            }`}>
+              {statusCounts[key]}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* ── Arama + Kaynak Filtresi ── */}
+      <div className="flex gap-3 mb-4 flex-wrap">
         <input value={filter} onChange={(e) => setFilter(e.target.value)}
           placeholder="Sipariş no, isim veya telefon..."
           className="border border-gray-200 rounded px-3 py-2 text-sm w-64 focus:outline-none focus:border-indigo-400" />
@@ -891,7 +928,11 @@ export default function SiparislerClient({
                     </>
                   );
                 })()}
-                <td className="px-4 py-3"><StatusEditor order={order} /></td>
+                <td className="px-4 py-3">
+                  <span className={`text-[10px] tracking-wide uppercase px-2 py-0.5 rounded border font-medium whitespace-nowrap ${STATUS_COLORS[order.status] ?? "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                    {STATUS_LABELS[order.status] ?? order.status}
+                  </span>
+                </td>
                 <td className="px-4 py-3"><PaymentEditor order={order} /></td>
                 <td className="px-4 py-3"><DeliveryEditor order={order} /></td>
                 <td className="px-4 py-3"><TrackingForm order={order} /></td>
