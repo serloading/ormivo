@@ -59,7 +59,7 @@ export default async function BorcAlacakPage() {
         ...(debtOrderIds.size > 0 ? { id: { notIn: Array.from(debtOrderIds) } } : {}),
       },
       orderBy: { createdAt: "desc" },
-      include: { customer: { select: { name: true, phone: true } } },
+      include: { customer: { select: { id: true, name: true, phone: true } } },
     }),
   ]);
 

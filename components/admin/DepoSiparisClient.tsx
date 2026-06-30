@@ -285,7 +285,16 @@ export default function DepoSiparisClient({ siparisler, usdRate, suppliers: init
   const [newSupplierName, setNewSupplierName] = useState("");
   const [newSupplierPhone, setNewSupplierPhone] = useState("");
   const [editingSupplier, setEditingSupplier] = useState<{ oldName: string; name: string; phone: string } | null>(null);
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set());
   const suppliers = initSuppliers;
+
+  function toggleOrder(id: string) {
+    setOpenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
 
   const shippingFee = Number(form.shippingFee) || 0;
   const paid = Number(form.paidAmount) || 0;
@@ -505,10 +514,11 @@ export default function DepoSiparisClient({ siparisler, usdRate, suppliers: init
           Henüz depo siparişi yok.
         </div>
       ) : (
-        <div className="space-y-4">
-          {siparisler.map((order) => {
+        <div className="space-y-2">
+          {[...siparisler].sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime()).map((order) => {
             const normalizedItems = normalizeItems(order.items);
             const isSent = order.status === "ILETILDI";
+            const isOpen = openIds.has(order.id);
             const total = Number(order.total) || 0;
             const paidAmount = Number(order.paidAmount) || 0;
             const shipping = Number(order.shippingFee ?? 0) || 0;
@@ -517,79 +527,75 @@ export default function DepoSiparisClient({ siparisler, usdRate, suppliers: init
 
             return (
               <div key={order.id} className={`bg-white border rounded-sm overflow-hidden ${isSent ? "border-green-200" : "border-[#e8ddd6]"}`}>
+                {/* ── Akordiyon başlık satırı ── */}
                 <div className={`flex items-center justify-between px-6 py-4 ${isSent ? "bg-green-50" : "bg-[#faf8f6]"}`}>
-                  <div className="flex items-center gap-3">
-                    <span className={`text-[10px] px-2.5 py-1 rounded-full font-medium tracking-wide ${isSent ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                  {/* Sol: tıklanabilir alan */}
+                  <button type="button" onClick={() => toggleOrder(order.id)} className="flex items-center gap-3 text-left flex-1 min-w-0">
+                    <span className={`text-[10px] px-2.5 py-1 rounded-full font-medium tracking-wide shrink-0 ${isSent ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
                       {isSent ? "İletildi" : "Hazırlanıyor"}
                     </span>
-                    <div>
-                      <p className="text-sm font-medium text-[#2c1810]">{order.title}</p>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-[#2c1810] truncate">{order.title}</p>
                       <p className="text-[11px] text-[#8b6f5e]">
                         {new Date(order.orderDate).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" })}
-                        {(order.depoName || order.supplierName) && <span className="ml-2 text-[#8b6f5e]">· {order.depoName || order.supplierName}</span>}
-                        {order.depoPhone && <span className="ml-2 text-[#8b6f5e]">· {order.depoPhone}</span>}
+                        {(order.depoName || order.supplierName) && <span className="ml-2">· {order.depoName || order.supplierName}</span>}
                       </p>
                     </div>
-                  </div>
+                    <span className={`text-[#8b6f5e] text-lg transition-transform duration-200 shrink-0 ${isOpen ? "rotate-90" : ""}`}>›</span>
+                  </button>
 
-                  <div className="flex items-center gap-6">
+                  {/* Sağ: tutar + butonlar */}
+                  <div className="flex items-center gap-4 shrink-0 ml-4">
                     <div className="text-right">
-                      <p className="text-lg font-semibold text-[#2c1810]">{total.toLocaleString("tr-TR")} ₺</p>
-                      <p className="text-[11px] text-[#8b6f5e]">
-                        Ürün: {productTotal.toLocaleString("tr-TR")} ₺ · Kargo: {shipping.toLocaleString("tr-TR")} ₺
-                      </p>
-                      {remainingAmount > 0 && (
-                        <p className="text-[11px] text-red-600">Kalan borç: {remainingAmount.toLocaleString("tr-TR")} ₺</p>
-                      )}
+                      <p className="text-base font-semibold text-[#2c1810]">{total.toLocaleString("tr-TR")} ₺</p>
+                      {remainingAmount > 0 && <p className="text-[11px] text-red-600">Kalan: {remainingAmount.toLocaleString("tr-TR")} ₺</p>}
                       {remainingAmount === 0 && paidAmount > 0 && <p className="text-[11px] text-green-600">Ödendi</p>}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => openEdit(order)} className="text-xs text-[#8b6f5e] hover:text-[#2c1810] px-2 py-1.5">Düzenle</button>
                       <button
-                        onClick={() => openEdit(order)}
-                        className="text-xs text-[#8b6f5e] hover:text-[#2c1810] px-2 py-2"
+                        onClick={() => handleIlet(order)}
+                        className="text-xs bg-[#2c1810] text-white px-3 py-1.5 hover:bg-[#3d2418] transition-colors tracking-wide"
                       >
-                        Düzenle
+                        Depoya İlet
                       </button>
-                      {!isSent && (
-                        <button
-                          onClick={() => handleIlet(order)}
-                          className="text-xs bg-[#2c1810] text-white px-4 py-2 hover:bg-[#3d2418] transition-colors tracking-wide"
-                        >
-                          Depoya İlet
-                        </button>
-                      )}
-                      <button onClick={() => handleDelete(order.id)} className="text-xs text-red-400 hover:text-red-600 px-2 py-2">
-                        Sil
-                      </button>
+                      <button onClick={() => handleDelete(order.id)} className="text-xs text-red-400 hover:text-red-600 px-2 py-1.5">Sil</button>
                     </div>
                   </div>
                 </div>
 
-                <div className="px-6 py-3 border-t border-[#f0ebe6]">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-left border-b border-[#f0ebe6]">
-                        <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium">Ürün Adı</th>
-                        <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium text-right">Adet</th>
-                        <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium text-right">Alış Fiyatı</th>
-                        <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium text-right">Toplam</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {normalizedItems.map((item, index) => (
-                        <tr key={index} className="border-b border-[#f9f6f3] last:border-0">
-                          <td className="py-2 text-[#2c1810]">{item.name}</td>
-                          <td className="py-2 text-right text-[#5c4033]">{item.qty}</td>
-                          <td className="py-2 text-right text-[#5c4033]">{Number(item.unitPrice).toLocaleString("tr-TR")} ₺</td>
-                          <td className="py-2 text-right font-medium text-[#2c1810]">{(item.qty * item.unitPrice).toLocaleString("tr-TR")} ₺</td>
+                {/* ── Akordiyon içerik ── */}
+                {isOpen && (
+                  <div className="px-6 py-3 border-t border-[#f0ebe6]">
+                    <p className="text-[11px] text-[#8b6f5e] mb-2">
+                      Ürün: {productTotal.toLocaleString("tr-TR")} ₺ · Kargo: {shipping.toLocaleString("tr-TR")} ₺
+                      {order.depoPhone && <span className="ml-3">· {order.depoPhone}</span>}
+                    </p>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left border-b border-[#f0ebe6]">
+                          <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium">Ürün Adı</th>
+                          <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium text-right">Adet</th>
+                          <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium text-right">Alış Fiyatı</th>
+                          <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium text-right">Toplam</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {order.notes && (
-                    <p className="mt-3 text-xs text-[#8b6f5e] italic border-t border-[#f0ebe6] pt-2">Not: {order.notes}</p>
-                  )}
-                </div>
+                      </thead>
+                      <tbody>
+                        {normalizedItems.map((item, index) => (
+                          <tr key={index} className="border-b border-[#f9f6f3] last:border-0">
+                            <td className="py-2 text-[#2c1810]">{item.name}</td>
+                            <td className="py-2 text-right text-[#5c4033]">{item.qty}</td>
+                            <td className="py-2 text-right text-[#5c4033]">{Number(item.unitPrice).toLocaleString("tr-TR")} ₺</td>
+                            <td className="py-2 text-right font-medium text-[#2c1810]">{(item.qty * item.unitPrice).toLocaleString("tr-TR")} ₺</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {order.notes && (
+                      <p className="mt-3 text-xs text-[#8b6f5e] italic border-t border-[#f0ebe6] pt-2">Not: {order.notes}</p>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}

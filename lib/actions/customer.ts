@@ -16,6 +16,7 @@ export type CustomerFormData = {
   phone?: string;
   email?: string;
   city?: string;
+  district?: string;
   address?: string;
   note?: string;
   birthDate?: Date | string | null;

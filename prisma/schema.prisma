@@ -67,6 +67,7 @@ model Customer {
   email      String?
   birthDate  DateTime?
   city       String?
+  district   String?
   address    String?
   note       String?
   segment    String?

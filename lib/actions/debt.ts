@@ -101,7 +101,7 @@ export async function createDebtFromSiteOrder(data: {
   const debt = await prisma.customerDebt.create({
     data: {
       customerId:  data.customerId,
-      orderId:     data.siteOrderId,
+      // orderId → Order (B2B) FK; SiteOrder ID buraya geçmez
       description: `Web Sipariş #${data.orderNo}`,
       totalAmount: data.totalAmount,
       paidAmount:  paid,
@@ -119,6 +119,39 @@ export async function createDebtFromSiteOrder(data: {
   await prisma.siteOrder.update({
     where: { id: data.siteOrderId },
     data:  { paymentStatus },
+  });
+  revalidatePath("/admin/borc-alacak");
+  revalidatePath("/admin/siparisler");
+  return debt;
+}
+
+export async function createDebtFromB2BOrder(data: {
+  orderId: string;
+  customerId: string;
+  orderNo: string;
+  totalAmount: number;
+  initialPayment: number;
+  note?: string;
+}) {
+  const paid = data.initialPayment;
+  const debt = await prisma.customerDebt.create({
+    data: {
+      customerId:  data.customerId,
+      orderId:     data.orderId,
+      description: `Manuel Sipariş #${data.orderNo}`,
+      totalAmount: data.totalAmount,
+      paidAmount:  paid,
+      status:      calcStatus(paid, data.totalAmount),
+    },
+  });
+  if (paid > 0) {
+    await prisma.debtPayment.create({
+      data: { debtId: debt.id, amount: paid, note: data.note || "İlk ödeme" },
+    });
+  }
+  await prisma.order.update({
+    where: { id: data.orderId },
+    data:  { paymentStatus: calcStatus(paid, data.totalAmount) === "ODENDI" ? "PAID" : paid > 0 ? "PARTIAL" : "PENDING" },
   });
   revalidatePath("/admin/borc-alacak");
   revalidatePath("/admin/siparisler");

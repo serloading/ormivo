@@ -9,6 +9,7 @@ import {
   addSupplierPayment,
   deleteSupplierDebt,
   createDebtFromSiteOrder,
+  createDebtFromB2BOrder,
 } from "@/lib/actions/debt";
 
 // ── Types ────────────────────────────────────────────────────
@@ -46,7 +47,7 @@ interface PendingB2BOrder {
   total: number; items: unknown;
   deliveryMethod: string;
   note: string | null;
-  customer: { name: string; phone: string | null } | null;
+  customer: { name: string; phone: string | null; id?: string } | null;
 }
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -153,11 +154,29 @@ export default function BorcAlacakClient({
     | { type: "history-customer"; debt: CDebt }
     | { type: "history-supplier"; debt: SDebt }
     | { type: "pay-site-order"; order: PendingSiteOrder }
+    | { type: "pay-b2b-order"; order: PendingB2BOrder }
     | null;
   const [modal, setModal] = useState<Modal>(null);
 
   // ── Site order payment form ───────────────────────────────
   const [soForm, setSoForm] = useState({ customerId: "", amount: "", note: "" });
+
+  // ── B2B order payment form ────────────────────────────────
+  const [b2bForm, setB2bForm] = useState({ customerId: "", amount: "", note: "" });
+
+  function normPhone(p: string | null | undefined): string {
+    if (!p) return "";
+    const d = p.replace(/\D/g, "");
+    if (d.startsWith("90")) return d.slice(2);
+    if (d.startsWith("0"))  return d.slice(1);
+    return d;
+  }
+
+  function autoMatchCustomer(phone: string | null | undefined): string {
+    if (!phone) return "";
+    const norm = normPhone(phone);
+    return customers.find((c) => normPhone(c.phone) === norm)?.id ?? "";
+  }
 
   // ── New customer debt form ────────────────────────────────
   const [cdForm, setCdForm] = useState({
@@ -305,7 +324,11 @@ export default function BorcAlacakClient({
                           <td className="px-4 py-2.5 text-[11px] text-gray-400 whitespace-nowrap">{new Date(o.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}</td>
                           <td className="px-4 py-2.5">
                             <button
-                              onClick={() => { setSoForm({ customerId: "", amount: String(Number(o.total)), note: "" }); setModal({ type: "pay-site-order", order: o }); }}
+                              onClick={() => {
+                                const autoId = autoMatchCustomer(o.user?.phone ?? o.recipientPhone);
+                                setSoForm({ customerId: autoId, amount: String(Number(o.total)), note: "" });
+                                setModal({ type: "pay-site-order", order: o });
+                              }}
                               className="text-[11px] bg-green-600 text-white px-2.5 py-1 hover:bg-green-700 transition-colors whitespace-nowrap"
                             >
                               Ödeme Al
@@ -331,7 +354,7 @@ export default function BorcAlacakClient({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 bg-amber-50 text-left">
-                      {["Sipariş No", "Müşteri", "Ürünler", "Teslimat", "Tutar", "Tarih"].map((h) => (
+                      {["Sipariş No", "Müşteri", "Ürünler", "Teslimat", "Tutar", "Tarih", ""].map((h) => (
                         <th key={h} className="px-4 py-2.5 text-[11px] uppercase tracking-wide text-amber-500 font-medium whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -364,6 +387,18 @@ export default function BorcAlacakClient({
                           </td>
                           <td className="px-4 py-2.5 font-semibold text-amber-700 whitespace-nowrap">{Number(o.total).toLocaleString("tr-TR")} ₺</td>
                           <td className="px-4 py-2.5 text-[11px] text-gray-400 whitespace-nowrap">{new Date(o.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}</td>
+                          <td className="px-4 py-2.5">
+                            <button
+                              onClick={() => {
+                                const autoId = autoMatchCustomer(o.customer?.phone);
+                                setB2bForm({ customerId: autoId, amount: String(Number(o.total)), note: "" });
+                                setModal({ type: "pay-b2b-order", order: o });
+                              }}
+                              className="text-[11px] bg-amber-600 text-white px-2.5 py-1 hover:bg-amber-700 transition-colors whitespace-nowrap"
+                            >
+                              Ödeme Al
+                            </button>
+                          </td>
                         </tr>
                       );
                     })}
@@ -718,6 +753,57 @@ export default function BorcAlacakClient({
       {/* Ödeme geçmişi — tedarikçi */}
       {modal?.type === "history-supplier" && (
         <PaymentHistory payments={modal.debt.payments} onClose={() => setModal(null)} />
+      )}
+
+      {/* B2B Manuel Sipariş Ödeme Al */}
+      {modal?.type === "pay-b2b-order" && (
+        <Modal title={`Ödeme Al — #${modal.order.orderNo}`} onClose={() => setModal(null)}>
+          <div className="space-y-4">
+            <div className="bg-amber-50 border border-amber-200 p-4 rounded text-sm space-y-1">
+              <p className="font-medium text-[#2c1810]">{modal.order.customer?.name ?? "—"}</p>
+              <p className="text-gray-500">Manuel Sipariş #{modal.order.orderNo}</p>
+              <p>Toplam: <span className="font-semibold text-amber-700">{Number(modal.order.total).toLocaleString("tr-TR")} ₺</span></p>
+            </div>
+            <Field label="Müşteri *">
+              <select value={b2bForm.customerId} onChange={(e) => setB2bForm((f) => ({ ...f, customerId: e.target.value }))} className={inputCls}>
+                <option value="">Müşteri seçin...</option>
+                {customers.map((c) => <option key={c.id} value={c.id}>{c.name}{c.phone ? ` — ${c.phone}` : ""}</option>)}
+              </select>
+            </Field>
+            <Field label="Alınan Tutar (₺) *">
+              <input type="number" min="0" value={b2bForm.amount}
+                onChange={(e) => setB2bForm((f) => ({ ...f, amount: e.target.value }))}
+                placeholder="0.00" className={inputCls} autoFocus />
+            </Field>
+            <Field label="Not">
+              <input value={b2bForm.note} onChange={(e) => setB2bForm((f) => ({ ...f, note: e.target.value }))} placeholder="nakit / havale" className={inputCls} />
+            </Field>
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={() => setModal(null)} className="text-sm text-gray-400 hover:text-gray-700 px-4 py-2">İptal</button>
+              <button
+                disabled={!b2bForm.customerId || !b2bForm.amount || isPending}
+                onClick={() => {
+                  const o = (modal as { type: "pay-b2b-order"; order: PendingB2BOrder }).order;
+                  startT(async () => {
+                    await createDebtFromB2BOrder({
+                      orderId:        o.id,
+                      customerId:     b2bForm.customerId,
+                      orderNo:        o.orderNo,
+                      totalAmount:    Number(o.total),
+                      initialPayment: parseFloat(b2bForm.amount),
+                      note:           b2bForm.note || undefined,
+                    });
+                    setModal(null);
+                    setB2bForm({ customerId: "", amount: "", note: "" });
+                  });
+                }}
+                className="bg-amber-600 text-white text-sm px-6 py-2 hover:bg-amber-700 disabled:opacity-40 transition-colors"
+              >
+                {isPending ? "Kaydediliyor..." : "Ödeme Kaydet"}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {/* Web Sipariş Ödeme Al */}

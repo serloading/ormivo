@@ -8,7 +8,7 @@ import { Field, TextareaField, SubmitRow } from "./FormField";
 import { createCustomer, updateCustomer, deleteCustomer, backfillCustomerNos } from "@/lib/actions/customer";
 import { updateCustomerSegment } from "@/lib/actions/customer";
 import { SEGMENTS, SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/customer-constants";
-import { CITY_NAMES } from "@/lib/data/turkey-cities";
+import { CITY_NAMES, TURKEY_CITIES } from "@/lib/data/turkey-cities";
 
 const COUNTRY_CODES = [
   { code: "+90",  label: "🇹🇷 +90" },
@@ -36,12 +36,12 @@ const SEGMENT_ICONS: Record<string, { letter: string; cls: string }> = {
 
 type Customer = {
   id: string; customerNo: string | null; name: string; phone: string | null; email: string | null;
-  city: string | null; address: string | null; note: string | null; segment: string | null; tags: string[];
+  city: string | null; district: string | null; address: string | null; note: string | null; segment: string | null; tags: string[];
   _count?: { orders: number; siteOrders: number };
   createdAt: Date | string;
 };
 
-const EMPTY = { name: "", phone: "", email: "", city: "", address: "", note: "", countryCode: "+90" };
+const EMPTY = { name: "", phone: "", email: "", city: "", district: "", address: "", note: "", countryCode: "+90" };
 const SEGMENT_ORDER: Record<string, number> = { DIAMOND: 0, GOLD: 1, SILVER: 2, BRONZE: 3 };
 
 export default function MusterilerClient({ customers }: { customers: Customer[] }) {
@@ -114,7 +114,7 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
     const matchedCode = COUNTRY_CODES.find((cc) => rawPhone.startsWith(cc.code));
     const countryCode = matchedCode?.code ?? "+90";
     const phone = matchedCode ? rawPhone.slice(matchedCode.code.length).trimStart() : rawPhone;
-    setForm({ name: c.name, phone, email: c.email ?? "", city: c.city ?? "", address: c.address ?? "", note: c.note ?? "", countryCode });
+    setForm({ name: c.name, phone, email: c.email ?? "", city: c.city ?? "", district: c.district ?? "", address: c.address ?? "", note: c.note ?? "", countryCode });
     setFormSegment(c.segment ?? "");
     setModal(true);
   }
@@ -285,13 +285,24 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
             </div>
           </div>
           <Field label="E-posta" type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} placeholder="ayse@email.com" />
-          <div>
-            <label className="block text-xs font-medium text-[#5c4033] mb-1.5">İl</label>
-            <select value={form.city} onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))}
-              className="w-full border border-[#d4c5ba] rounded-sm px-3 py-2 text-sm text-[#2c1810] bg-white focus:outline-none focus:border-[#8b6f5e]">
-              <option value="">— İl Seçin —</option>
-              {CITY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-[#5c4033] mb-1.5">İl</label>
+              <select value={form.city} onChange={(e) => setForm((p) => ({ ...p, city: e.target.value, district: "" }))}
+                className="w-full border border-[#d4c5ba] rounded-sm px-3 py-2 text-sm text-[#2c1810] bg-white focus:outline-none focus:border-[#8b6f5e]">
+                <option value="">— İl Seçin —</option>
+                {CITY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[#5c4033] mb-1.5">İlçe</label>
+              <select value={form.district} onChange={(e) => setForm((p) => ({ ...p, district: e.target.value }))}
+                disabled={!form.city}
+                className="w-full border border-[#d4c5ba] rounded-sm px-3 py-2 text-sm text-[#2c1810] bg-white focus:outline-none focus:border-[#8b6f5e] disabled:opacity-50">
+                <option value="">— İlçe Seçin —</option>
+                {form.city && (TURKEY_CITIES[form.city] ?? []).map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
           </div>
           <Field label="Açık Adres" value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} placeholder="Mahalle, sokak, no..." />
           <TextareaField label="Not" value={form.note} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))} placeholder="Özel not..." />
