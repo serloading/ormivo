@@ -171,21 +171,21 @@ export default function HesabimProfileCard({
                 <input autoFocus value={curName} onChange={(e) => setCurName(e.target.value)}
                   placeholder="Ad Soyad" className={inp} />
               </div>
-              <div>
+              <div className="sm:col-span-2">
                 <label className="block font-sans text-[9px] tracking-[0.15em] uppercase text-[#9A9A9A] mb-1.5">Telefon</label>
-                <input type="tel" value={curPhone} onChange={(e) => setCurPhone(e.target.value)}
-                  placeholder="05xx xxx xx xx" className={inp} />
+                <div className="flex">
+                  <select value={waCountryCode} onChange={(e) => setWaCountryCode(e.target.value)}
+                    className="border border-[#E8E4DE] border-r-0 focus:border-[#C4A882] outline-none px-2 py-2.5 font-sans text-sm text-[#6B6B6B] bg-[#FAFAF7] shrink-0">
+                    {COUNTRY_CODES.map((c) => <option key={c.code} value={c.code}>{c.code}</option>)}
+                  </select>
+                  <input type="tel" value={curPhone} onChange={(e) => setCurPhone(e.target.value)}
+                    placeholder="5xx xxx xx xx" className={`${inp} flex-1`} />
+                </div>
               </div>
               <div className="sm:col-span-2">
                 <label className="block font-sans text-[9px] tracking-[0.15em] uppercase text-[#9A9A9A] mb-1.5">E-posta</label>
                 <input type="email" value={curEmail} onChange={(e) => setCurEmail(e.target.value)}
                   placeholder="ornek@mail.com" className={inp} />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="block font-sans text-[9px] tracking-[0.15em] uppercase text-[#9A9A9A] mb-1.5">WhatsApp Ülke Kodu</label>
-                <select value={waCountryCode} onChange={(e) => setWaCountryCode(e.target.value)} className={inp}>
-                  {COUNTRY_CODES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
-                </select>
               </div>
             </div>
             {error   && <p className="font-sans text-xs text-red-500 bg-red-50 px-3 py-2">{error}</p>}

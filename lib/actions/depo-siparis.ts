@@ -392,6 +392,20 @@ export async function saveDepoSupplier(name: string, phone: string) {
   return { success: true };
 }
 
+export async function updateDepoSupplier(oldName: string, newName: string, newPhone: string) {
+  const existing = await getDepoSuppliers();
+  const updated = existing.map((s) =>
+    s.name === oldName ? { name: newName.trim(), phone: newPhone.trim() } : s
+  );
+  await prisma.setting.upsert({
+    where: { key: "depo_suppliers" },
+    create: { key: "depo_suppliers", value: JSON.stringify(updated) },
+    update: { value: JSON.stringify(updated) },
+  });
+  revalidatePath("/admin/depo-siparisler");
+  return { success: true };
+}
+
 export async function deleteDepoSupplier(name: string) {
   const existing = await getDepoSuppliers();
   const updated = existing.filter((s) => s.name !== name);

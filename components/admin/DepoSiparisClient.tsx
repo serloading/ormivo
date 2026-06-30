@@ -10,6 +10,7 @@ import {
   iletDepoSiparis,
   updateDepoSiparis,
   saveDepoSupplier,
+  updateDepoSupplier,
   deleteDepoSupplier,
   type DepoSiparisItem,
 } from "@/lib/actions/depo-siparis";
@@ -156,12 +157,15 @@ function ItemRow({
     }
   }
 
+  const lineTotal = (Number(item.qty) || 0) * (Number(item.unitPrice) || 0);
+
   return (
-    <div className="grid grid-cols-13 gap-2 items-start" style={{ gridTemplateColumns: "9fr 1.5fr 1.5fr 1.5fr 1fr" }}>
+    <div className="border border-[#e8ddd6] bg-[#fdfcfb] p-3 space-y-2">
+      {/* Satır 1: ürün arama */}
       <div className="relative" ref={containerRef}>
         <input
-          className="w-full border border-[#d4c5ba] px-2 py-1.5 text-sm focus:outline-none focus:border-[#8b6f5e]"
-          placeholder="ürün adı ara..."
+          className="w-full border border-[#d4c5ba] px-2.5 py-2 text-sm focus:outline-none focus:border-[#8b6f5e] bg-white"
+          placeholder="Ürün adı ara veya yaz…"
           value={query}
           onChange={(e) => handleQueryChange(e.target.value)}
           onFocus={() => suggestions.length > 0 && setOpen(true)}
@@ -186,46 +190,61 @@ function ItemRow({
         )}
       </div>
 
-      <input
-        type="number"
-        min="1"
-        className="border border-[#d4c5ba] px-2 py-1.5 text-sm text-right focus:outline-none focus:border-[#8b6f5e]"
-        value={item.qty}
-        onChange={(e) => onUpdate(idx, "qty", e.target.value)}
-      />
+      {/* Satır 2: adet / fiyat / toplam / sil */}
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="text-[10px] uppercase tracking-wide text-[#8b6f5e] w-8">Adet</span>
+          <input
+            type="number"
+            min="1"
+            className="w-16 border border-[#d4c5ba] px-2 py-1.5 text-sm text-center focus:outline-none focus:border-[#8b6f5e] bg-white"
+            value={item.qty}
+            onChange={(e) => onUpdate(idx, "qty", e.target.value)}
+          />
+        </div>
 
-      {/* USD girişi → TL otomatik hesaplar */}
-      <input
-        type="number"
-        min="0"
-        step="0.01"
-        className="border border-[#5e8b73] px-2 py-1.5 text-sm text-right focus:outline-none focus:border-[#3d7a5e] text-[#5e8b73] placeholder-[#b0c8bd]"
-        placeholder="$0.00"
-        value={item.unitPrice && usdRate ? (Math.round((item.unitPrice / usdRate) * 100) / 100) || "" : ""}
-        onChange={(e) => {
-          const usd = parseFloat(e.target.value) || 0;
-          onUpdate(idx, "unitPriceStr", String(Math.round(usd * usdRate * 100) / 100));
-        }}
-      />
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="text-[10px] uppercase tracking-wide text-[#5e8b73] w-6">$</span>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            className="w-20 border border-[#5e8b73] px-2 py-1.5 text-sm text-right focus:outline-none focus:border-[#3d7a5e] text-[#5e8b73] bg-white"
+            placeholder="0.00"
+            value={item.unitPrice && usdRate ? (Math.round((item.unitPrice / usdRate) * 100) / 100) || "" : ""}
+            onChange={(e) => {
+              const usd = parseFloat(e.target.value) || 0;
+              onUpdate(idx, "unitPriceStr", String(Math.round(usd * usdRate * 100) / 100));
+            }}
+          />
+        </div>
 
-      <input
-        type="number"
-        min="0"
-        step="0.01"
-        className="border border-[#d4c5ba] px-2 py-1.5 text-sm text-right focus:outline-none focus:border-[#8b6f5e]"
-        placeholder="0.00 ₺"
-        value={item.unitPrice || ""}
-        onChange={(e) => onUpdate(idx, "unitPriceStr", e.target.value)}
-      />
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="text-[10px] uppercase tracking-wide text-[#8b6f5e] w-4">₺</span>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            className="w-24 border border-[#d4c5ba] px-2 py-1.5 text-sm text-right focus:outline-none focus:border-[#8b6f5e] bg-white"
+            placeholder="0.00"
+            value={item.unitPrice || ""}
+            onChange={(e) => onUpdate(idx, "unitPriceStr", e.target.value)}
+          />
+        </div>
 
-      <button
-        type="button"
-        onClick={() => onRemove(idx)}
-        disabled={!canRemove}
-        className="text-red-400 hover:text-red-600 text-xs disabled:opacity-30 text-center py-1.5"
-      >
-        × Sil
-      </button>
+        <div className="flex-1 text-right text-sm font-semibold text-[#2c1810]">
+          {lineTotal > 0 ? `${lineTotal.toLocaleString("tr-TR")} ₺` : ""}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => onRemove(idx)}
+          disabled={!canRemove}
+          className="text-red-400 hover:text-red-600 text-lg disabled:opacity-20 leading-none px-1"
+        >
+          ×
+        </button>
+      </div>
     </div>
   );
 }
@@ -242,6 +261,7 @@ export default function DepoSiparisClient({ siparisler, usdRate, suppliers: init
   const [supplierMgmtOpen, setSupplierMgmtOpen] = useState(false);
   const [newSupplierName, setNewSupplierName] = useState("");
   const [newSupplierPhone, setNewSupplierPhone] = useState("");
+  const [editingSupplier, setEditingSupplier] = useState<{ oldName: string; name: string; phone: string } | null>(null);
   const suppliers = initSuppliers;
 
   const shippingFee = Number(form.shippingFee) || 0;
@@ -402,6 +422,16 @@ export default function DepoSiparisClient({ siparisler, usdRate, suppliers: init
       const res = await saveDepoSupplier(newSupplierName.trim(), newSupplierPhone.trim());
       if ("error" in res) { alert(res.error); return; }
       setNewSupplierName(""); setNewSupplierPhone("");
+      router.refresh();
+    });
+  }
+
+  function handleUpdateSupplier(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingSupplier || !editingSupplier.name.trim()) return;
+    startTransition(async () => {
+      await updateDepoSupplier(editingSupplier.oldName, editingSupplier.name, editingSupplier.phone);
+      setEditingSupplier(null);
       router.refresh();
     });
   }
@@ -600,13 +630,6 @@ export default function DepoSiparisClient({ siparisler, usdRate, suppliers: init
               <button type="button" onClick={addItem} className="text-xs text-[#2c1810] hover:underline">+ Satır Ekle</button>
             </div>
             <div className="space-y-2">
-              <div className="gap-2 text-[10px] uppercase tracking-wide text-[#8b6f5e] px-1" style={{ display: "grid", gridTemplateColumns: "9fr 1.5fr 1.5fr 1.5fr 1fr" }}>
-                <span>Ürün Adı</span>
-                <span className="text-right">Adet</span>
-                <span className="text-right text-[#5e8b73]">Alış ($)</span>
-                <span className="text-right">Alış (₺)</span>
-                <span />
-              </div>
               {items.map((item, idx) => (
                 <ItemRow
                   key={idx}
@@ -682,12 +705,32 @@ export default function DepoSiparisClient({ siparisler, usdRate, suppliers: init
               <p className="text-xs text-[#8b6f5e] uppercase tracking-widest mb-3">Kayıtlı Tedarikçiler</p>
               <div className="space-y-2">
                 {suppliers.map((s) => (
-                  <div key={s.name} className="flex items-center justify-between py-2 border-b border-[#f0ebe6] last:border-0">
-                    <div>
-                      <p className="text-sm text-[#2c1810] font-medium">{s.name}</p>
-                      {s.phone && <p className="text-xs text-[#8b6f5e]">{s.phone}</p>}
-                    </div>
-                    <button onClick={() => handleDeleteSupplier(s.name)} className="text-xs text-red-400 hover:text-red-600">Sil</button>
+                  <div key={s.name} className="border-b border-[#f0ebe6] last:border-0 pb-2">
+                    {editingSupplier?.oldName === s.name ? (
+                      <form onSubmit={handleUpdateSupplier} className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <input value={editingSupplier.name} onChange={(e) => setEditingSupplier((p) => p ? { ...p, name: e.target.value } : p)}
+                            className="border border-[#d4c5ba] px-2 py-1.5 text-sm focus:outline-none focus:border-[#8b6f5e]" placeholder="Ad" />
+                          <input value={editingSupplier.phone} onChange={(e) => setEditingSupplier((p) => p ? { ...p, phone: e.target.value } : p)}
+                            className="border border-[#d4c5ba] px-2 py-1.5 text-sm focus:outline-none focus:border-[#8b6f5e]" placeholder="Telefon" />
+                        </div>
+                        <div className="flex gap-2">
+                          <button type="submit" disabled={isPending} className="text-xs bg-[#2c1810] text-white px-3 py-1 hover:bg-[#3d2418] disabled:opacity-40">Kaydet</button>
+                          <button type="button" onClick={() => setEditingSupplier(null)} className="text-xs text-[#8b6f5e] hover:text-[#2c1810]">İptal</button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="flex items-center justify-between py-1">
+                        <div>
+                          <p className="text-sm text-[#2c1810] font-medium">{s.name}</p>
+                          {s.phone && <p className="text-xs text-[#8b6f5e]">{s.phone}</p>}
+                        </div>
+                        <div className="flex gap-3">
+                          <button onClick={() => setEditingSupplier({ oldName: s.name, name: s.name, phone: s.phone })} className="text-xs text-[#8b6f5e] hover:text-[#2c1810]">Düzenle</button>
+                          <button onClick={() => handleDeleteSupplier(s.name)} className="text-xs text-red-400 hover:text-red-600">Sil</button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
