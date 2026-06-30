@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { prisma }     from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 
@@ -13,9 +14,13 @@ export async function toggleFavorite(productId: string) {
 
   if (existing) {
     await prisma.favorite.delete({ where: { id: existing.id } });
+    revalidatePath("/hesabim");
+    revalidatePath("/urunler");
     return { favorited: false };
   } else {
     await prisma.favorite.create({ data: { userId: session.userId, productId } });
+    revalidatePath("/hesabim");
+    revalidatePath("/urunler");
     return { favorited: true };
   }
 }

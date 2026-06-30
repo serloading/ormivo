@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { getCart } from "@/lib/actions/cart";
@@ -185,5 +186,6 @@ export async function placeOrder(input: PlaceOrderInput) {
     }
   }
 
+  revalidatePath("/hesabim");
   return { success: true, orderNo: order.orderNo };
 }

@@ -14,7 +14,7 @@ type Product  = {
   id: string; productNo?: string | null; name: string; slug: string;
   price: number | string; comparePrice?: number | string | null;
   costPrice?: number | string | null; costPriceUsd?: number | string | null;
-  stock: number; isActive: boolean;
+  stock: number; isActive: boolean; isNew?: boolean;
   images: string[];
   category?: Category | null;
   brand?: Brand | null;

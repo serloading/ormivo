@@ -65,6 +65,7 @@ export default async function MusteriProfilPage({ params }: { params: Promise<{ 
       createdBy: n.createdBy,
       createdAt: n.createdAt.toISOString(),
     })),
+    birthDate: customer.birthDate ? (customer as { birthDate: Date }).birthDate.toISOString() : null,
     createdAt: customer.createdAt.toISOString(),
   };
 
