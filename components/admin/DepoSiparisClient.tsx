@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -50,7 +50,7 @@ type SupplierFormState = {
 };
 
 const EMPTY_FORM: FormState = {
-  title: "HaftalÄ±k SipariÅŸ",
+  title: "Haftalık Sipariş",
   orderDate: new Date().toISOString().split("T")[0],
   depoName: "",
   depoPhone: "",
@@ -176,7 +176,7 @@ function ItemRow({
               >
                 <span className="text-[#2c1810]">{s.name}</span>
                 {s.costPrice != null && (
-                  <span className="ml-2 text-[11px] text-[#8b6f5e]">{s.costPrice.toLocaleString("tr-TR")} â‚º</span>
+                  <span className="ml-2 text-[11px] text-[#8b6f5e]">{s.costPrice.toLocaleString("tr-TR")} ₺</span>
                 )}
               </button>
             ))}
@@ -311,7 +311,7 @@ export default function DepoSiparisClient({ siparisler, usdRate }: { siparisler:
     if (validItems.length === 0) return;
 
     const payload = {
-      title: form.title || "HaftalÄ±k SipariÅŸ",
+      title: form.title || "Haftalık Sipariş",
       orderDate: form.orderDate,
       items: validItems,
       paidAmount: paid,
@@ -356,21 +356,21 @@ export default function DepoSiparisClient({ siparisler, usdRate }: { siparisler:
     const message = [
       `Merhaba ${order.depoName || order.supplierName || "Depo"},`,
       "",
-      `Depo sipariÅŸi: ${order.title}`,
+      `Depo siparişi: ${order.title}`,
       `Tarih: ${new Date(order.orderDate).toLocaleDateString("tr-TR")}`,
       "",
-      ...itemsForMsg.map((item) => `- ${item.name} Ã—${item.qty} = ${(item.qty * item.unitPrice).toLocaleString("tr-TR")} â‚º`),
+      ...itemsForMsg.map((item) => `- ${item.name} ×${item.qty} = ${(item.qty * item.unitPrice).toLocaleString("tr-TR")} ₺`),
       "",
-      `ÃœrÃ¼n toplamÄ±: ${itemsTotal.toLocaleString("tr-TR")} â‚º`,
-      `Kargo: ${shippingFee.toLocaleString("tr-TR")} â‚º`,
-      `Genel toplam: ${grandTotal.toLocaleString("tr-TR")} â‚º`,
+      `Ürün toplamı: ${itemsTotal.toLocaleString("tr-TR")} ₺`,
+      `Kargo: ${shippingFee.toLocaleString("tr-TR")} ₺`,
+      `Genel toplam: ${grandTotal.toLocaleString("tr-TR")} ₺`,
     ].join("\n");
 
     const url = buildWhatsAppUrl(phone, message);
     if (url) {
       window.open(url, "_blank", "noopener,noreferrer");
     } else {
-      alert("Bu sipariÅŸ iÃ§in depo telefonu girilmemiÅŸ.");
+      alert("Bu sipariş için depo telefonu girilmemiş.");
       return;
     }
 
@@ -381,7 +381,7 @@ export default function DepoSiparisClient({ siparisler, usdRate }: { siparisler:
   }
 
   function handleDelete(id: string) {
-    if (confirm("Bu sipariÅŸi silmek istiyor musunuz?")) {
+    if (confirm("Bu siparişi silmek istiyor musunuz?")) {
       startTransition(async () => {
         await deleteDepoSiparis(id);
         router.refresh();
@@ -391,10 +391,10 @@ export default function DepoSiparisClient({ siparisler, usdRate }: { siparisler:
 
   return (
     <div>
-            <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h2 className="text-2xl font-light tracking-wide text-[#2c1810]">Depo Sipariþleri</h2>
-          <p className="text-xs text-[#8b6f5e] mt-1">Stok sistemini etkilemez - yalnýzca depo takibi için</p>
+          <h2 className="text-2xl font-light tracking-wide text-[#2c1810]">Depo Siparişleri</h2>
+          <p className="text-xs text-[#8b6f5e] mt-1">Stok sistemini etkilemez - yalnızca depo takibi için</p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -407,14 +407,14 @@ export default function DepoSiparisClient({ siparisler, usdRate }: { siparisler:
             onClick={openCreate}
             className="bg-[#2c1810] text-[#f5f0eb] text-xs tracking-widest uppercase px-6 py-3 hover:bg-[#3d2418] transition-colors"
           >
-            + Yeni Sipariþ
+            + Yeni Sipariş
           </button>
         </div>
       </div>
 
       {siparisler.length === 0 ? (
         <div className="bg-white border border-[#e8ddd6] rounded-sm py-16 text-center text-sm text-[#b8a89e]">
-          HenÃ¼z depo sipariÅŸi yok.
+          Henüz depo siparişi yok.
         </div>
       ) : (
         <div className="space-y-4">
@@ -432,42 +432,42 @@ export default function DepoSiparisClient({ siparisler, usdRate }: { siparisler:
                 <div className={`flex items-center justify-between px-6 py-4 ${isSent ? "bg-green-50" : "bg-[#faf8f6]"}`}>
                   <div className="flex items-center gap-3">
                     <span className={`text-[10px] px-2.5 py-1 rounded-full font-medium tracking-wide ${isSent ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
-                      {isSent ? "Ä°letildi" : "HazÄ±rlanÄ±yor"}
+                      {isSent ? "İletildi" : "Hazırlanıyor"}
                     </span>
                     <div>
                       <p className="text-sm font-medium text-[#2c1810]">{order.title}</p>
                       <p className="text-[11px] text-[#8b6f5e]">
                         {new Date(order.orderDate).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" })}
-                        {(order.depoName || order.supplierName) && <span className="ml-2 text-[#8b6f5e]">Â· {order.depoName || order.supplierName}</span>}
-                        {order.depoPhone && <span className="ml-2 text-[#8b6f5e]">Â· {order.depoPhone}</span>}
+                        {(order.depoName || order.supplierName) && <span className="ml-2 text-[#8b6f5e]">· {order.depoName || order.supplierName}</span>}
+                        {order.depoPhone && <span className="ml-2 text-[#8b6f5e]">· {order.depoPhone}</span>}
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-6">
                     <div className="text-right">
-                      <p className="text-lg font-semibold text-[#2c1810]">{total.toLocaleString("tr-TR")} â‚º</p>
+                      <p className="text-lg font-semibold text-[#2c1810]">{total.toLocaleString("tr-TR")} ₺</p>
                       <p className="text-[11px] text-[#8b6f5e]">
-                        ÃœrÃ¼n: {productTotal.toLocaleString("tr-TR")} â‚º Â· Kargo: {shipping.toLocaleString("tr-TR")} â‚º
+                        Ürün: {productTotal.toLocaleString("tr-TR")} ₺ · Kargo: {shipping.toLocaleString("tr-TR")} ₺
                       </p>
                       {remainingAmount > 0 && (
-                        <p className="text-[11px] text-red-600">Kalan borÃ§: {remainingAmount.toLocaleString("tr-TR")} â‚º</p>
+                        <p className="text-[11px] text-red-600">Kalan borç: {remainingAmount.toLocaleString("tr-TR")} ₺</p>
                       )}
-                      {remainingAmount === 0 && paidAmount > 0 && <p className="text-[11px] text-green-600">Ã–dendi</p>}
+                      {remainingAmount === 0 && paidAmount > 0 && <p className="text-[11px] text-green-600">Ödendi</p>}
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => openEdit(order)}
                         className="text-xs text-[#8b6f5e] hover:text-[#2c1810] px-2 py-2"
                       >
-                        DÃ¼zenle
+                        Düzenle
                       </button>
                       {!isSent && (
                         <button
                           onClick={() => handleIlet(order)}
                           className="text-xs bg-[#2c1810] text-white px-4 py-2 hover:bg-[#3d2418] transition-colors tracking-wide"
                         >
-                          Depoya Ä°let
+                          Depoya İlet
                         </button>
                       )}
                       <button onClick={() => handleDelete(order.id)} className="text-xs text-red-400 hover:text-red-600 px-2 py-2">
@@ -481,9 +481,9 @@ export default function DepoSiparisClient({ siparisler, usdRate }: { siparisler:
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-left border-b border-[#f0ebe6]">
-                        <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium">ÃœrÃ¼n AdÄ±</th>
+                        <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium">Ürün Adı</th>
                         <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium text-right">Adet</th>
-                        <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium text-right">AlÄ±ÅŸ FiyatÄ±</th>
+                        <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium text-right">Alış Fiyatı</th>
                         <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium text-right">Toplam</th>
                       </tr>
                     </thead>
@@ -492,8 +492,8 @@ export default function DepoSiparisClient({ siparisler, usdRate }: { siparisler:
                         <tr key={index} className="border-b border-[#f9f6f3] last:border-0">
                           <td className="py-2 text-[#2c1810]">{item.name}</td>
                           <td className="py-2 text-right text-[#5c4033]">{item.qty}</td>
-                          <td className="py-2 text-right text-[#5c4033]">{Number(item.unitPrice).toLocaleString("tr-TR")} â‚º</td>
-                          <td className="py-2 text-right font-medium text-[#2c1810]">{(item.qty * item.unitPrice).toLocaleString("tr-TR")} â‚º</td>
+                          <td className="py-2 text-right text-[#5c4033]">{Number(item.unitPrice).toLocaleString("tr-TR")} ₺</td>
+                          <td className="py-2 text-right font-medium text-[#2c1810]">{(item.qty * item.unitPrice).toLocaleString("tr-TR")} ₺</td>
                         </tr>
                       ))}
                     </tbody>
@@ -511,23 +511,23 @@ export default function DepoSiparisClient({ siparisler, usdRate }: { siparisler:
       <Modal
         open={modalOpen}
         onClose={closeModal}
-        title={editingId ? "Depo SipariÅŸi DÃ¼zenle" : "Yeni Depo SipariÅŸi"}
+        title={editingId ? "Depo Siparişi Düzenle" : "Yeni Depo Siparişi"}
         width="max-w-3xl"
       >
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="grid grid-cols-2 gap-4">
-            <Field label="SipariÅŸ BaÅŸlÄ±ÄŸÄ±" required value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} placeholder="HaftalÄ±k SipariÅŸ" />
-            <Field label="SipariÅŸ Tarihi" required type="date" value={form.orderDate} onChange={(e) => setForm((p) => ({ ...p, orderDate: e.target.value }))} />
+            <Field label="Sipariş Başlığı" required value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} placeholder="Haftalık Sipariş" />
+            <Field label="Sipariş Tarihi" required type="date" value={form.orderDate} onChange={(e) => setForm((p) => ({ ...p, orderDate: e.target.value }))} />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Depo AdÄ±" required value={form.depoName} onChange={(e) => setForm((p) => ({ ...p, depoName: e.target.value }))} placeholder="Depo adÄ±" />
+            <Field label="Depo Adı" required value={form.depoName} onChange={(e) => setForm((p) => ({ ...p, depoName: e.target.value }))} placeholder="Depo adı" />
             <Field label="Depo Telefonu" required value={form.depoPhone} onChange={(e) => setForm((p) => ({ ...p, depoPhone: e.target.value }))} placeholder="05XX XXX XX XX" />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <Field
-              label="Kargo Ãœcreti"
+              label="Kargo Ücreti"
               type="number"
               min="0"
               step="0.01"
@@ -536,7 +536,7 @@ export default function DepoSiparisClient({ siparisler, usdRate }: { siparisler:
               placeholder="0.00"
             />
             <Field
-              label="Ã–denen Tutar"
+              label="Ödenen Tutar"
               type="number"
               min="0"
               step="0.01"
@@ -548,8 +548,8 @@ export default function DepoSiparisClient({ siparisler, usdRate }: { siparisler:
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs uppercase tracking-widest text-[#8b6f5e] font-medium">ÃœrÃ¼nler</label>
-              <button type="button" onClick={addItem} className="text-xs text-[#2c1810] hover:underline">+ SatÄ±r Ekle</button>
+              <label className="text-xs uppercase tracking-widest text-[#8b6f5e] font-medium">Ürünler</label>
+              <button type="button" onClick={addItem} className="text-xs text-[#2c1810] hover:underline">+ Satır Ekle</button>
             </div>
             <div className="space-y-2">
               <div className="gap-2 text-[10px] uppercase tracking-wide text-[#8b6f5e] px-1" style={{ display: "grid", gridTemplateColumns: "5fr 2fr 2fr 2fr 1fr" }}>
@@ -574,31 +574,47 @@ export default function DepoSiparisClient({ siparisler, usdRate }: { siparisler:
 
             <div className="mt-4 pt-4 border-t border-[#f0ebe6] space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-[#8b6f5e]">ÃœrÃ¼n ToplamÄ±</span>
-                <span className="text-sm font-semibold text-[#2c1810]">{itemsTotal.toLocaleString("tr-TR")} â‚º</span>
+                <span className="text-sm text-[#8b6f5e]">Ürün Toplamı</span>
+                <span className="text-sm font-semibold text-[#2c1810]">{itemsTotal.toLocaleString("tr-TR")} ₺</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-[#8b6f5e]">Kargo</span>
-                <span className="text-sm font-semibold text-[#2c1810]">{shippingFee.toLocaleString("tr-TR")} â‚º</span>
+                <span className="text-sm font-semibold text-[#2c1810]">{shippingFee.toLocaleString("tr-TR")} ₺</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-[#8b6f5e]">SipariÅŸ ToplamÄ±</span>
-                <span className="text-lg font-semibold text-[#2c1810]">{grandTotal.toLocaleString("tr-TR")} â‚º</span>
+                <span className="text-sm text-[#8b6f5e]">Sipariş Toplamı</span>
+                <span className="text-lg font-semibold text-[#2c1810]">{grandTotal.toLocaleString("tr-TR")} ₺</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-[#8b6f5e]">Kalan BorÃ§</span>
-                <span className="text-sm font-semibold text-red-600">{remaining.toLocaleString("tr-TR")} â‚º</span>
+                <span className="text-sm text-[#8b6f5e]">Kalan Borç</span>
+                <span className="text-sm font-semibold text-red-600">{remaining.toLocaleString("tr-TR")} ₺</span>
               </div>
             </div>
           </div>
 
-          <Field label="Notlar" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Ã–ncelikli Ã¼rÃ¼nler, teslimat notu..." />
+          <Field label="Notlar" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Öncelikli ürünler, teslimat notu..." />
 
-          <SubmitRow onCancel={closeModal} label={editingId ? "GÃ¼ncelle" : "SipariÅŸ OluÅŸtur"} loading={isPending} />
+          <SubmitRow onCancel={closeModal} label={editingId ? "Güncelle" : "Sipariş Oluştur"} loading={isPending} />
+        </form>
+      </Modal>
+
+      <Modal
+        open={supplierModalOpen}
+        onClose={closeSupplierModal}
+        title="Tedarikçi Borcu Ekle"
+        width="max-w-lg"
+      >
+        <form onSubmit={handleSupplierSubmit} className="space-y-4">
+          <Field label="Tedarikçi Adı" required value={supplierForm.supplierName} onChange={(e) => setSupplierForm((p) => ({ ...p, supplierName: e.target.value }))} placeholder="Tedarikçi adı" />
+          <Field label="Açıklama" required value={supplierForm.description} onChange={(e) => setSupplierForm((p) => ({ ...p, description: e.target.value }))} placeholder="Borç açıklaması" />
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Toplam Tutar (₺)" required type="number" min="0" step="0.01" value={supplierForm.totalAmount} onChange={(e) => setSupplierForm((p) => ({ ...p, totalAmount: e.target.value }))} placeholder="0.00" />
+            <Field label="İlk Ödeme (₺)" type="number" min="0" step="0.01" value={supplierForm.initialPayment} onChange={(e) => setSupplierForm((p) => ({ ...p, initialPayment: e.target.value }))} placeholder="0.00" />
+          </div>
+          <Field label="Vade Tarihi" type="date" value={supplierForm.dueDate} onChange={(e) => setSupplierForm((p) => ({ ...p, dueDate: e.target.value }))} />
+          <SubmitRow onCancel={closeSupplierModal} label="Borç Ekle" loading={isPending} />
         </form>
       </Modal>
     </div>
   );
 }
-
-
