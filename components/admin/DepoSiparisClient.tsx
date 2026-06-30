@@ -411,17 +411,25 @@ export default function DepoSiparisClient({ siparisler, usdRate, suppliers: init
   function handleIlet(order: DepoSiparis) {
     const itemsForMsg = normalizeItems(order.items);
     const phone = order.depoPhone ?? order.supplierName ?? "";
+    // Sipariş ürünlerinden toplam TL hesapla (form state'inden değil, siparişten)
+    const orderItemsTL = itemsForMsg.reduce((sum, item) => sum + item.qty * item.unitPrice, 0);
+    // Dolar bazlı toplam (usdRate ile ters çevir)
+    const orderItemsUSD = usdRate > 0 ? orderItemsTL / usdRate : 0;
+    const usdStr = orderItemsUSD.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const tlStr  = orderItemsTL.toLocaleString("tr-TR",  { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const message = [
       `Merhaba ${order.depoName || order.supplierName || "Depo"},`,
       "",
       `Depo siparişi: ${order.title}`,
       `Tarih: ${new Date(order.orderDate).toLocaleDateString("tr-TR")}`,
       "",
-      ...itemsForMsg.map((item) => `- ${item.name} ×${item.qty} = ${(item.qty * item.unitPrice).toLocaleString("tr-TR")} ₺`),
+      ...itemsForMsg.map((item) => {
+        const lineUSD = usdRate > 0 ? item.qty * item.unitPrice / usdRate : 0;
+        const lineUSDStr = lineUSD.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return `- ${item.name} ×${item.qty} = $${lineUSDStr}`;
+      }),
       "",
-      `Ürün toplamı: ${itemsTotal.toLocaleString("tr-TR")} ₺`,
-      `Kargo: ${shippingFee.toLocaleString("tr-TR")} ₺`,
-      `Genel toplam: ${grandTotal.toLocaleString("tr-TR")} ₺`,
+      `Toplam: $${usdStr} (≈ ${tlStr} ₺, kur: ${usdRate.toLocaleString("tr-TR")} ₺/$)`,
     ].join("\n");
 
     const url = buildWhatsAppUrl(phone, message);
