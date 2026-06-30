@@ -157,7 +157,7 @@ function ItemRow({
   }
 
   return (
-    <div className="grid grid-cols-13 gap-2 items-start" style={{ gridTemplateColumns: "5fr 2fr 2fr 2fr 1fr" }}>
+    <div className="grid grid-cols-13 gap-2 items-start" style={{ gridTemplateColumns: "9fr 1.5fr 1.5fr 1.5fr 1fr" }}>
       <div className="relative" ref={containerRef}>
         <input
           className="w-full border border-[#d4c5ba] px-2 py-1.5 text-sm focus:outline-none focus:border-[#8b6f5e]"
@@ -600,7 +600,7 @@ export default function DepoSiparisClient({ siparisler, usdRate, suppliers: init
               <button type="button" onClick={addItem} className="text-xs text-[#2c1810] hover:underline">+ Satır Ekle</button>
             </div>
             <div className="space-y-2">
-              <div className="gap-2 text-[10px] uppercase tracking-wide text-[#8b6f5e] px-1" style={{ display: "grid", gridTemplateColumns: "5fr 2fr 2fr 2fr 1fr" }}>
+              <div className="gap-2 text-[10px] uppercase tracking-wide text-[#8b6f5e] px-1" style={{ display: "grid", gridTemplateColumns: "9fr 1.5fr 1.5fr 1.5fr 1fr" }}>
                 <span>Ürün Adı</span>
                 <span className="text-right">Adet</span>
                 <span className="text-right text-[#5e8b73]">Alış ($)</span>
