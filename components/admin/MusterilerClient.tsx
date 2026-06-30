@@ -10,6 +10,20 @@ import { updateCustomerSegment } from "@/lib/actions/customer";
 import { SEGMENTS, SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/customer-constants";
 import { CITY_NAMES } from "@/lib/data/turkey-cities";
 
+const COUNTRY_CODES = [
+  { code: "+90",  label: "🇹🇷 +90" },
+  { code: "+1",   label: "🇺🇸 +1" },
+  { code: "+44",  label: "🇬🇧 +44" },
+  { code: "+49",  label: "🇩🇪 +49" },
+  { code: "+33",  label: "🇫🇷 +33" },
+  { code: "+31",  label: "🇳🇱 +31" },
+  { code: "+43",  label: "🇦🇹 +43" },
+  { code: "+41",  label: "🇨🇭 +41" },
+  { code: "+971", label: "🇦🇪 +971" },
+  { code: "+966", label: "🇸🇦 +966" },
+  { code: "+7",   label: "🇷🇺 +7" },
+];
+
 type SortKey = "name" | "segment" | "orders" | "createdAt";
 type SortDir = "asc" | "desc";
 
@@ -27,7 +41,7 @@ type Customer = {
   createdAt: Date | string;
 };
 
-const EMPTY = { name: "", phone: "", email: "", city: "", address: "", note: "" };
+const EMPTY = { name: "", phone: "", email: "", city: "", address: "", note: "", countryCode: "+90" };
 const SEGMENT_ORDER: Record<string, number> = { DIAMOND: 0, GOLD: 1, SILVER: 2, BRONZE: 3 };
 
 export default function MusterilerClient({ customers }: { customers: Customer[] }) {
@@ -95,20 +109,30 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
   }
   function openEdit(c: Customer) {
     setEditing(c);
-    setForm({ name: c.name, phone: c.phone ?? "", email: c.email ?? "", city: c.city ?? "", address: c.address ?? "", note: c.note ?? "" });
+    const rawPhone = c.phone ?? "";
+    // Ülke kodunu telefon numarasından ayır
+    const matchedCode = COUNTRY_CODES.find((cc) => rawPhone.startsWith(cc.code));
+    const countryCode = matchedCode?.code ?? "+90";
+    const phone = matchedCode ? rawPhone.slice(matchedCode.code.length).trimStart() : rawPhone;
+    setForm({ name: c.name, phone, email: c.email ?? "", city: c.city ?? "", address: c.address ?? "", note: c.note ?? "", countryCode });
     setFormSegment(c.segment ?? "");
     setModal(true);
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // Ülke kodu + numara birleştir
+    const fullPhone = form.phone.trim()
+      ? `${form.countryCode}${form.phone.trim()}`
+      : "";
+    const payload = { ...form, phone: fullPhone };
     startTransition(async () => {
       try {
         if (editing) {
-          await updateCustomer(editing.id, form);
+          await updateCustomer(editing.id, payload);
           await updateCustomerSegment(editing.id, formSegment || null);
         } else {
-          await createCustomer(form);
+          await createCustomer(payload);
         }
         router.refresh();
         setModal(false);
@@ -239,7 +263,27 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
       <Modal open={modal} onClose={() => setModal(false)} title={editing ? "Müşteri Düzenle" : "Yeni Müşteri"}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Field label="Ad Soyad" required value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="Ayşe Kaya" />
-          <Field label="Telefon" type="tel" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} placeholder="0532 000 0000" />
+          <div>
+            <label className="block text-xs font-medium text-[#5c4033] mb-1.5">Telefon</label>
+            <div className="flex">
+              <select
+                value={form.countryCode}
+                onChange={(e) => setForm((p) => ({ ...p, countryCode: e.target.value }))}
+                className="border border-[#d4c5ba] border-r-0 px-2 py-2 text-sm text-[#5c4033] bg-[#faf8f6] focus:outline-none focus:border-[#8b6f5e] shrink-0"
+              >
+                {COUNTRY_CODES.map((c) => (
+                  <option key={c.code} value={c.code}>{c.label}</option>
+                ))}
+              </select>
+              <input
+                type="tel"
+                value={form.phone}
+                onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+                placeholder="5xx xxx xx xx"
+                className="flex-1 border border-[#d4c5ba] px-3 py-2 text-sm text-[#2c1810] bg-white focus:outline-none focus:border-[#8b6f5e]"
+              />
+            </div>
+          </div>
           <Field label="E-posta" type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} placeholder="ayse@email.com" />
           <div>
             <label className="block text-xs font-medium text-[#5c4033] mb-1.5">İl</label>
