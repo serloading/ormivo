@@ -34,9 +34,12 @@ export async function register(formData: FormData) {
   });
   if (exists) return { error: "Bu telefon numarası zaten kayıtlı." };
 
+  const isB2B  = formData.get("isB2B") === "true" || formData.get("isB2B") === "on";
+  const b2bNote = (formData.get("b2bNote") as string)?.trim() || null;
+
   const passwordHash = await bcrypt.hash(password, 12);
   const user = await prisma.siteUser.create({
-    data: { phone, name, passwordHash },
+    data: { phone, name, passwordHash, isB2B, b2bNote: isB2B ? b2bNote : null },
   });
 
   const existingCustomer = await prisma.customer.findFirst({ where: { phone } });

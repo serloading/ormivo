@@ -9,10 +9,11 @@ type Category = { id: string; name: string; slug: string };
 type Brand = { id: string; name: string; slug: string; logo?: string | null };
 type Product = {
   id: string; name: string; slug: string; description?: string | null;
-  scentNotes?: string | null;
+  scentNotes?: string | null; fragranceFamily?: string | null; concentration?: string | null;
   price: number | string; comparePrice?: number | string | null;
   costPrice?: number | string | null; costPriceUsd?: number | string | null;
-  stock: number; isActive: boolean; isOzelKoleksiyon?: boolean; isBestSeller?: boolean; isNew?: boolean; images: string[];
+  b2bPrice?: number | string | null;
+  stock: number; isActive: boolean; isOzelKoleksiyon?: boolean; isBestSeller?: boolean; isNew?: boolean; isTester?: boolean; images: string[];
   categoryId?: string | null; extraCategoryIds?: string[]; brandId?: string | null;
 };
 
@@ -38,16 +39,20 @@ export default function ProductForm({ product, categories, brands, usdRate = 38 
     slug: product?.slug ?? "",
     description: product?.description ?? "",
     scentNotes: product?.scentNotes ?? "",
+    fragranceFamily: product?.fragranceFamily ?? "",
+    concentration: product?.concentration ?? "",
     price: product?.price?.toString() ?? "",
     comparePrice: product?.comparePrice?.toString() ?? "",
     costPrice: product?.costPrice?.toString() ?? "",
     costPriceUsd: product?.costPriceUsd?.toString() ?? "",
+    b2bPrice: product?.b2bPrice?.toString() ?? "",
     brandId: product?.brandId ?? "",
     stock: product?.stock?.toString() ?? "0",
     isActive: product?.isActive ?? true,
     isOzelKoleksiyon: product?.isOzelKoleksiyon ?? false,
     isBestSeller: product?.isBestSeller ?? false,
     isNew: product?.isNew ?? false,
+    isTester: product?.isTester ?? false,
   });
 
   // Çoklu kategori: primary + extra birleştir, primary ilk sırada
@@ -102,10 +107,13 @@ export default function ProductForm({ product, categories, brands, usdRate = 38 
       slug: form.slug,
       description: form.description,
       scentNotes: form.scentNotes || undefined,
+      fragranceFamily: form.fragranceFamily || undefined,
+      concentration: form.concentration || undefined,
       price: parseFloat(form.price) || 0,
       comparePrice: form.comparePrice ? parseFloat(form.comparePrice) : undefined,
       costPrice: null,
       costPriceUsd: form.costPriceUsd ? parseFloat(form.costPriceUsd) : undefined,
+      b2bPrice: form.b2bPrice ? parseFloat(form.b2bPrice) : undefined,
       categoryId: selectedCatIds[0] || undefined,
       extraCategoryIds: selectedCatIds.slice(1),
       brandId: form.brandId || undefined,
@@ -114,6 +122,7 @@ export default function ProductForm({ product, categories, brands, usdRate = 38 
       isOzelKoleksiyon: form.isOzelKoleksiyon,
       isBestSeller: form.isBestSeller,
       isNew: form.isNew,
+      isTester: form.isTester,
       images,
     };
     if (isEdit && product) {
@@ -150,6 +159,26 @@ export default function ProductForm({ product, categories, brands, usdRate = 38 
                 <label className={labelCls}>Koku Notaları</label>
                 <textarea rows={3} value={form.scentNotes} onChange={(e) => setForm((p) => ({ ...p, scentNotes: e.target.value }))} className={inputCls} placeholder="Üst nota: Bergamot, Limon&#10;Orta nota: Gül, Yasemin&#10;Dip nota: Misk, Amber" />
                 <p className="text-xs text-[#b8a89e] mt-1">Ürün sayfasında gösterilir</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={labelCls}>Koku Ailesi</label>
+                  <select value={form.fragranceFamily} onChange={(e) => setForm((p) => ({ ...p, fragranceFamily: e.target.value }))} className={inputCls}>
+                    <option value="">Seçiniz</option>
+                    {["Oryantal","Odunsu","Çiçeksi","Turunçgil","Aromatik","Fougère","Gourmand","Pudralı","Aquatik","Müskal"].map((f) => (
+                      <option key={f} value={f}>{f}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Konsantrasyon</label>
+                  <select value={form.concentration} onChange={(e) => setForm((p) => ({ ...p, concentration: e.target.value }))} className={inputCls}>
+                    <option value="">Seçiniz</option>
+                    {["Parfum","EDP","EDP Intense","EDT","EDC","Attar","Body Mist"].map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
           </div>
@@ -204,6 +233,15 @@ export default function ProductForm({ product, categories, brands, usdRate = 38 
                 <input type="checkbox" checked={form.isNew} onChange={(e) => setForm((p) => ({ ...p, isNew: e.target.checked }))} className="w-4 h-4 accent-[#2c1810]" />
                 <span className="text-sm text-[#5c4033]">Yeni Ürün (Yeni Gelenler&apos;de göster)</span>
               </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={form.isTester} onChange={(e) => setForm((p) => ({ ...p, isTester: e.target.checked }))} className="w-4 h-4 accent-orange-600" />
+                <span className="text-sm text-orange-700 font-medium">Tester Ürün</span>
+              </label>
+              {form.isTester && (
+                <p className="text-[11px] text-orange-600 bg-orange-50 border border-orange-200 rounded-sm px-3 py-2">
+                  Tester ürünler B2C sitesinde gizlenir. Yalnızca admin ve onaylı bayiler görebilir.
+                </p>
+              )}
             </div>
           </div>
 
@@ -211,13 +249,18 @@ export default function ProductForm({ product, categories, brands, usdRate = 38 
             <h3 className="text-xs tracking-widest text-[#5c4033] uppercase mb-5">Fiyat</h3>
             <div className="space-y-4">
               <div>
-                <label className={labelCls}>Satis Fiyati (TL) *</label>
+                <label className={labelCls}>Satış Fiyatı (TL) *</label>
                 <input required type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} className={inputCls} placeholder="890" />
               </div>
               <div>
                 <label className={labelCls}>Eski Fiyat (TL)</label>
                 <input type="number" min="0" step="0.01" value={form.comparePrice} onChange={(e) => setForm((p) => ({ ...p, comparePrice: e.target.value }))} className={inputCls} placeholder="1100" />
-                <p className="text-xs text-[#b8a89e] mt-1">Uzeri cizili gosterilir</p>
+                <p className="text-xs text-[#b8a89e] mt-1">Üzeri çizili gösterilir</p>
+              </div>
+              <div>
+                <label className={labelCls}>Bayi Fiyatı (TL)</label>
+                <input type="number" min="0" step="0.01" value={form.b2bPrice} onChange={(e) => setForm((p) => ({ ...p, b2bPrice: e.target.value }))} className={inputCls} placeholder="650" />
+                <p className="text-xs text-[#b8a89e] mt-1">Onaylı bayilere gösterilecek özel fiyat</p>
               </div>
             </div>
           </div>

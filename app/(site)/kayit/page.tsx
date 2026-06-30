@@ -7,6 +7,7 @@ import { register } from "@/lib/actions/auth";
 export default function KayitPage() {
   const [error, setError]          = useState("");
   const [pending, startTransition] = useTransition();
+  const [isB2B, setIsB2B]          = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -88,6 +89,38 @@ export default function KayitPage() {
                 autoComplete="new-password"
                 className="w-full border border-[#E8E4DE] px-3 py-2.5 font-sans text-sm outline-none focus:border-[#C4A882] transition-colors"
               />
+            </div>
+
+            {/* Bayi başvurusu */}
+            <div className="border border-[#E8E4DE] rounded-sm p-4 space-y-3">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="isB2B"
+                  checked={isB2B}
+                  onChange={(e) => setIsB2B(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 accent-[#C4A882]"
+                />
+                <div>
+                  <p className="font-sans text-sm text-[#1A1A1A] font-medium">Bayi / Satıcı olarak başvur</p>
+                  <p className="font-sans text-xs text-[#9A9A9A] mt-0.5">
+                    Onaylandıktan sonra toplu alım fiyatlarına erişirsiniz
+                  </p>
+                </div>
+              </label>
+              {isB2B && (
+                <div>
+                  <label className="block font-sans text-[11px] tracking-[0.15em] uppercase text-[#6B6B6B] mb-1.5">
+                    Başvuru Notu
+                  </label>
+                  <textarea
+                    name="b2bNote"
+                    rows={3}
+                    placeholder="Dükkan adınız, Instagram/TikTok hesabınız veya satış yaptığınız platformlar..."
+                    className="w-full border border-[#E8E4DE] px-3 py-2.5 font-sans text-sm outline-none focus:border-[#C4A882] transition-colors resize-none"
+                  />
+                </div>
+              )}
             </div>
 
             {error && (

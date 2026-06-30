@@ -26,7 +26,8 @@ const navGroups: NavGroup[] = [
   {
     group: "CRM",
     items: [
-      { href: "/admin/musteriler", label: "Müşteriler",   icon: "◑" },
+      { href: "/admin/musteriler", label: "Müşteriler",      icon: "◑" },
+      { href: "/admin/bayiler",    label: "Bayi Yönetimi",   icon: "◈" },
       { href: "/admin/kuponlar",   label: "Kupon & Ayarlar", icon: "%" },
     ],
   },

@@ -17,10 +17,11 @@ export default async function UrunDuzenlePage({ params }: { params: Promise<{ id
 
   const p = {
     ...product,
-    price: Number(product.price),
+    price:        Number(product.price),
     comparePrice: product.comparePrice ? Number(product.comparePrice) : null,
-    costPrice: product.costPrice ? Number(product.costPrice) : null,
+    costPrice:    product.costPrice    ? Number(product.costPrice)    : null,
     costPriceUsd: product.costPriceUsd ? Number(product.costPriceUsd) : null,
+    b2bPrice:     product.b2bPrice     ? Number(product.b2bPrice)     : null,
   };
 
   return (

@@ -47,6 +47,10 @@ model Product {
   brandId      String?
   brand        Brand?     @relation(fields: [brandId], references: [id])
   scentNotes         String?
+  fragranceFamily    String?    // Oryantal | Odunsu | Çiçeksi | Turunçgil | Aromatik | Fougère | Gourmand | Pudralı | Aquatik
+  concentration      String?    // EDP | EDT | EDC | Parfum | EDP Intense | Attar
+  b2bPrice           Decimal?   @db.Decimal(10, 2)
+  isTester           Boolean    @default(false)
   stock              Int        @default(0)
   isActive           Boolean    @default(true)
   isOzelKoleksiyon   Boolean    @default(false)
@@ -165,6 +169,9 @@ model SiteUser {
   passwordHash       String
   mustChangePassword Boolean     @default(false)
   segment            String?     // BRONZE | SILVER | GOLD | null
+  isB2B              Boolean     @default(false)
+  isB2BApproved      Boolean     @default(false)
+  b2bNote            String?     // Bayi başvuru notu (işyeri, sosyal medya vs.)
   createdAt          DateTime    @default(now())
   cart               Cart?
   addresses          Address[]

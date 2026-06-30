@@ -9,10 +9,13 @@ export type ProductFormData = {
   slug: string;
   description: string;
   scentNotes?: string;
+  fragranceFamily?: string;
+  concentration?: string;
   price: number;
   comparePrice?: number;
   costPrice?: number | null;
   costPriceUsd?: number;
+  b2bPrice?: number;
   categoryId?: string;
   extraCategoryIds?: string[];
   brandId?: string;
@@ -21,6 +24,7 @@ export type ProductFormData = {
   isOzelKoleksiyon?: boolean;
   isBestSeller?: boolean;
   isNew?: boolean;
+  isTester?: boolean;
   images: string[];
 };
 
@@ -29,8 +33,9 @@ export async function getProducts() {
     where: { deletedAt: null },
     select: {
       id: true, productNo: true, name: true, slug: true,
-      price: true, comparePrice: true, costPrice: true, costPriceUsd: true,
-      stock: true, isActive: true, isNew: true, images: true, extraCategoryIds: true,
+      price: true, comparePrice: true, costPrice: true, costPriceUsd: true, b2bPrice: true,
+      stock: true, isActive: true, isNew: true, isTester: true, images: true, extraCategoryIds: true,
+      fragranceFamily: true, concentration: true,
       category: { select: { id: true, name: true, slug: true } },
       brand:    { select: { id: true, name: true, slug: true } },
     },
@@ -41,8 +46,12 @@ export async function getProducts() {
     price:        Number(p.price),
     comparePrice: p.comparePrice != null ? Number(p.comparePrice) : null,
     costPrice:    p.costPrice    != null ? Number(p.costPrice)    : null,
-    costPriceUsd: p.costPriceUsd != null ? Number(p.costPriceUsd) : null,
-    isNew:        p.isNew,
+    costPriceUsd:    p.costPriceUsd != null ? Number(p.costPriceUsd) : null,
+    b2bPrice:        p.b2bPrice    != null ? Number(p.b2bPrice)    : null,
+    isNew:           p.isNew,
+    isTester:        p.isTester,
+    fragranceFamily: p.fragranceFamily,
+    concentration:   p.concentration,
   }));
 }
 
