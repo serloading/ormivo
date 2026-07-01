@@ -295,14 +295,19 @@ export default async function UrunlerPage({
                                 </Link>
                               );
                             }
-                            const b2bPrice = (product as { b2bPrice?: unknown }).b2bPrice != null ? Number((product as { b2bPrice?: unknown }).b2bPrice) : null;
-                            if (isB2B && b2bPrice) {
-                              return (
-                                <div className="flex flex-col gap-0.5">
-                                  <span className="font-sans text-[8px] px-1 py-px rounded font-semibold self-start bg-[#1A1A1A] text-[#C4A882]">Bayi</span>
-                                  <span className="font-sans text-sm font-semibold text-[#1A1A1A]">{b2bPrice.toLocaleString("tr-TR")} ₺</span>
-                                </div>
-                              );
+                            if (isB2B) {
+                              const markup = session?.b2bMarkup ?? null;
+                              const bayiPrice = (productCostPrice != null && markup != null)
+                                ? Math.round(productCostPrice + markup)
+                                : ((product as { b2bPrice?: unknown }).b2bPrice != null ? Number((product as { b2bPrice?: unknown }).b2bPrice) : null);
+                              if (bayiPrice) {
+                                return (
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="font-sans text-[8px] px-1 py-px rounded font-semibold self-start bg-[#1A1A1A] text-[#C4A882]">Bayi</span>
+                                    <span className="font-sans text-sm font-semibold text-[#1A1A1A]">{bayiPrice.toLocaleString("tr-TR")} ₺</span>
+                                  </div>
+                                );
+                              }
                             }
                             const segPrice = getSegmentPrice(price, userSegment, segmentSettings, productCostPrice);
                             return segPrice ? (

@@ -172,6 +172,7 @@ model SiteUser {
   isB2B              Boolean     @default(false)
   isB2BApproved      Boolean     @default(false)
   b2bNote            String?
+  b2bMarkup          Decimal?    @db.Decimal(10, 2)
   referralCode       String?     @unique
   referredById       String?
   referredBy         SiteUser?   @relation("Referrals", fields: [referredById], references: [id])

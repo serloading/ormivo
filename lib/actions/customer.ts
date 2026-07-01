@@ -162,7 +162,25 @@ export async function updateCustomerSegment(id: string, segment: string | null) 
   await prisma.customer.update({ where: { id }, data: { segment } });
   // Aynı telefona sahip SiteUser'a da segmenti yansıt
   if (prev?.phone) {
-    await prisma.siteUser.updateMany({ where: { phone: { in: phoneLookupVariants(prev.phone) } }, data: { segment } });
+    const isDiamond = segment === "DIAMOND";
+    const siteUserUpdate: Record<string, unknown> = { segment };
+    if (isDiamond) {
+      // Diamond → otomatik bayi yap, markup henüz yoksa varsayılanı ata
+      siteUserUpdate.isB2BApproved = true;
+      siteUserUpdate.isB2B = true;
+    }
+    await prisma.siteUser.updateMany({
+      where: { phone: { in: phoneLookupVariants(prev.phone) } },
+      data: siteUserUpdate,
+    });
+    // Markup yoksa varsayılan yap (updateMany decimal koşulunu desteklemez, findFirst ile yap)
+    if (isDiamond) {
+      const { DEFAULT_DIAMOND_MARKUP } = await import("@/lib/segment");
+      const su = await prisma.siteUser.findFirst({ where: { phone: { in: phoneLookupVariants(prev.phone) } }, select: { id: true, b2bMarkup: true } });
+      if (su && su.b2bMarkup == null) {
+        await prisma.siteUser.update({ where: { id: su.id }, data: { b2bMarkup: DEFAULT_DIAMOND_MARKUP } });
+      }
+    }
   }
   await logActivity({
     action: "CUSTOMER_SEGMENT_CHANGED",
@@ -172,6 +190,7 @@ export async function updateCustomerSegment(id: string, segment: string | null) 
   });
   revalidatePath("/admin/musteriler");
   revalidatePath(`/admin/musteriler/${id}`);
+  revalidatePath("/admin/bayiler");
   return { success: true };
 }
 
@@ -218,7 +237,18 @@ export async function setSiteUserSegment(customerId: string, segment: string | n
   const siteUser = await prisma.siteUser.findFirst({ where: { phone: { in: phoneLookupVariants(customer.phone) } } });
   if (!siteUser) return { error: "Bu telefona ait site üyesi bulunamadı." };
 
-  await prisma.siteUser.update({ where: { id: siteUser.id }, data: { segment } });
+  const isDiamond = segment === "DIAMOND";
+  const updateData: Record<string, unknown> = { segment };
+  if (isDiamond) {
+    updateData.isB2BApproved = true;
+    updateData.isB2B = true;
+    if (siteUser.b2bMarkup == null) {
+      const { DEFAULT_DIAMOND_MARKUP } = await import("@/lib/segment");
+      updateData.b2bMarkup = DEFAULT_DIAMOND_MARKUP;
+    }
+  }
+  await prisma.siteUser.update({ where: { id: siteUser.id }, data: updateData });
   revalidatePath("/admin/musteriler");
+  revalidatePath("/admin/bayiler");
   return { success: true };
 }

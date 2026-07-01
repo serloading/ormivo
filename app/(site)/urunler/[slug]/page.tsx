@@ -169,20 +169,25 @@ export default async function UrunDetayPage({
                   </div>
                 );
               }
-              const b2bPrice = product.b2bPrice != null ? Number(product.b2bPrice) : null;
-              if (isB2B && b2bPrice) {
-                return (
-                  <div className="mb-3 space-y-1.5">
-                    <span className="inline-block font-sans text-[11px] px-2.5 py-1 rounded font-semibold bg-[#1A1A1A] text-[#C4A882]">
-                      Bayi Fiyatı
-                    </span>
-                    <div className="flex items-baseline gap-4">
-                      <span className="font-serif text-3xl text-[#C4A882] font-medium">
-                        {b2bPrice.toLocaleString("tr-TR")} ₺
+              if (isB2B) {
+                const markup = session?.b2bMarkup ?? null;
+                const bayiPrice = (costPrice != null && markup != null)
+                  ? Math.round(costPrice + markup)
+                  : (product.b2bPrice != null ? Number(product.b2bPrice) : null);
+                if (bayiPrice) {
+                  return (
+                    <div className="mb-3 space-y-1.5">
+                      <span className="inline-block font-sans text-[11px] px-2.5 py-1 rounded font-semibold bg-[#1A1A1A] text-[#C4A882]">
+                        Bayi Fiyatı
                       </span>
+                      <div className="flex items-baseline gap-4">
+                        <span className="font-serif text-3xl text-[#C4A882] font-medium">
+                          {bayiPrice.toLocaleString("tr-TR")} ₺
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                );
+                  );
+                }
               }
               const segPrice = getSegmentPrice(price, userSegment, segmentSettings, costPrice);
               return segPrice ? (
@@ -311,16 +316,21 @@ export default async function UrunDetayPage({
                               </Link>
                             );
                           }
-                          const rB2bPrice = (r as { b2bPrice?: unknown }).b2bPrice != null ? Number((r as { b2bPrice?: unknown }).b2bPrice) : null;
-                          if (isB2B && rB2bPrice) {
-                            return (
-                              <div className="flex flex-col gap-0.5">
-                                <span className="font-sans text-[8px] px-1 py-px rounded font-semibold self-start bg-[#1A1A1A] text-[#C4A882]">Bayi</span>
-                                <span className="font-sans text-sm font-semibold text-[#1A1A1A]">{rB2bPrice.toLocaleString("tr-TR")} ₺</span>
-                              </div>
-                            );
+                          const rCostPrice = (r as { costPrice?: unknown }).costPrice != null ? Number((r as { costPrice?: unknown }).costPrice) : null;
+                          if (isB2B) {
+                            const rMarkup = session?.b2bMarkup ?? null;
+                            const rBayiPrice = (rCostPrice != null && rMarkup != null)
+                              ? Math.round(rCostPrice + rMarkup)
+                              : ((r as { b2bPrice?: unknown }).b2bPrice != null ? Number((r as { b2bPrice?: unknown }).b2bPrice) : null);
+                            if (rBayiPrice) {
+                              return (
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="font-sans text-[8px] px-1 py-px rounded font-semibold self-start bg-[#1A1A1A] text-[#C4A882]">Bayi</span>
+                                  <span className="font-sans text-sm font-semibold text-[#1A1A1A]">{rBayiPrice.toLocaleString("tr-TR")} ₺</span>
+                                </div>
+                              );
+                            }
                           }
-              const rCostPrice = (r as { costPrice?: unknown }).costPrice != null ? Number((r as { costPrice?: unknown }).costPrice) : null;
               const rSeg = getSegmentPrice(rPrice, userSegment, segmentSettings, rCostPrice);
                           return rSeg ? (
                             <div className="flex flex-col gap-0.5">

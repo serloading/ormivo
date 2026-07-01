@@ -11,14 +11,17 @@ export default async function BayilerPage() {
     select: {
       id: true, name: true, phone: true, email: true,
       isB2B: true, isB2BApproved: true, b2bNote: true,
-      referralCode: true,
+      referralCode: true, b2bMarkup: true, segment: true,
       createdAt: true,
       _count: { select: { siteOrders: true, referrals: true } },
     },
   });
 
-  const pending: typeof users = [];
-  const approved = users;
+  const pending: never[] = [];
+  const approved = users.map((u) => ({
+    ...u,
+    b2bMarkup: u.b2bMarkup != null ? Number(u.b2bMarkup) : null,
+  }));
 
   return (
     <div>

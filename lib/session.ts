@@ -16,6 +16,7 @@ export interface SessionPayload {
   name:         string | null;
   segment:      string | null;
   isB2BApproved?: boolean;
+  b2bMarkup?:   number | null;
 }
 
 export async function createSession(payload: SessionPayload) {
@@ -51,7 +52,7 @@ export async function getSession(): Promise<SessionPayload | null> {
     const { prisma } = await import("@/lib/prisma");
     let user = await prisma.siteUser.findUnique({
       where:  { id: jwt.userId },
-      select: { id: true, phone: true, name: true, segment: true, isB2BApproved: true },
+      select: { id: true, phone: true, name: true, segment: true, isB2BApproved: true, b2bMarkup: true },
     });
     if (!user) return null;
 
@@ -61,11 +62,12 @@ export async function getSession(): Promise<SessionPayload | null> {
     }
 
     return {
-      userId:       user.id,
-      phone:        user.phone,
-      name:         user.name,
-      segment:      user.segment ?? null,
+      userId:        user.id,
+      phone:         user.phone,
+      name:          user.name,
+      segment:       user.segment ?? null,
       isB2BApproved: user.isB2BApproved,
+      b2bMarkup:     user.b2bMarkup != null ? Number(user.b2bMarkup) : null,
     };
   } catch {
     return null;
