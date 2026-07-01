@@ -46,7 +46,7 @@ const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
 };
 const PAY_LABEL: Record<string, { label: string; cls: string }> = {
   PENDING: { label: "Ödenmedi", cls: "bg-red-100 text-red-700" },
-  PARTIAL: { label: "Kısmi",    cls: "bg-orange-100 text-orange-700" },
+  PARTIAL: { label: "Kısmi Ödeme", cls: "bg-orange-100 text-orange-700" },
   PAID:    { label: "Ödendi",   cls: "bg-green-100 text-green-700" },
 };
 

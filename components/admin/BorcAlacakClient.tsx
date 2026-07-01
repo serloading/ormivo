@@ -60,7 +60,7 @@ function StatusBadge({ status }: { status: string }) {
     KISMI:    "bg-blue-100 text-blue-800",
     ODENDI:   "bg-green-100 text-green-800",
   };
-  const labels: Record<string, string> = { BEKLIYOR: "Bekliyor", KISMI: "Kısmi", ODENDI: "Ödendi" };
+  const labels: Record<string, string> = { BEKLIYOR: "Bekliyor", KISMI: "Bekliyor", ODENDI: "Ödendi" };
   return (
     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${map[status] ?? "bg-gray-100 text-gray-600"}`}>
       {labels[status] ?? status}
@@ -349,7 +349,7 @@ export default function BorcAlacakClient({
                       const items = o.items as { name: string; qty: number }[];
                       return (
                         <tr key={`site-${o.id}`} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 font-mono text-xs font-semibold text-gray-700">#{o.orderNo.slice(-8)}</td>
+                          <td className="px-4 py-3 font-mono text-xs font-semibold text-gray-700">#{o.orderNo}</td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             <p className="font-medium text-[#2c1810]">{o.recipientName ?? o.user?.name}</p>
                             {(o.recipientPhone ?? o.user?.phone) && <p className="text-[11px] text-gray-400">{o.recipientPhone ?? o.user?.phone}</p>}
@@ -378,7 +378,7 @@ export default function BorcAlacakClient({
                       const items = o.items as { productName?: string; name?: string; quantity?: number; qty?: number }[];
                       return (
                         <tr key={`b2b-${o.id}`} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 font-mono text-xs font-semibold text-gray-700">#{o.orderNo.slice(-8)}</td>
+                          <td className="px-4 py-3 font-mono text-xs font-semibold text-gray-700">#{o.orderNo}</td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             {o.customer ? (
                               <>

@@ -19,7 +19,7 @@ const PAYMENT_LABELS: Record<string, string> = {
 };
 const DELIVERY_LABELS: Record<string, string> = {
   CARGO:  "Kargo",
-  PICKUP: "Ofisten Teslim",
+  PICKUP: "Dükkan Teslim",
 };
 
 export default async function SiparisDetayPage({

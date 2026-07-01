@@ -31,15 +31,17 @@ const STATUS_COLORS: Record<string, string> = {
 };
 const PAYMENT_LABELS: Record<string, string> = {
   PENDING: "Ödeme Bekliyor",
+  PARTIAL: "Kısmi Ödeme",
   PAID:    "Ödeme Alındı",
   FREE:    "Ücretsiz",
 };
 const PAYMENT_COLORS: Record<string, string> = {
   PENDING: "bg-yellow-50 text-yellow-700 border-yellow-200",
+  PARTIAL: "bg-orange-50 text-orange-700 border-orange-200",
   PAID:    "bg-green-50 text-green-700 border-green-200",
   FREE:    "bg-purple-50 text-purple-700 border-purple-200",
 };
-const DELIVERY_LABELS: Record<string, string> = { CARGO: "Kargo", PICKUP: "Ofisten Teslim" };
+const DELIVERY_LABELS: Record<string, string> = { CARGO: "Kargo", PICKUP: "Dükkan Teslim" };
 const DELIVERY_COLORS: Record<string, string> = {
   CARGO:  "bg-blue-50 text-blue-700 border-blue-200",
   PICKUP: "bg-teal-50 text-teal-700 border-teal-200",
@@ -320,7 +322,7 @@ function TrackingForm({ order }: { order: OrderRow }) {
   }
 
   if (isPickup) {
-    return <span className="text-xs text-gray-300 cursor-not-allowed">— Ofisten Teslim</span>;
+    return <span className="text-xs text-gray-300 cursor-not-allowed">— Dükkan Teslim</span>;
   }
 
   if (!open) {
@@ -1633,7 +1635,7 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
           <div className="border border-[#e8ddd6] rounded-sm p-4 bg-[#faf8f6] space-y-3">
             <p className="text-[10px] tracking-widest uppercase text-[#8b6f5e]">Kargo Bilgisi</p>
             {deliveryMethod === "PICKUP" ? (
-              <p className="text-xs text-[#b8a89e]">Ofisten teslim seçildiğinde kargo bilgisi girilmez.</p>
+              <p className="text-xs text-[#b8a89e]">Dükkan teslim seçildiğinde kargo bilgisi girilmez.</p>
             ) : (
               <div className="grid grid-cols-2 gap-3">
                 <div>
