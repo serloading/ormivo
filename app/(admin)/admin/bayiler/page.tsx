@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { phoneLookupVariants } from "@/lib/phone";
 import { BayiEkleButton, RemoveBayiButton, BackfillButton } from "@/components/admin/BayilerClient";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +16,7 @@ const SEGMENT_LABEL: Record<string, string> = {
 };
 
 export default async function BayilerPage() {
-  // 1) SiteUser: B2B onaylı veya Diamond
+  // Diamond üyeler otomatik bayi — hepsini tek listede göster
   const siteUsers = await prisma.siteUser.findMany({
     where: { OR: [{ isB2BApproved: true }, { segment: "DIAMOND" }] },
     orderBy: { createdAt: "desc" },
@@ -30,22 +29,6 @@ export default async function BayilerPage() {
     },
   });
 
-  // 2) Customer: Diamond ama SiteUser listesinde yok (eşleşmemiş)
-  const diamondCustomers = await prisma.customer.findMany({
-    where: { segment: "DIAMOND" },
-    select: { id: true, name: true, phone: true, email: true, segment: true, createdAt: true, _count: { select: { orders: true } } },
-  });
-
-  // SiteUser phone set
-  const siteUserPhones = new Set(siteUsers.map((u) => u.phone));
-
-  // Diamond customers that have NO matching SiteUser
-  const unmatchedDiamond = diamondCustomers.filter((c) => {
-    if (!c.phone) return true;
-    return !phoneLookupVariants(c.phone).some((v) => siteUserPhones.has(v));
-  });
-
-  // Aggregate total spend per SiteUser
   const orderTotals = await prisma.siteOrder.groupBy({
     by: ["userId"],
     where: { userId: { in: siteUsers.map((u) => u.id) } },
@@ -59,17 +42,12 @@ export default async function BayilerPage() {
     totalSpend: totalMap.get(u.id) ?? 0,
   }));
 
-  const approved = dealers.filter((d) => d.isB2BApproved);
-  const diamondOnly = dealers.filter((d) => !d.isB2BApproved && d.segment === "DIAMOND");
-
   return (
     <div>
       <div className="flex items-end justify-between mb-8">
         <div>
           <h2 className="text-2xl font-light tracking-wide text-[#2c1810]">Bayi Yönetimi</h2>
-          <p className="text-sm text-[#8b6f5e] mt-1">
-            {approved.length} onaylı bayi · {diamondOnly.length + unmatchedDiamond.length} diamond üye
-          </p>
+          <p className="text-sm text-[#8b6f5e] mt-1">{dealers.length} bayi</p>
         </div>
         <div className="flex items-center gap-3">
           <BackfillButton />
@@ -77,64 +55,17 @@ export default async function BayilerPage() {
         </div>
       </div>
 
-      {/* Onaylı Bayiler */}
-      <section className="mb-10">
-        <h3 className="text-xs tracking-widest text-[#5c4033] uppercase mb-4">Onaylı Bayiler ({approved.length})</h3>
-        {approved.length === 0 ? (
-          <div className="bg-white border border-[#e8ddd6] rounded-sm py-8 text-center text-sm text-[#b8a89e]">Henüz onaylı bayi yok.</div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-            {approved.map((u) => (
-              <div key={u.id} className="relative group">
-                <DealerCard user={u} />
-                <RemoveBayiButton userId={u.id} name={u.name} />
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* Diamond Üyeler (web hesabı var) */}
-      {diamondOnly.length > 0 && (
-        <section className="mb-10">
-          <h3 className="text-xs tracking-widest text-[#5c4033] uppercase mb-4">Diamond Üyeler — Bayi Değil ({diamondOnly.length})</h3>
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-            {diamondOnly.map((u) => (
-              <div key={u.id} className="relative group">
-                <DealerCard user={u} />
-                <RemoveBayiButton userId={u.id} name={u.name} />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Diamond Müşteriler (web hesabı YOK) */}
-      {unmatchedDiamond.length > 0 && (
-        <section>
-          <h3 className="text-xs tracking-widest text-[#5c4033] uppercase mb-1">Diamond Müşteriler — Web Hesabı Yok ({unmatchedDiamond.length})</h3>
-          <p className="text-xs text-[#b8a89e] mb-4">Bu müşteriler web sitesine kayıt olmadığı için bayi sistemi uygulanamaz. Aynı telefonla siteye kayıt olduklarında otomatik aktifleşir.</p>
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-            {unmatchedDiamond.map((c) => (
-              <div key={c.id} className="bg-white border border-dashed border-[#d4c5ba] rounded-sm p-5 opacity-70">
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <div>
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <p className="font-medium text-[#2c1810]">{c.name}</p>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold bg-cyan-600 text-white">Diamond</span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">Web Hesabı Yok</span>
-                    </div>
-                    <p className="text-sm text-[#8b6f5e]">{c.phone ?? "—"}</p>
-                    {c.email && <p className="text-xs text-[#b8a89e]">{c.email}</p>}
-                  </div>
-                </div>
-                <div className="text-center border-t border-[#f0e8e0] pt-2 mt-1">
-                  <p className="text-[10px] text-[#b8a89e]">{c._count.orders} admin siparişi</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+      {dealers.length === 0 ? (
+        <div className="bg-white border border-[#e8ddd6] rounded-sm py-8 text-center text-sm text-[#b8a89e]">Henüz bayi yok.</div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+          {dealers.map((u) => (
+            <div key={u.id} className="relative group">
+              <DealerCard user={u} />
+              <RemoveBayiButton userId={u.id} name={u.name} />
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
