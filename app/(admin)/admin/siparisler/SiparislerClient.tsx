@@ -45,6 +45,18 @@ const DELIVERY_COLORS: Record<string, string> = {
   PICKUP: "bg-teal-50 text-teal-700 border-teal-200",
 };
 
+function CopyButton({ text, label = "Kopyala" }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1800); }}
+      className={`shrink-0 text-[10px] px-2.5 py-1.5 rounded font-medium transition-colors ${copied ? "bg-green-100 text-green-700" : "bg-white border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700"}`}
+    >
+      {copied ? "✓ Kopyalandı" : label}
+    </button>
+  );
+}
+
 function safeOrderItems(items: unknown) {
   return normalizeOrderItems(items).map((item) => ({
     ...item,
@@ -1021,13 +1033,24 @@ function OrderSummaryModal({ order, onClose }: { order: OrderRow; onClose: () =>
         </div>
 
         <div className="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
-          {/* Müşteri */}
-          <div>
-            <p className="text-[9px] tracking-widest uppercase text-gray-400 mb-1">Müşteri</p>
-            <p className="text-sm font-medium text-gray-800">{order.recipientName}</p>
-            {phone && <p className="text-xs text-gray-500">{phone}</p>}
-            {order.addressLine && <p className="text-xs text-gray-500 mt-0.5">{[order.addressLine, order.district, order.city].filter(Boolean).join(", ")}</p>}
-          </div>
+          {/* Müşteri + Kargo Bilgisi Kopyala */}
+          {(() => {
+            const adres = [order.addressLine, order.district, order.city].filter(Boolean).join(", ");
+            const kargoMetni = [order.recipientName, phone, adres].filter(Boolean).join("\n");
+            return (
+              <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[9px] tracking-widest uppercase text-gray-400 mb-1.5">Alıcı / Kargo Bilgisi</p>
+                    <p className="text-sm font-semibold text-gray-800">{order.recipientName}</p>
+                    {phone && <p className="text-xs text-gray-600 mt-0.5 font-mono">{phone}</p>}
+                    {adres && <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{adres}</p>}
+                  </div>
+                  <CopyButton text={kargoMetni} label="Kopyala" />
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Ürünler */}
           <div>
