@@ -2,7 +2,59 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { addB2BByPhone } from "@/lib/actions/b2b";
+import { addB2BByPhone, revokeB2B } from "@/lib/actions/b2b";
+import { backfillAllSiteUsers } from "@/lib/actions/customer";
+
+export function RemoveBayiButton({ userId, name }: { userId: string; name: string | null }) {
+  const router = useRouter();
+  const [isPending, startT] = useTransition();
+  function handle(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm(`${name ?? "Bu bayi"} bayilikten çıkarılsın mı?`)) return;
+    startT(async () => {
+      await revokeB2B(userId);
+      router.refresh();
+    });
+  }
+  return (
+    <button
+      onClick={handle}
+      disabled={isPending}
+      title="Bayilikten Çıkar"
+      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-700 text-[10px] px-2 py-1 rounded border border-red-200 z-10"
+    >
+      {isPending ? "..." : "Çıkar"}
+    </button>
+  );
+}
+
+export function BackfillButton() {
+  const [isPending, startT] = useTransition();
+  const [result, setResult] = useState<{ created: number; skipped: number } | null>(null);
+  function handle() {
+    startT(async () => {
+      const res = await backfillAllSiteUsers();
+      setResult(res);
+    });
+  }
+  return (
+    <div className="flex items-center gap-3">
+      {result && (
+        <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded">
+          ✓ {result.created} hesap oluşturuldu, {result.skipped} zaten vardı
+        </span>
+      )}
+      <button
+        onClick={handle}
+        disabled={isPending}
+        className="border border-[#d4c5ba] text-[#8b6f5e] text-[11px] tracking-widest uppercase px-4 py-2 hover:border-[#8b6f5e] hover:text-[#2c1810] transition-colors disabled:opacity-50"
+      >
+        {isPending ? "Oluşturuluyor..." : "Web Hesabı Oluştur (Tümü)"}
+      </button>
+    </div>
+  );
+}
 
 export function BayiEkleButton() {
   const router = useRouter();

@@ -57,6 +57,7 @@ async function generateCustomerNo(): Promise<string> {
 export async function createCustomer(data: CustomerFormData) {
   try {
     const customerNo = await generateCustomerNo();
+    if (data.phone) data = { ...data, phone: canonicalPhone(data.phone) || data.phone };
     const customer = await prisma.customer.create({ data: { ...data, customerNo, tags: [] } });
 
     // Telefon varsa otomatik SiteUser oluştur (müşteri siteye girebilsin)
@@ -230,6 +231,37 @@ export async function deleteCustomerNote(noteId: string, customerId: string) {
 }
 
 /** Admin: müşterinin telefon numarasıyla eşleşen SiteUser'a segment ata */
+export async function backfillAllSiteUsers(): Promise<{ created: number; skipped: number }> {
+  const customers = await prisma.customer.findMany({
+    select: { id: true, name: true, phone: true, segment: true },
+  });
+  const hash = await bcrypt.hash(DEFAULT_PASSWORD, 12);
+  let created = 0;
+  let skipped = 0;
+  for (const c of customers) {
+    if (!c.phone) { skipped++; continue; }
+    const phone = canonicalPhone(c.phone);
+    if (!phone || phone.length < 10) { skipped++; continue; }
+    const existing = await prisma.siteUser.findFirst({
+      where: { phone: { in: phoneLookupVariants(c.phone) } },
+    });
+    if (existing) { skipped++; continue; }
+    await prisma.siteUser.create({
+      data: {
+        phone,
+        name: c.name,
+        segment: c.segment ?? null,
+        passwordHash: hash,
+        mustChangePassword: true,
+      },
+    });
+    created++;
+  }
+  revalidatePath("/admin/musteriler");
+  revalidatePath("/admin/bayiler");
+  return { created, skipped };
+}
+
 export async function setSiteUserSegment(customerId: string, segment: string | null) {
   const customer = await prisma.customer.findUnique({ where: { id: customerId }, select: { phone: true } });
   if (!customer?.phone) return { error: "Müşterinin telefon numarası yok." };

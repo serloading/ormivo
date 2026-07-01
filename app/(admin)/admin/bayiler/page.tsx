@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { phoneLookupVariants } from "@/lib/phone";
-import { BayiEkleButton } from "@/components/admin/BayilerClient";
+import { BayiEkleButton, RemoveBayiButton, BackfillButton } from "@/components/admin/BayilerClient";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Bayi Yönetimi — Ormivo Admin" };
@@ -71,7 +71,10 @@ export default async function BayilerPage() {
             {approved.length} onaylı bayi · {diamondOnly.length + unmatchedDiamond.length} diamond üye
           </p>
         </div>
-        <BayiEkleButton />
+        <div className="flex items-center gap-3">
+          <BackfillButton />
+          <BayiEkleButton />
+        </div>
       </div>
 
       {/* Onaylı Bayiler */}
@@ -81,7 +84,12 @@ export default async function BayilerPage() {
           <div className="bg-white border border-[#e8ddd6] rounded-sm py-8 text-center text-sm text-[#b8a89e]">Henüz onaylı bayi yok.</div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-            {approved.map((u) => <DealerCard key={u.id} user={u} />)}
+            {approved.map((u) => (
+              <div key={u.id} className="relative group">
+                <DealerCard user={u} />
+                <RemoveBayiButton userId={u.id} name={u.name} />
+              </div>
+            ))}
           </div>
         )}
       </section>
@@ -91,7 +99,12 @@ export default async function BayilerPage() {
         <section className="mb-10">
           <h3 className="text-xs tracking-widest text-[#5c4033] uppercase mb-4">Diamond Üyeler — Bayi Değil ({diamondOnly.length})</h3>
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-            {diamondOnly.map((u) => <DealerCard key={u.id} user={u} />)}
+            {diamondOnly.map((u) => (
+              <div key={u.id} className="relative group">
+                <DealerCard user={u} />
+                <RemoveBayiButton userId={u.id} name={u.name} />
+              </div>
+            ))}
           </div>
         </section>
       )}
