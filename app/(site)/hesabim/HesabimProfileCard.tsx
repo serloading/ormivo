@@ -35,11 +35,12 @@ interface Props {
   orderCount: number;
   addressCount: number;
   favoriteCount: number;
+  birthDate?: string | null;
 }
 
 export default function HesabimProfileCard({
   name, phone, email: initEmail, segment, initials,
-  orderCount, addressCount, favoriteCount,
+  orderCount, addressCount, favoriteCount, birthDate: initBirthDate,
 }: Props) {
   const [mode,    setMode]    = useState<Mode>(null);
   const [isPending, startT]   = useTransition();
@@ -50,6 +51,8 @@ export default function HesabimProfileCard({
   const [curName, setCurName] = useState(name);
   const [curPhone, setCurPhone] = useState(phone);
   const [curEmail, setCurEmail] = useState(initEmail ?? "");
+  const [curBirthDate, setCurBirthDate] = useState(initBirthDate ? initBirthDate.slice(0, 10) : "");
+  const [dispBirthDate, setDispBirthDate] = useState(initBirthDate ? initBirthDate.slice(0, 10) : "");
   const [dispName, setDispName] = useState(name);
   const [dispPhone, setDispPhone] = useState(phone);
 
@@ -72,6 +75,7 @@ export default function HesabimProfileCard({
     reset();
     setCurName(dispName);
     setCurPhone(dispPhone);
+    setCurBirthDate(dispBirthDate);
     setMode("profile");
   }
 
@@ -84,10 +88,11 @@ export default function HesabimProfileCard({
     reset();
     try { localStorage.setItem("wa_country_code", waCountryCode); } catch {}
     startT(async () => {
-      const res = await updateSiteUserProfile({ name: curName, phone: curPhone, email: curEmail });
+      const res = await updateSiteUserProfile({ name: curName, phone: curPhone, email: curEmail, birthDate: curBirthDate || null });
       if (res.error) { setError(res.error); return; }
       setDispName(curName);
       setDispPhone(curPhone);
+      setDispBirthDate(curBirthDate);
       setSuccess("Bilgileriniz güncellendi.");
       setTimeout(closeAll, 1400);
     });
@@ -130,6 +135,11 @@ export default function HesabimProfileCard({
               )}
             </div>
             <p className="font-sans text-sm text-[#9A9A9A] mt-0.5">{dispPhone}</p>
+            {dispBirthDate && (
+              <p className="font-sans text-xs text-[#9A9A9A] mt-0.5">
+                {new Date(dispBirthDate).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" })}
+              </p>
+            )}
           </div>
 
           {/* Butonlar */}
@@ -186,6 +196,11 @@ export default function HesabimProfileCard({
                 <label className="block font-sans text-[9px] tracking-[0.15em] uppercase text-[#9A9A9A] mb-1.5">E-posta</label>
                 <input type="email" value={curEmail} onChange={(e) => setCurEmail(e.target.value)}
                   placeholder="ornek@mail.com" className={inp} />
+              </div>
+              <div>
+                <label className="block font-sans text-[9px] tracking-[0.15em] uppercase text-[#9A9A9A] mb-1.5">Doğum Tarihi</label>
+                <input type="date" value={curBirthDate} onChange={(e) => setCurBirthDate(e.target.value)}
+                  className={inp} />
               </div>
             </div>
             {error   && <p className="font-sans text-xs text-red-500 bg-red-50 px-3 py-2">{error}</p>}

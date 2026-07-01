@@ -120,7 +120,7 @@ export async function logout() {
   await deleteSession();
 }
 
-export async function updateSiteUserProfile(data: { name?: string; phone?: string; email?: string; currentPassword?: string; newPassword?: string }) {
+export async function updateSiteUserProfile(data: { name?: string; phone?: string; email?: string; birthDate?: string | null; currentPassword?: string; newPassword?: string }) {
   const { getSession } = await import("@/lib/session");
   const session = await getSession();
   if (!session) return { error: "Oturum açık değil." };
@@ -137,6 +137,12 @@ export async function updateSiteUserProfile(data: { name?: string; phone?: strin
   if (data.email !== undefined) {
     const email = data.email.trim();
     updateData.email = email || null;
+  }
+
+  // birthDate SiteUser'da değil Customer'da tutuluyor — aşağıda Customer update'e aktarılır
+  let birthDateValue: Date | null | undefined;
+  if (data.birthDate !== undefined) {
+    birthDateValue = data.birthDate ? new Date(data.birthDate) : null;
   }
 
   if (data.phone !== undefined) {
@@ -157,14 +163,19 @@ export async function updateSiteUserProfile(data: { name?: string; phone?: strin
     updateData.passwordHash = await bcrypt.hash(data.newPassword, 12);
   }
 
-  if (Object.keys(updateData).length === 0) return { error: "Değişiklik yok." };
+  if (Object.keys(updateData).length === 0 && birthDateValue === undefined) return { error: "Değişiklik yok." };
 
   const updatedUser = await prisma.siteUser.update({ where: { id: session.userId }, data: updateData });
 
   const customerPhone = (updateData.phone as string | undefined) ?? session.phone;
   const existingCust = await prisma.customer.findFirst({ where: { phone: customerPhone } });
   if (existingCust) {
-    if (updateData.name) await prisma.customer.update({ where: { id: existingCust.id }, data: { name: updateData.name as string } });
+    const custUpdate: Record<string, unknown> = {};
+    if (updateData.name) custUpdate.name = updateData.name as string;
+    if (birthDateValue !== undefined) custUpdate.birthDate = birthDateValue;
+    if (Object.keys(custUpdate).length > 0) {
+      await prisma.customer.update({ where: { id: existingCust.id }, data: custUpdate });
+    }
   } else {
     await prisma.customer.create({ data: { phone: customerPhone, name: (updatedUser.name ?? customerPhone) } });
   }

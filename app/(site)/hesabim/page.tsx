@@ -120,8 +120,9 @@ export default async function HesabimPage() {
           segment={session.segment ?? null}
           initials={initials}
           orderCount={orders.length}
-          addressCount={user.addresses.length}
+          addressCount={user.addresses.length + (customer?.address ? 1 : 0)}
           favoriteCount={favoriteCount}
+          birthDate={(customer as { birthDate?: Date | null } | null)?.birthDate?.toISOString() ?? null}
         />
 
         {/* ── Özet Kartlar ─────────────────────────────── */}
