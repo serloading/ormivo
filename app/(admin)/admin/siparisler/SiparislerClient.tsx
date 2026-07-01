@@ -131,6 +131,9 @@ function PortalDropdown({ label, colorCls, options, onSelect, current, disabled 
 function StatusEditor({ order }: { order: OrderRow }) {
   const [pending, startTransition] = useTransition();
   const [cur, setCur] = useState(order.status);
+  const router = useRouter();
+
+  useEffect(() => { setCur(order.status); }, [order.status]);
 
   return (
     <PortalDropdown
@@ -140,10 +143,11 @@ function StatusEditor({ order }: { order: OrderRow }) {
       current={cur}
       options={Object.entries(STATUS_LABELS).map(([k, v]) => ({ key: k, label: v }))}
       onSelect={(key) => {
+        setCur(key);
         startTransition(async () => {
           if (order.source === "web") await updateSiteOrderStatus(order.id, key);
           else await updateManuelOrderStatus(order.id, key);
-          setCur(key);
+          router.refresh();
         });
       }}
     />
@@ -289,6 +293,8 @@ function TrackingForm({ order }: { order: OrderRow }) {
   const [saved, setSaved] = useState(false);
   const router = useRouter();
 
+  const isPickup = order.deliveryMethod === "PICKUP";
+
   function handleSave() {
     startTransition(async () => {
       if (order.source === "web") {
@@ -299,6 +305,10 @@ function TrackingForm({ order }: { order: OrderRow }) {
       setSaved(true);
       setTimeout(() => { setSaved(false); setOpen(false); router.refresh(); }, 1000);
     });
+  }
+
+  if (isPickup) {
+    return <span className="text-xs text-gray-300 cursor-not-allowed">— Ofisten Teslim</span>;
   }
 
   if (!open) {
@@ -928,11 +938,7 @@ export default function SiparislerClient({
                     </>
                   );
                 })()}
-                <td className="px-4 py-3">
-                  <span className={`text-[10px] tracking-wide uppercase px-2 py-0.5 rounded border font-medium whitespace-nowrap ${STATUS_COLORS[order.status] ?? "bg-gray-100 text-gray-600 border-gray-200"}`}>
-                    {STATUS_LABELS[order.status] ?? order.status}
-                  </span>
-                </td>
+                <td className="px-4 py-3"><StatusEditor order={order} /></td>
                 <td className="px-4 py-3"><PaymentEditor order={order} /></td>
                 <td className="px-4 py-3"><DeliveryEditor order={order} /></td>
                 <td className="px-4 py-3"><TrackingForm order={order} /></td>
@@ -1601,24 +1607,28 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
           {/* Kargo */}
           <div className="border border-[#e8ddd6] rounded-sm p-4 bg-[#faf8f6] space-y-3">
             <p className="text-[10px] tracking-widest uppercase text-[#8b6f5e]">Kargo Bilgisi</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[10px] tracking-widest uppercase text-[#8b6f5e] mb-1.5">Kargo Firması</label>
-                <select value={editCargoCompany} onChange={(e) => setEditCargoCompany(e.target.value)}
-                  className="w-full border border-[#d4c5ba] rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-[#8b6f5e] bg-white">
-                  <option value="">Seçiniz</option>
-                  {["Yurtiçi Kargo", "MNG Kargo", "Aras Kargo", "PTT Kargo", "Sürat Kargo", "DHL", "UPS"].map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+            {deliveryMethod === "PICKUP" ? (
+              <p className="text-xs text-[#b8a89e]">Ofisten teslim seçildiğinde kargo bilgisi girilmez.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] tracking-widest uppercase text-[#8b6f5e] mb-1.5">Kargo Firması</label>
+                  <select value={editCargoCompany} onChange={(e) => setEditCargoCompany(e.target.value)}
+                    className="w-full border border-[#d4c5ba] rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-[#8b6f5e] bg-white">
+                    <option value="">Seçiniz</option>
+                    {["Yurtiçi Kargo", "MNG Kargo", "Aras Kargo", "PTT Kargo", "Sürat Kargo", "DHL", "UPS"].map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] tracking-widest uppercase text-[#8b6f5e] mb-1.5">Takip Numarası</label>
+                  <input type="text" value={editTrackingNo} onChange={(e) => setEditTrackingNo(e.target.value)}
+                    placeholder="Takip kodu girin..."
+                    className="w-full border border-[#d4c5ba] rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-[#8b6f5e] bg-white" />
+                </div>
               </div>
-              <div>
-                <label className="block text-[10px] tracking-widest uppercase text-[#8b6f5e] mb-1.5">Takip Numarası</label>
-                <input type="text" value={editTrackingNo} onChange={(e) => setEditTrackingNo(e.target.value)}
-                  placeholder="Takip kodu girin..."
-                  className="w-full border border-[#d4c5ba] rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-[#8b6f5e] bg-white" />
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Not */}
