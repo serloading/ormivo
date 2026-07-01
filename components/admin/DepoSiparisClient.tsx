@@ -411,25 +411,29 @@ export default function DepoSiparisClient({ siparisler, usdRate, suppliers: init
   function handleIlet(order: DepoSiparis) {
     const itemsForMsg = normalizeItems(order.items);
     const phone = order.depoPhone ?? order.supplierName ?? "";
-    // Sipariş ürünlerinden toplam TL hesapla (form state'inden değil, siparişten)
-    const orderItemsTL = itemsForMsg.reduce((sum, item) => sum + item.qty * item.unitPrice, 0);
-    // Dolar bazlı toplam (usdRate ile ters çevir)
-    const orderItemsUSD = usdRate > 0 ? orderItemsTL / usdRate : 0;
-    const usdStr = orderItemsUSD.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const tlStr  = orderItemsTL.toLocaleString("tr-TR",  { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const total     = Number(order.total) || 0;
+    const paid      = Number(order.paidAmount) || 0;
+    const remaining = Math.max(0, total - paid);
+    const f2 = (n: number) => n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const toUSD = (tl: number) => usdRate > 0 ? tl / usdRate : 0;
+
     const message = [
       `Merhaba ${order.depoName || order.supplierName || "Depo"},`,
       "",
       `Depo siparişi: ${order.title}`,
       `Tarih: ${new Date(order.orderDate).toLocaleDateString("tr-TR")}`,
+      `Kur: ${usdRate.toLocaleString("tr-TR")} ₺/$`,
       "",
       ...itemsForMsg.map((item) => {
-        const lineUSD = usdRate > 0 ? item.qty * item.unitPrice / usdRate : 0;
-        const lineUSDStr = lineUSD.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        return `- ${item.name} ×${item.qty} = $${lineUSDStr}`;
+        const unitUSD = toUSD(item.unitPrice);
+        const lineUSD = unitUSD * item.qty;
+        return `- ${item.name}: ${item.qty} adet x $${f2(unitUSD)} = $${f2(lineUSD)}`;
       }),
       "",
-      `Toplam: $${usdStr} (≈ ${tlStr} ₺, kur: ${usdRate.toLocaleString("tr-TR")} ₺/$)`,
+      `Toplam  : $${f2(toUSD(total))} (≈ ${f2(total)} ₺)`,
+      ...(paid > 0      ? [`Ödenen  : $${f2(toUSD(paid))} (≈ ${f2(paid)} ₺)`] : []),
+      ...(remaining > 0 ? [`Kalan   : $${f2(toUSD(remaining))} (≈ ${f2(remaining)} ₺)`] : []),
     ].join("\n");
 
     const url = buildWhatsAppUrl(phone, message);
@@ -617,6 +621,32 @@ export default function DepoSiparisClient({ siparisler, usdRate, suppliers: init
                         })}
                       </tbody>
                     </table>
+                    {/* Ödeme özeti */}
+                    <div className="mt-3 pt-3 border-t border-[#f0ebe6] space-y-1.5">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-[#8b6f5e]">Toplam</span>
+                        <span className="font-semibold text-[#2c1810]">
+                          {usdRate > 0 && `$${(total / usdRate).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · `}
+                          {total.toLocaleString("tr-TR")} ₺
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-[#8b6f5e]">Ödenen</span>
+                        <span className={paidAmount > 0 ? "text-green-700 font-medium" : "text-[#b8a89e]"}>
+                          {paidAmount > 0
+                            ? `${usdRate > 0 ? `$${(paidAmount / usdRate).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · ` : ""}${paidAmount.toLocaleString("tr-TR")} ₺`
+                            : "—"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-[#8b6f5e]">Kalan</span>
+                        <span className={remainingAmount > 0 ? "text-red-600 font-semibold" : "text-green-600 font-medium"}>
+                          {remainingAmount > 0
+                            ? `${usdRate > 0 ? `$${(remainingAmount / usdRate).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · ` : ""}${remainingAmount.toLocaleString("tr-TR")} ₺`
+                            : "Ödendi ✓"}
+                        </span>
+                      </div>
+                    </div>
                     {order.notes && (
                       <p className="mt-3 text-xs text-[#8b6f5e] italic border-t border-[#f0ebe6] pt-2">Not: {order.notes}</p>
                     )}
