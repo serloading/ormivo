@@ -220,6 +220,7 @@ model SiteOrder {
   cargoCompany   String?
   note           String?
   paymentStatus  String      @default("PENDING")
+  paymentMethod  String      @default("HAVALE")
   deliveryMethod String      @default("CARGO")
   discount       Decimal     @default(0) @db.Decimal(10, 2)
   couponCode     String?
@@ -308,6 +309,7 @@ model CustomerDebt {
   customer    Customer      @relation(fields: [customerId], references: [id])
   orderId     String?
   order       Order?        @relation(fields: [orderId], references: [id])
+  siteOrderId String?
   description String
   totalAmount Float
   paidAmount  Float         @default(0)

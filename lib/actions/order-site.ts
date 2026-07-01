@@ -23,10 +23,11 @@ interface PlaceOrderInput {
   saveAddress?:   boolean;
   couponCode?:    string;
   couponDiscount?: number;
+  paymentMethod?: "HAVALE" | "KART";
 }
 
 export async function placeOrder(input: PlaceOrderInput) {
-  const { recipientName, recipientPhone, addressLine, city, district, note, guestItems, saveAddress, couponCode, couponDiscount } = input;
+  const { recipientName, recipientPhone, addressLine, city, district, note, guestItems, saveAddress, couponCode, couponDiscount, paymentMethod } = input;
 
   if (!recipientName?.trim())  return { error: "Ad Soyad gerekli." };
   if (!recipientPhone?.trim()) return { error: "Telefon gerekli." };
@@ -109,6 +110,7 @@ export async function placeOrder(input: PlaceOrderInput) {
       customerId:     customer.id,
       userId:         session?.userId ?? null,
       status:         "PENDING",
+      paymentMethod:  paymentMethod ?? "HAVALE",
     },
   });
 

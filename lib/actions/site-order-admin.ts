@@ -500,9 +500,9 @@ export async function deleteOrderById(orderId: string, source: "web" | "manuel")
     });
     await prisma.finance.deleteMany({ where: { siteOrderId: orderId } });
     await prisma.finance.deleteMany({ where: { description: { contains: `#${order.orderNo}` } } });
-    // Borç/alacak kayıtlarını sil
+    // Borç/alacak kayıtlarını sil (siteOrderId veya description eşleşmesi)
     const debts = await prisma.customerDebt.findMany({
-      where: { description: { contains: `#${order.orderNo}` } },
+      where: { OR: [{ siteOrderId: orderId }, { description: { contains: `#${order.orderNo}` } }] },
       select: { id: true },
     });
     if (debts.length > 0) {

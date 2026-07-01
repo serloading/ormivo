@@ -54,6 +54,9 @@ export default function LoggedInCart({
   const [appliedCoupon, setAppliedCoupon]   = useState("");
   const [couponPending, startCouponT]       = useTransition();
 
+  // Ödeme yöntemi
+  const [paymentMethod, setPaymentMethod] = useState<"HAVALE" | "KART">("HAVALE");
+
   // Cross-sell
   const [addedCrossSell, setAddedCrossSell] = useState<Set<string>>(new Set());
   const [crossPending, startCrossT]         = useTransition();
@@ -121,6 +124,7 @@ export default function LoggedInCart({
       saveAddress:    selected === "new" && saveAddr,
       couponCode:     appliedCoupon || undefined,
       couponDiscount: couponDiscount || undefined,
+      paymentMethod,
     });
 
     setSubmitting(false);
@@ -311,6 +315,27 @@ export default function LoggedInCart({
                   <label className="block font-sans text-[10px] tracking-[0.1em] uppercase text-[#6B6B6B] mb-1">Sipariş Notu</label>
                   <input type="text" placeholder="Opsiyonel" value={note} onChange={(e) => setNote(e.target.value)}
                     className="w-full border border-[#E8E4DE] px-3 py-2 font-sans text-xs outline-none focus:border-[#C4A882] transition-colors" />
+                </div>
+
+                <div>
+                  <p className="font-sans text-[10px] tracking-[0.2em] uppercase text-[#C4A882] mb-3">Ödeme Yöntemi</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      { value: "HAVALE", label: "Havale / EFT", desc: "IBAN bilgisi siparişten sonra iletilir", icon: "🏦" },
+                      { value: "KART",   label: "Kredi / Banka Kartı", desc: "Güvenli ödeme sayfasına yönlendirilirsiniz", icon: "💳" },
+                    ] as const).map((opt) => (
+                      <label key={opt.value}
+                        className={`flex flex-col gap-1 p-3 border cursor-pointer transition-colors ${paymentMethod === opt.value ? "border-[#C4A882] bg-[#FAF7F2]" : "border-[#E8E4DE] hover:border-[#C4A882]"}`}>
+                        <div className="flex items-center gap-2">
+                          <input type="radio" name="paymentMethod" value={opt.value} checked={paymentMethod === opt.value}
+                            onChange={() => setPaymentMethod(opt.value)} className="accent-[#C4A882] shrink-0" />
+                          <span className="text-base">{opt.icon}</span>
+                          <span className="font-sans text-xs font-semibold text-[#1A1A1A]">{opt.label}</span>
+                        </div>
+                        <p className="font-sans text-[10px] text-[#9A9A9A] pl-5">{opt.desc}</p>
+                      </label>
+                    ))}
+                  </div>
                 </div>
 
                 {formError && <p className="font-sans text-xs text-red-500 bg-red-50 border border-red-200 px-3 py-2">{formError}</p>}

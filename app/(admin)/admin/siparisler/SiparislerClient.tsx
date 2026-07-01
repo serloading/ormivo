@@ -70,7 +70,7 @@ function safeOrderItems(items: unknown) {
 
 interface OrderRow {
   id: string; customerId: string | null; source: "web" | "manuel"; orderNo: string; status: string;
-  paymentStatus: string; deliveryMethod: string; createdAt: string;
+  paymentStatus: string; paymentMethod: string; deliveryMethod: string; createdAt: string;
   recipientName: string | null; recipientPhone: string | null;
   addressLine: string | null; city: string | null; district: string | null;
   items: unknown;
@@ -1095,9 +1095,14 @@ function OrderSummaryModal({ order, onClose }: { order: OrderRow; onClose: () =>
             </div>
             <div>
               <p className="text-[9px] tracking-widest uppercase text-gray-400 mb-1">Ödeme</p>
-              <span className={`text-[10px] tracking-wide uppercase px-2 py-0.5 rounded border ${PAYMENT_COLORS[order.paymentStatus] ?? "bg-gray-50 text-gray-600 border-gray-200"}`}>
-                {PAYMENT_LABELS[order.paymentStatus] ?? order.paymentStatus}
-              </span>
+              <div className="flex flex-col gap-1">
+                <span className={`text-[10px] tracking-wide uppercase px-2 py-0.5 rounded border ${PAYMENT_COLORS[order.paymentStatus] ?? "bg-gray-50 text-gray-600 border-gray-200"}`}>
+                  {PAYMENT_LABELS[order.paymentStatus] ?? order.paymentStatus}
+                </span>
+                <span className="text-[10px] tracking-wide uppercase px-2 py-0.5 rounded border bg-blue-50 text-blue-600 border-blue-200">
+                  {order.paymentMethod === "KART" ? "💳 Kart" : "🏦 Havale/EFT"}
+                </span>
+              </div>
             </div>
             <div>
               <p className="text-[9px] tracking-widest uppercase text-gray-400 mb-1">Teslimat</p>

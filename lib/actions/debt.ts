@@ -104,7 +104,7 @@ export async function createDebtFromSiteOrder(data: {
   const debt = await prisma.customerDebt.create({
     data: {
       customerId:  data.customerId,
-      // orderId → Order (B2B) FK; SiteOrder ID buraya geçmez
+      siteOrderId: data.siteOrderId,
       description: `Web Sipariş #${data.orderNo}`,
       totalAmount: data.totalAmount,
       paidAmount:  paid,
