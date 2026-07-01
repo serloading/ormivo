@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import Image from "next/image";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +7,10 @@ export const metadata = { title: "Markalar — Ormivo" };
 export default async function MarkalarsPage() {
   const brands = await prisma.brand.findMany({
     orderBy: { name: "asc" },
-    select: { id: true, name: true, slug: true, logo: true },
+    select: {
+      id: true, name: true, slug: true,
+      _count: { select: { products: { where: { deletedAt: null, isActive: true } } } },
+    },
   });
 
   const grouped: Record<string, typeof brands> = {};
@@ -40,25 +42,13 @@ export default async function MarkalarsPage() {
                   <Link
                     key={brand.slug}
                     href={`/urunler?marka=${brand.slug}`}
-                    className="bg-white border border-[#E8E4DE] hover:border-[#C4A882] hover:shadow-sm transition-all duration-200 p-4 flex flex-col items-center gap-3 group"
+                    className="bg-white border border-[#E8E4DE] hover:border-[#C4A882] hover:shadow-sm transition-all duration-200 px-4 py-5 flex flex-col items-center gap-1.5 group"
                   >
-                    {brand.logo ? (
-                      <div className="w-16 h-12 relative flex items-center justify-center">
-                        <Image
-                          src={brand.logo}
-                          alt={brand.name}
-                          fill
-                          className="object-contain"
-                          sizes="64px"
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-16 h-12 flex items-center justify-center">
-                        <span className="font-serif text-2xl text-[#C4A882] opacity-30">◈</span>
-                      </div>
-                    )}
-                    <span className="font-sans text-xs text-[#1A1A1A] group-hover:text-[#C4A882] transition-colors text-center leading-snug">
+                    <span className="font-sans text-sm font-medium text-[#1A1A1A] group-hover:text-[#C4A882] transition-colors text-center leading-snug">
                       {brand.name}
+                    </span>
+                    <span className="font-sans text-[10px] text-[#9A9A9A]">
+                      {brand._count.products} ürün
                     </span>
                   </Link>
                 ))}

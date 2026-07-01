@@ -136,20 +136,9 @@ export default async function UrunDetayPage({
             {/* Marka */}
             {product.brand && (
               <Link href={`/urunler?marka=${product.brand.slug}`} className="block mb-4 group">
-                {product.brand.logo ? (
-                  <div className="relative h-8 w-28">
-                    <Image
-                      src={product.brand.logo}
-                      alt={product.brand.name}
-                      fill
-                      className="object-contain object-left"
-                    />
-                  </div>
-                ) : (
-                  <span className="font-sans text-[11px] tracking-[0.35em] text-[#9A9A9A] group-hover:text-[#C4A882] transition-colors">
-                    {product.brand.name}
-                  </span>
-                )}
+                <span className="font-sans text-[11px] tracking-[0.35em] text-[#9A9A9A] group-hover:text-[#C4A882] transition-colors uppercase">
+                  {product.brand.name}
+                </span>
               </Link>
             )}
 
