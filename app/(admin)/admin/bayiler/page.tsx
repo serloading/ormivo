@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { BayiEkleButton, RemoveBayiButton, BackfillButton } from "@/components/admin/BayilerClient";
+import { BayiEkleButton, RemoveBayiButton } from "@/components/admin/BayilerClient";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Bayi Yönetimi — Ormivo Admin" };
@@ -49,10 +49,7 @@ export default async function BayilerPage() {
           <h2 className="text-2xl font-light tracking-wide text-[#2c1810]">Bayi Yönetimi</h2>
           <p className="text-sm text-[#8b6f5e] mt-1">{dealers.length} bayi</p>
         </div>
-        <div className="flex items-center gap-3">
-          <BackfillButton />
-          <BayiEkleButton />
-        </div>
+        <BayiEkleButton />
       </div>
 
       {dealers.length === 0 ? (
