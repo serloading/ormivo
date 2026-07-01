@@ -129,7 +129,11 @@ export default function LoggedInCart({
 
     setSubmitting(false);
     if (result.error) { setFormError(result.error); return; }
-    window.location.href = `/siparis-tamamlandi?orderNo=${result.orderNo}`;
+    if (paymentMethod === "KART") {
+      window.location.href = `/siparis-odeme/${result.orderNo}`;
+    } else {
+      window.location.href = `/siparis-tamamlandi?orderNo=${result.orderNo}`;
+    }
   }
 
   if (items.length === 0) {

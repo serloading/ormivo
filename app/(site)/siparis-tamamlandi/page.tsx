@@ -15,9 +15,10 @@ function toWaPhone(phone: string): string {
 export default async function SiparisTamamlandiPage({
   searchParams,
 }: {
-  searchParams: Promise<{ orderNo?: string }>;
+  searchParams: Promise<{ orderNo?: string; paid?: string }>;
 }) {
-  const { orderNo } = await searchParams;
+  const { orderNo, paid } = await searchParams;
+  const isPaid = paid === "1";
   const session = await getSession();
 
   // Sipariş detaylarını çek (WhatsApp mesajı için)
@@ -28,6 +29,8 @@ export default async function SiparisTamamlandiPage({
     customerPhone: string | null;
   } | null = null;
 
+  let paymentMethod: string | null = null;
+
   if (orderNo) {
     const order = await prisma.siteOrder.findUnique({
       where: { orderNo },
@@ -35,9 +38,11 @@ export default async function SiparisTamamlandiPage({
         items: true,
         total: true,
         discount: true,
+        paymentMethod: true,
         user: { select: { phone: true } },
       },
     });
+    paymentMethod = (order as { paymentMethod?: string } | null)?.paymentMethod ?? null;
     if (order) {
       orderDetails = {
         items: normalizeOrderItems(order.items),
@@ -73,9 +78,13 @@ export default async function SiparisTamamlandiPage({
             </svg>
           </div>
 
-          <h1 className="font-serif text-2xl text-[#1A1A1A] mb-3">Siparişiniz Alındı!</h1>
+          <h1 className="font-serif text-2xl text-[#1A1A1A] mb-3">
+            {isPaid ? "Ödeme Alındı!" : "Siparişiniz Alındı!"}
+          </h1>
           <p className="font-sans text-sm text-[#6B6B6B] leading-relaxed mb-6">
-            Siparişiniz başarıyla oluşturuldu. En kısa sürede sizinle iletişime geçeceğiz.
+            {isPaid
+              ? "Kart ödemeniz başarıyla alındı. Siparişiniz hazırlanmaya başlanacak."
+              : "Siparişiniz başarıyla oluşturuldu. En kısa sürede sizinle iletişime geçeceğiz."}
           </p>
 
           {orderNo && (
@@ -107,6 +116,19 @@ export default async function SiparisTamamlandiPage({
                   <span className="text-[#C4A882]">{orderDetails.total.toLocaleString("tr-TR")} ₺</span>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Havale/EFT için IBAN bilgisi */}
+          {!isPaid && paymentMethod !== "KART" && (
+            <div className="bg-amber-50 border border-amber-200 px-4 py-4 mb-6 text-left">
+              <p className="font-sans text-[10px] tracking-[0.2em] uppercase text-amber-700 mb-2">Havale / EFT Bilgileri</p>
+              <div className="space-y-1 font-sans text-xs text-[#4A4A4A]">
+                <p><span className="text-[#9A9A9A]">Banka:</span> {process.env.NEXT_PUBLIC_IBAN_BANK ?? "—"}</p>
+                <p><span className="text-[#9A9A9A]">Ad Soyad:</span> {process.env.NEXT_PUBLIC_IBAN_NAME ?? "—"}</p>
+                <p><span className="text-[#9A9A9A]">IBAN:</span> <span className="font-mono font-semibold">{process.env.NEXT_PUBLIC_IBAN ?? "—"}</span></p>
+              </div>
+              <p className="font-sans text-[10px] text-amber-600 mt-2">Açıklama kısmına sipariş numaranızı yazmayı unutmayın.</p>
             </div>
           )}
 
