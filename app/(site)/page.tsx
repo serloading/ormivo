@@ -249,6 +249,13 @@ export default async function HomePage({
                         </Link>
                         <div className="flex items-center justify-between gap-1 mt-auto">
                           {(() => {
+                            if (!loggedIn) {
+                              return (
+                                <Link href="/giris" className="font-sans text-[10px] text-[#C4A882] hover:underline">
+                                  Fiyat için giriş yapın →
+                                </Link>
+                              );
+                            }
                             const segPrice = getSegmentPrice(price, userSegment, segmentSettings);
                             return segPrice ? (
                               <div className="flex flex-col gap-0.5">

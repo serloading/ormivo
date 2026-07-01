@@ -150,6 +150,13 @@ export default function ProductGrid({ initialProducts, total, loggedIn, favorite
                 </Link>
                 <div className="flex items-center justify-between gap-1 mt-auto">
                   {(() => {
+                    if (!loggedIn) {
+                      return (
+                        <a href="/giris" className="font-sans text-[10px] text-[#C4A882] hover:underline">
+                          Fiyat için giriş yapın →
+                        </a>
+                      );
+                    }
                     const segPrice = getSegmentPrice(price, userSegment, segmentSettings);
                     return segPrice ? (
                       <div className="flex flex-col gap-0.5 min-w-0">
