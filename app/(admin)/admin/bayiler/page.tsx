@@ -1,12 +1,28 @@
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import BayilerClient, { BayiEkleButton } from "@/components/admin/BayilerClient";
+import { BayiEkleButton } from "@/components/admin/BayilerClient";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Bayi Yönetimi — Ormivo Admin" };
 
+const SEGMENT_BADGE: Record<string, string> = {
+  DIAMOND: "bg-cyan-600 text-white",
+  GOLD:    "bg-yellow-500 text-white",
+  SILVER:  "bg-gray-400 text-white",
+  BRONZE:  "bg-orange-600 text-white",
+};
+const SEGMENT_LABEL: Record<string, string> = {
+  DIAMOND: "Diamond", GOLD: "Gold", SILVER: "Silver", BRONZE: "Bronze",
+};
+
 export default async function BayilerPage() {
   const users = await prisma.siteUser.findMany({
-    where: { isB2BApproved: true },
+    where: {
+      OR: [
+        { isB2BApproved: true },
+        { segment: "DIAMOND" },
+      ],
+    },
     orderBy: { createdAt: "desc" },
     select: {
       id: true, name: true, phone: true, email: true,
@@ -17,22 +33,120 @@ export default async function BayilerPage() {
     },
   });
 
-  const pending: never[] = [];
-  const approved = users.map((u) => ({
+  // Aggregate total spend per user
+  const orderTotals = await prisma.siteOrder.groupBy({
+    by: ["userId"],
+    where: { userId: { in: users.map((u) => u.id) } },
+    _sum: { total: true },
+  });
+  const totalMap = new Map(orderTotals.map((r) => [r.userId, Number(r._sum.total ?? 0)]));
+
+  const dealers = users.map((u) => ({
     ...u,
     b2bMarkup: u.b2bMarkup != null ? Number(u.b2bMarkup) : null,
+    totalSpend: totalMap.get(u.id) ?? 0,
   }));
+
+  const approved = dealers.filter((d) => d.isB2BApproved);
+  const diamondOnly = dealers.filter((d) => !d.isB2BApproved && d.segment === "DIAMOND");
 
   return (
     <div>
       <div className="flex items-end justify-between mb-8">
         <div>
           <h2 className="text-2xl font-light tracking-wide text-[#2c1810]">Bayi Yönetimi</h2>
-          <p className="text-sm text-[#8b6f5e] mt-1">{approved.length} onaylı bayi</p>
+          <p className="text-sm text-[#8b6f5e] mt-1">
+            {approved.length} onaylı bayi · {diamondOnly.length} diamond üye
+          </p>
         </div>
         <BayiEkleButton />
       </div>
-      <BayilerClient pending={pending} approved={approved} />
+
+      {/* Onaylı Bayiler */}
+      <section className="mb-10">
+        <h3 className="text-xs tracking-widest text-[#5c4033] uppercase mb-4">
+          Onaylı Bayiler ({approved.length})
+        </h3>
+        {approved.length === 0 ? (
+          <div className="bg-white border border-[#e8ddd6] rounded-sm py-8 text-center text-sm text-[#b8a89e]">
+            Henüz onaylı bayi yok.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+            {approved.map((u) => <DealerCard key={u.id} user={u} />)}
+          </div>
+        )}
+      </section>
+
+      {/* Diamond Üyeler */}
+      {diamondOnly.length > 0 && (
+        <section>
+          <h3 className="text-xs tracking-widest text-[#5c4033] uppercase mb-4">
+            Diamond Üyeler — Bayi Değil ({diamondOnly.length})
+          </h3>
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+            {diamondOnly.map((u) => <DealerCard key={u.id} user={u} />)}
+          </div>
+        </section>
+      )}
     </div>
+  );
+}
+
+function DealerCard({ user }: {
+  user: {
+    id: string; name: string | null; phone: string; email: string | null;
+    isB2BApproved: boolean; b2bMarkup: number | null; segment: string | null;
+    referralCode: string | null; totalSpend: number; createdAt: Date;
+    _count: { siteOrders: number; referrals: number };
+  };
+}) {
+  return (
+    <Link
+      href={`/admin/bayiler/${user.id}`}
+      className="block bg-white border border-[#e8ddd6] rounded-sm p-5 hover:border-[#8b6f5e] hover:shadow-sm transition-all group"
+    >
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+            <p className="font-medium text-[#2c1810] truncate">{user.name ?? "—"}</p>
+            {user.segment && SEGMENT_BADGE[user.segment] && (
+              <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold tracking-wide ${SEGMENT_BADGE[user.segment]}`}>
+                {SEGMENT_LABEL[user.segment]}
+              </span>
+            )}
+            {user.isB2BApproved && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold bg-[#2c1810] text-[#c4a882] tracking-wide">Bayi</span>
+            )}
+          </div>
+          <p className="text-sm text-[#8b6f5e]">{user.phone}</p>
+        </div>
+        <span className="text-[#c4a882] text-xs opacity-0 group-hover:opacity-100 transition-opacity shrink-0">→</span>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 text-center border-t border-[#f0e8e0] pt-3">
+        <div>
+          <p className="text-[10px] text-[#b8a89e] uppercase tracking-wide">Sipariş</p>
+          <p className="text-sm font-semibold text-[#2c1810]">{user._count.siteOrders}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-[#b8a89e] uppercase tracking-wide">Toplam</p>
+          <p className="text-sm font-semibold text-[#2c1810]">{user.totalSpend.toLocaleString("tr-TR")} ₺</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-[#b8a89e] uppercase tracking-wide">Markup</p>
+          <p className="text-sm font-semibold text-[#2c1810]">
+            {user.b2bMarkup != null ? `+${user.b2bMarkup.toLocaleString("tr-TR")} ₺` : "—"}
+          </p>
+        </div>
+      </div>
+
+      {user.referralCode && (
+        <div className="mt-2 pt-2 border-t border-[#f0e8e0] flex items-center justify-between">
+          <span className="text-[10px] text-[#b8a89e]">Referral: <span className="font-mono font-bold text-[#8b6f5e]">{user.referralCode}</span></span>
+          <span className="text-[10px] text-[#b8a89e]">{user._count.referrals} kişi</span>
+        </div>
+      )}
+    </Link>
   );
 }
