@@ -15,8 +15,22 @@ const SEGMENT_LABEL: Record<string, string> = {
   DIAMOND: "Diamond", GOLD: "Gold", SILVER: "Silver", BRONZE: "Bronze",
 };
 
+const fmt = (n: number) => n.toLocaleString("tr-TR", { maximumFractionDigits: 0 });
+const pct = (curr: number, prev: number) => {
+  if (prev === 0) return curr > 0 ? "+∞%" : "—";
+  const d = ((curr - prev) / prev) * 100;
+  return (d >= 0 ? "+" : "") + d.toFixed(0) + "%";
+};
+const pctCls = (curr: number, prev: number) =>
+  prev === 0 || curr >= prev ? "text-green-600" : "text-red-500";
+
 export default async function BayilerPage() {
-  // Diamond üyeler otomatik bayi — hepsini tek listede göster
+  const now = new Date();
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastMonthEnd   = thisMonthStart;
+
+  // ── Bayiler ───────────────────────────────────────────────
   const siteUsers = await prisma.siteUser.findMany({
     where: { OR: [{ isB2BApproved: true }, { segment: "DIAMOND" }] },
     orderBy: { createdAt: "desc" },
@@ -28,22 +42,75 @@ export default async function BayilerPage() {
       _count: { select: { siteOrders: true, referrals: true } },
     },
   });
+  const dealerIds = siteUsers.map((u) => u.id);
 
-  const orderTotals = await prisma.siteOrder.groupBy({
+  // ── Tüm zamanlar toplam ───────────────────────────────────
+  const allTimeTotals = await prisma.siteOrder.groupBy({
     by: ["userId"],
-    where: { userId: { in: siteUsers.map((u) => u.id) } },
+    where: { userId: { in: dealerIds } },
     _sum: { total: true },
   });
-  const totalMap = new Map(orderTotals.map((r) => [r.userId, Number(r._sum.total ?? 0)]));
+  const allTimeMap = new Map(allTimeTotals.map((r) => [r.userId, Number(r._sum.total ?? 0)]));
 
+  // ── Bu ay ─────────────────────────────────────────────────
+  const thisMonthRows = await prisma.siteOrder.groupBy({
+    by: ["userId"],
+    where: { userId: { in: dealerIds }, createdAt: { gte: thisMonthStart } },
+    _sum: { total: true },
+    _count: true,
+  });
+  const thisMonthMap = new Map(thisMonthRows.map((r) => [r.userId, { rev: Number(r._sum.total ?? 0), cnt: r._count }]));
+
+  // ── Geçen ay ──────────────────────────────────────────────
+  const lastMonthRows = await prisma.siteOrder.groupBy({
+    by: ["userId"],
+    where: { userId: { in: dealerIds }, createdAt: { gte: lastMonthStart, lt: lastMonthEnd } },
+    _sum: { total: true },
+    _count: true,
+  });
+  const lastMonthMap = new Map(lastMonthRows.map((r) => [r.userId, { rev: Number(r._sum.total ?? 0), cnt: r._count }]));
+
+  // ── Referral sayısı (bu bayi kodu ile kaydolan) ───────────
+  const refRows = await prisma.siteUser.groupBy({
+    by: ["referredById"],
+    where: { referredById: { in: dealerIds } },
+    _count: true,
+  });
+  const refMap = new Map(refRows.map((r) => [r.referredById as string, r._count]));
+
+  // ── Birleştir ─────────────────────────────────────────────
   const dealers = siteUsers.map((u) => ({
     ...u,
-    b2bMarkup: u.b2bMarkup != null ? Number(u.b2bMarkup) : null,
-    totalSpend: totalMap.get(u.id) ?? 0,
+    b2bMarkup:   u.b2bMarkup != null ? Number(u.b2bMarkup) : null,
+    totalSpend:  allTimeMap.get(u.id) ?? 0,
+    thisRev:     thisMonthMap.get(u.id)?.rev ?? 0,
+    thisCnt:     thisMonthMap.get(u.id)?.cnt ?? 0,
+    lastRev:     lastMonthMap.get(u.id)?.rev ?? 0,
+    lastCnt:     lastMonthMap.get(u.id)?.cnt ?? 0,
+    refCount:    refMap.get(u.id) ?? 0,
   }));
+
+  // ── Özet istatistikler ────────────────────────────────────
+  const totalThisRev  = dealers.reduce((s, d) => s + d.thisRev, 0);
+  const totalLastRev  = dealers.reduce((s, d) => s + d.lastRev, 0);
+  const totalThisCnt  = dealers.reduce((s, d) => s + d.thisCnt, 0);
+  const totalLastCnt  = dealers.reduce((s, d) => s + d.lastCnt, 0);
+  const avgThis = totalThisCnt > 0 ? totalThisRev / totalThisCnt : 0;
+  const avgLast = totalLastCnt > 0 ? totalLastRev / totalLastCnt : 0;
+
+  // ── Sıralama (bu ay cirosuna göre) ───────────────────────
+  const ranked = [...dealers].sort((a, b) => b.thisRev - a.thisRev);
+
+  // ── Max bar genişliği ─────────────────────────────────────
+  const maxRev = ranked[0]?.thisRev ?? 1;
+
+  const MONTH_TR = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
+  const thisMonthLabel = MONTH_TR[now.getMonth()];
+  const lastMonthLabel = MONTH_TR[(now.getMonth() + 11) % 12];
 
   return (
     <div>
+      {/* ── Başlık ── */}
       <div className="flex items-end justify-between mb-8">
         <div>
           <h2 className="text-2xl font-light tracking-wide text-[#2c1810]">Bayi Yönetimi</h2>
@@ -52,6 +119,109 @@ export default async function BayilerPage() {
         <BayiEkleButton />
       </div>
 
+      {/* ════════════════════════════════════════
+          RAPORLAMA
+      ════════════════════════════════════════ */}
+      <div className="mb-10 space-y-6">
+
+        {/* Özet kartlar */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            {
+              label: `${thisMonthLabel} Cirosu`,
+              value: `${fmt(totalThisRev)} ₺`,
+              sub: `${lastMonthLabel}: ${fmt(totalLastRev)} ₺`,
+              badge: pct(totalThisRev, totalLastRev),
+              badgeCls: pctCls(totalThisRev, totalLastRev),
+            },
+            {
+              label: `${thisMonthLabel} Sipariş`,
+              value: String(totalThisCnt),
+              sub: `${lastMonthLabel}: ${totalLastCnt} sipariş`,
+              badge: pct(totalThisCnt, totalLastCnt),
+              badgeCls: pctCls(totalThisCnt, totalLastCnt),
+            },
+            {
+              label: "Ort. Sepet",
+              value: `${fmt(avgThis)} ₺`,
+              sub: `${lastMonthLabel}: ${fmt(avgLast)} ₺`,
+              badge: pct(avgThis, avgLast),
+              badgeCls: pctCls(avgThis, avgLast),
+            },
+          ].map((s) => (
+            <div key={s.label} className="bg-white border border-[#e8ddd6] rounded-sm p-5">
+              <p className="text-[11px] uppercase tracking-widest text-[#b8a89e] mb-2">{s.label}</p>
+              <div className="flex items-end justify-between gap-2">
+                <p className="text-2xl font-light text-[#2c1810]">{s.value}</p>
+                <span className={`text-xs font-semibold ${s.badgeCls}`}>{s.badge}</span>
+              </div>
+              <p className="text-[11px] text-[#b8a89e] mt-1">{s.sub}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Aylık sıralama */}
+        <div className="bg-white border border-[#e8ddd6] rounded-sm overflow-hidden">
+          <div className="px-5 py-3 border-b border-[#f0e8e0] flex items-center justify-between">
+            <h3 className="text-[11px] uppercase tracking-widest text-[#5c4033]">{thisMonthLabel} — Bayi Sıralaması</h3>
+            <span className="text-[10px] text-[#b8a89e]">ciro bazlı</span>
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[#f0ebe6] bg-[#faf7f4] text-left">
+                {["#", "Bayi", "Bu Ay Ciro", "Sipariş", "Ort. Sepet", "Geçen Ay", "Değişim", "Referral"].map((h) => (
+                  <th key={h} className="px-4 py-2.5 text-[10px] uppercase tracking-wide text-[#b8a89e] font-medium whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#f7f2ef]">
+              {ranked.map((d, i) => {
+                const barW = maxRev > 0 ? Math.round((d.thisRev / maxRev) * 100) : 0;
+                const avgD = d.thisCnt > 0 ? d.thisRev / d.thisCnt : 0;
+                return (
+                  <tr key={d.id} className="hover:bg-[#fdf9f7]">
+                    <td className="px-4 py-3 text-[#b8a89e] font-light w-8">
+                      {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : <span className="text-xs">{i + 1}</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Link href={`/admin/bayiler/${d.id}`} className="hover:text-[#8b6f5e] transition-colors">
+                        <p className="font-medium text-[#2c1810] text-sm">{d.name ?? "—"}</p>
+                        <p className="text-[10px] text-[#b8a89e]">{d.phone}</p>
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 min-w-[160px]">
+                      <p className="font-semibold text-[#2c1810] whitespace-nowrap">{fmt(d.thisRev)} ₺</p>
+                      <div className="mt-1 h-1 bg-[#f0e8e0] rounded-full w-32">
+                        <div className="h-1 bg-[#8b6f5e] rounded-full" style={{ width: `${barW}%` }} />
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-[#5c4033] whitespace-nowrap">{d.thisCnt}</td>
+                    <td className="px-4 py-3 text-[#5c4033] whitespace-nowrap">{d.thisCnt > 0 ? `${fmt(avgD)} ₺` : "—"}</td>
+                    <td className="px-4 py-3 text-[#b8a89e] whitespace-nowrap">{fmt(d.lastRev)} ₺</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className={`text-xs font-semibold ${pctCls(d.thisRev, d.lastRev)}`}>
+                        {pct(d.thisRev, d.lastRev)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-[#5c4033] whitespace-nowrap">
+                      {d.refCount > 0 ? (
+                        <span className="text-xs bg-[#f0e8e0] text-[#8b6f5e] px-2 py-0.5 rounded-full font-medium">
+                          +{d.refCount} kişi
+                        </span>
+                      ) : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+              {ranked.length === 0 && (
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-[#b8a89e]">Bu ay sipariş yok.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Bayi kartları ── */}
       {dealers.length === 0 ? (
         <div className="bg-white border border-[#e8ddd6] rounded-sm py-8 text-center text-sm text-[#b8a89e]">Henüz bayi yok.</div>
       ) : (
