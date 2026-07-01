@@ -45,11 +45,17 @@ export default async function DashboardPage() {
       where: { createdAt: { gte: monthStart }, status: { not: "CANCELLED" } },
       select: { items: true },
     }),
-    prisma.customer.findMany({
-      take: 6,
-      orderBy: { siteOrders: { _count: "desc" } },
-      select: { id: true, name: true, phone: true, _count: { select: { orders: true, siteOrders: true } } },
-    }),
+    // Bu ayın sipariş verenlerini bul — userId ve customerId üzerinden
+    Promise.all([
+      prisma.siteOrder.findMany({
+        where: { createdAt: { gte: monthStart }, status: { not: "CANCELLED" } },
+        select: { user: { select: { name: true, phone: true } } },
+      }),
+      prisma.order.findMany({
+        where: { createdAt: { gte: monthStart }, status: { not: "CANCELLED" }, customerId: { not: null } },
+        select: { customer: { select: { id: true, name: true, phone: true } } },
+      }),
+    ]),
     getDebtStats(),
     prisma.siteOrder.findMany({
       where: { paymentStatus: "PENDING", status: { not: "CANCELLED" } },
@@ -64,6 +70,28 @@ export default async function DashboardPage() {
       _sum: { totalAmount: true, paidAmount: true },
     }),
   ]);
+
+  // Bu ayın en çok sipariş verenleri — siteOrders + orders birleştir
+  const [monthSiteForRanking, monthB2BForRanking] = monthTopCustomers as [
+    { user: { name: string; phone: string } | null }[],
+    { customer: { id: string; name: string; phone: string } | null }[],
+  ];
+  const rankMap = new Map<string, { name: string; phone: string; id: string; count: number }>();
+  for (const so of monthSiteForRanking) {
+    if (!so.user) continue;
+    const key = so.user.phone;
+    const existing = rankMap.get(key);
+    if (existing) existing.count++;
+    else rankMap.set(key, { name: so.user.name, phone: so.user.phone, id: key, count: 1 });
+  }
+  for (const bo of monthB2BForRanking) {
+    if (!bo.customer) continue;
+    const key = bo.customer.id;
+    const existing = rankMap.get(key);
+    if (existing) existing.count++;
+    else rankMap.set(key, { name: bo.customer.name, phone: bo.customer.phone, id: bo.customer.id, count: 1 });
+  }
+  const monthRankedCustomers = [...rankMap.values()].sort((a, b) => b.count - a.count).slice(0, 6);
 
   const todayOrderCount = todaySiteOrders.length + todayB2BOrders.length;
   const todayRevenue =
@@ -189,19 +217,15 @@ export default async function DashboardPage() {
             <Link href="/admin/musteriler" className="text-[11px] text-[#8b6f5e] hover:text-[#2c1810]">Tümü →</Link>
           </div>
           <div className="divide-y divide-[#f0ebe6]">
-            {monthTopCustomers.length === 0 ? (
+            {monthRankedCustomers.length === 0 ? (
               <p className="px-5 py-6 text-sm text-[#b8a89e] text-center">Bu ay sipariş yok.</p>
-            ) : monthTopCustomers.map((c, i) => {
-              const total = c._count.orders + c._count.siteOrders;
-              return (
-                <Link key={c.id} href={`/admin/musteriler/${c.id}`}
-                  className="flex items-center gap-3 px-5 py-2.5 hover:bg-[#faf8f6] transition-colors">
-                  <span className="text-[11px] font-bold text-[#d4c5ba] w-4 shrink-0">{i + 1}</span>
-                  <p className="flex-1 text-sm text-[#2c1810] truncate">{c.name}</p>
-                  <span className="text-[11px] font-semibold text-[#8b6f5e] shrink-0">{total} sipariş</span>
-                </Link>
-              );
-            })}
+            ) : monthRankedCustomers.map((c, i) => (
+              <div key={c.id} className="flex items-center gap-3 px-5 py-2.5">
+                <span className="text-[11px] font-bold text-[#d4c5ba] w-4 shrink-0">{i + 1}</span>
+                <p className="flex-1 text-sm text-[#2c1810] truncate">{c.name}</p>
+                <span className="text-[11px] font-semibold text-[#8b6f5e] shrink-0">{c.count} sipariş</span>
+              </div>
+            ))}
           </div>
         </div>
 

@@ -71,22 +71,25 @@ export async function addCustomerPayment(data: {
   ]);
 
   // İlişkili siparişin ödeme durumunu güncelle
+  const paymentStatus = newStatus === "ODENDI" ? "PAID" : "PARTIAL";
   if (debt.orderId) {
-    const paymentStatus = newStatus === "ODENDI" ? "PAID" : "PARTIAL";
     // Manuel sipariş (Order)
     await prisma.order.updateMany({
       where: { id: debt.orderId },
       data:  { paymentStatus },
-    }).catch(() => {/* order olmayabilir */});
-    // Web siparişi (SiteOrder) — orderId web siparişine de bağlı olabilir
+    }).catch(() => {});
+  } else if (debt.description.startsWith("Web Sipariş #")) {
+    // Web siparişi — description'dan orderNo parse et
+    const orderNo = debt.description.replace("Web Sipariş #", "").trim();
     await prisma.siteOrder.updateMany({
-      where: { id: debt.orderId },
+      where: { orderNo },
       data:  { paymentStatus },
-    }).catch(() => {/* siteOrder olmayabilir */});
+    }).catch(() => {});
   }
 
   revalidatePath("/admin/borc-alacak");
   revalidatePath("/admin/siparisler");
+  revalidatePath("/hesabim", "layout");
 }
 
 export async function createDebtFromSiteOrder(data: {
@@ -122,6 +125,7 @@ export async function createDebtFromSiteOrder(data: {
   });
   revalidatePath("/admin/borc-alacak");
   revalidatePath("/admin/siparisler");
+  revalidatePath("/hesabim", "layout");
   return debt;
 }
 
@@ -155,6 +159,7 @@ export async function createDebtFromB2BOrder(data: {
   });
   revalidatePath("/admin/borc-alacak");
   revalidatePath("/admin/siparisler");
+  revalidatePath("/hesabim", "layout");
   return debt;
 }
 
