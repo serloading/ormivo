@@ -22,6 +22,18 @@ const PAYMENT_LABELS: Record<string, string> = {
 
 const PREDEFINED_TAGS = ["B2B", "Toptan", "Sadık", "Kurumsal", "Sorunlu"];
 
+const COUNTRY_CODES = [
+  { code: "+90",  label: "🇹🇷 +90" },
+  { code: "+1",   label: "🇺🇸 +1" },
+  { code: "+44",  label: "🇬🇧 +44" },
+  { code: "+49",  label: "🇩🇪 +49" },
+  { code: "+33",  label: "🇫🇷 +33" },
+  { code: "+31",  label: "🇳🇱 +31" },
+  { code: "+971", label: "🇦🇪 +971" },
+  { code: "+966", label: "🇸🇦 +966" },
+  { code: "+7",   label: "🇷🇺 +7" },
+];
+
 function toWaPhone(phone: string): string {
   const d = phone.replace(/\D/g, "");
   if (d.startsWith("90")) return d;
@@ -62,23 +74,43 @@ export default function MusteriProfilClient({
 
   // Müşteri bilgileri düzenleme
   const [editingInfo, setEditingInfo] = useState(false);
+
+  // Telefondaki alan kodunu ve numarayı ayır
+  const parsePhone = (raw: string | null) => {
+    if (!raw) return { code: "+90", number: "" };
+    for (const { code } of COUNTRY_CODES) {
+      if (raw.startsWith(code)) return { code, number: raw.slice(code.length).trim() };
+    }
+    return { code: "+90", number: raw };
+  };
+  const parsedPhone = parsePhone(customer.phone ?? null);
+
   const [infoForm, setInfoForm] = useState({
-    name:      customer.name,
-    phone:     customer.phone ?? "",
-    email:     customer.email ?? "",
-    address:   customer.address ?? "",
-    note:      customer.note ?? "",
-    birthDate: customer.birthDate ? new Date(customer.birthDate).toISOString().split("T")[0] : "",
+    name:        customer.name,
+    countryCode: parsedPhone.code,
+    phone:       parsedPhone.number,
+    email:       customer.email ?? "",
+    city:        customer.city ?? "",
+    address:     customer.address ?? "",
+    district:    "",
+    note:        customer.note ?? "",
+    birthDate:   customer.birthDate ? new Date(customer.birthDate).toISOString().split("T")[0] : "",
   });
   const [infoSaving, startInfoT] = useTransition();
 
+  const infoDistricts = infoForm.city && TURKEY_CITIES[infoForm.city] ? TURKEY_CITIES[infoForm.city] : [];
+
   function handleInfoSave(e: React.FormEvent) {
     e.preventDefault();
+    const fullPhone = infoForm.phone.trim()
+      ? (infoForm.countryCode + infoForm.phone.trim())
+      : undefined;
     startInfoT(async () => {
       await updateCustomer(customer.id, {
         name:      infoForm.name.trim(),
-        phone:     infoForm.phone.trim() || undefined,
+        phone:     fullPhone,
         email:     infoForm.email.trim() || undefined,
+        city:      infoForm.city || undefined,
         address:   infoForm.address.trim() || undefined,
         note:      infoForm.note.trim() || undefined,
         birthDate: infoForm.birthDate || undefined,
@@ -151,25 +183,77 @@ export default function MusteriProfilClient({
 
           {editingInfo ? (
             <form onSubmit={handleInfoSave} className="space-y-3">
-              {[
-                { label: "Ad Soyad *", key: "name",    type: "text" },
-                { label: "Telefon",    key: "phone",   type: "tel" },
-                { label: "E-posta",   key: "email",   type: "email" },
-                { label: "Adres",     key: "address", type: "text" },
-              ].map(({ label, key, type }) => (
-                <div key={key}>
-                  <label className="text-xs text-[#8b6f5e] block mb-0.5">{label}</label>
-                  <input type={type} value={infoForm[key as keyof typeof infoForm] as string}
-                    onChange={(e) => setInfoForm((p) => ({ ...p, [key]: e.target.value }))}
-                    className="w-full border border-[#d4c5ba] rounded-sm px-3 py-1.5 text-sm bg-[#faf8f6] focus:outline-none focus:border-[#8b6f5e]" />
+              {/* Ad Soyad */}
+              <div>
+                <label className="text-xs text-[#8b6f5e] block mb-0.5">Ad Soyad *</label>
+                <input type="text" value={infoForm.name}
+                  onChange={(e) => setInfoForm((p) => ({ ...p, name: e.target.value }))}
+                  className="w-full border border-[#d4c5ba] rounded-sm px-3 py-1.5 text-sm bg-[#faf8f6] focus:outline-none focus:border-[#8b6f5e]" />
+              </div>
+              {/* Telefon + alan kodu */}
+              <div>
+                <label className="text-xs text-[#8b6f5e] block mb-0.5">Telefon</label>
+                <div className="flex gap-1">
+                  <select value={infoForm.countryCode}
+                    onChange={(e) => setInfoForm((p) => ({ ...p, countryCode: e.target.value }))}
+                    className="border border-[#d4c5ba] rounded-sm px-2 py-1.5 text-sm bg-[#faf8f6] focus:outline-none focus:border-[#8b6f5e]">
+                    {COUNTRY_CODES.map(({ code, label }) => (
+                      <option key={code} value={code}>{label}</option>
+                    ))}
+                  </select>
+                  <input type="tel" value={infoForm.phone} placeholder="5XX XXX XX XX"
+                    onChange={(e) => setInfoForm((p) => ({ ...p, phone: e.target.value }))}
+                    className="flex-1 border border-[#d4c5ba] rounded-sm px-3 py-1.5 text-sm bg-[#faf8f6] focus:outline-none focus:border-[#8b6f5e]" />
                 </div>
-              ))}
+              </div>
+              {/* E-posta */}
+              <div>
+                <label className="text-xs text-[#8b6f5e] block mb-0.5">E-posta</label>
+                <input type="email" value={infoForm.email}
+                  onChange={(e) => setInfoForm((p) => ({ ...p, email: e.target.value }))}
+                  className="w-full border border-[#d4c5ba] rounded-sm px-3 py-1.5 text-sm bg-[#faf8f6] focus:outline-none focus:border-[#8b6f5e]" />
+              </div>
+              {/* İl */}
+              <div>
+                <label className="text-xs text-[#8b6f5e] block mb-0.5">Şehir (İl)</label>
+                <select value={infoForm.city}
+                  onChange={(e) => setInfoForm((p) => ({ ...p, city: e.target.value, district: "" }))}
+                  className="w-full border border-[#d4c5ba] rounded-sm px-3 py-1.5 text-sm bg-[#faf8f6] focus:outline-none focus:border-[#8b6f5e]">
+                  <option value="">Şehir seçin</option>
+                  {CITY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              {/* İlçe */}
+              <div>
+                <label className="text-xs text-[#8b6f5e] block mb-0.5">İlçe</label>
+                {infoDistricts.length > 0 ? (
+                  <select value={infoForm.district}
+                    onChange={(e) => setInfoForm((p) => ({ ...p, district: e.target.value }))}
+                    className="w-full border border-[#d4c5ba] rounded-sm px-3 py-1.5 text-sm bg-[#faf8f6] focus:outline-none focus:border-[#8b6f5e]">
+                    <option value="">İlçe seçin</option>
+                    {infoDistricts.map((d) => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                ) : (
+                  <input type="text" value={infoForm.district} placeholder="İlçe"
+                    onChange={(e) => setInfoForm((p) => ({ ...p, district: e.target.value }))}
+                    className="w-full border border-[#d4c5ba] rounded-sm px-3 py-1.5 text-sm bg-[#faf8f6] focus:outline-none focus:border-[#8b6f5e]" />
+                )}
+              </div>
+              {/* Adres satırı */}
+              <div>
+                <label className="text-xs text-[#8b6f5e] block mb-0.5">Adres</label>
+                <input type="text" value={infoForm.address}
+                  onChange={(e) => setInfoForm((p) => ({ ...p, address: e.target.value }))}
+                  className="w-full border border-[#d4c5ba] rounded-sm px-3 py-1.5 text-sm bg-[#faf8f6] focus:outline-none focus:border-[#8b6f5e]" />
+              </div>
+              {/* Doğum tarihi */}
               <div>
                 <label className="text-xs text-[#8b6f5e] block mb-0.5">Doğum Tarihi</label>
                 <input type="date" value={infoForm.birthDate}
                   onChange={(e) => setInfoForm((p) => ({ ...p, birthDate: e.target.value }))}
                   className="w-full border border-[#d4c5ba] rounded-sm px-3 py-1.5 text-sm bg-[#faf8f6] focus:outline-none focus:border-[#8b6f5e]" />
               </div>
+              {/* Not */}
               <div>
                 <label className="text-xs text-[#8b6f5e] block mb-0.5">Not</label>
                 <textarea value={infoForm.note} onChange={(e) => setInfoForm((p) => ({ ...p, note: e.target.value }))} rows={2}

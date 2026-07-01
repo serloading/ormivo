@@ -58,6 +58,7 @@ export default async function UrunlerPage({
     ...kategoriFilt,
     ...(marka ? { brand: { slug: marka } } : {}),
     ...(yeni ? { isNew: true } : {}),
+    isTester: false,
   };
 
   const orderBy =
@@ -68,6 +69,7 @@ export default async function UrunlerPage({
   const session     = await getSession();
   const loggedIn    = !!session;
   const userSegment = session?.segment ?? null;
+  const isB2B       = session?.isB2BApproved ?? false;
 
   const [rawProducts, categories, brands, favoritedIds, segmentSettings] = await Promise.all([
     prisma.product.findMany({
@@ -286,6 +288,22 @@ export default async function UrunlerPage({
                         )}
                         <div className="flex items-center justify-between gap-1 mt-auto">
                           {(() => {
+                            if (!loggedIn) {
+                              return (
+                                <Link href="/giris" className="font-sans text-xs text-[#C4A882] hover:underline">
+                                  Fiyat için giriş yapın →
+                                </Link>
+                              );
+                            }
+                            const b2bPrice = (product as { b2bPrice?: unknown }).b2bPrice != null ? Number((product as { b2bPrice?: unknown }).b2bPrice) : null;
+                            if (isB2B && b2bPrice) {
+                              return (
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="font-sans text-[8px] px-1 py-px rounded font-semibold self-start bg-[#1A1A1A] text-[#C4A882]">Bayi</span>
+                                  <span className="font-sans text-sm font-semibold text-[#1A1A1A]">{b2bPrice.toLocaleString("tr-TR")} ₺</span>
+                                </div>
+                              );
+                            }
                             const segPrice = getSegmentPrice(price, userSegment, segmentSettings, productCostPrice);
                             return segPrice ? (
                               <div className="flex flex-col gap-0.5">

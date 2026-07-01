@@ -10,15 +10,20 @@ function waLink(name: string) {
 type Product = {
   id: string; name: string; slug: string;
   price: number | string; comparePrice?: number | string | null;
+  b2bPrice?: number | string | null;
   description?: string | null; images: string[];
   category?: { name: string } | null;
   brand?: { name: string } | null;
   isBestSeller?: boolean;
 };
 
-export default function ProductCard({ product }: { product: Product }) {
+export default function ProductCard({ product, isLoggedIn, isB2B }: {
+  product: Product;
+  isLoggedIn?: boolean;
+  isB2B?: boolean;
+}) {
   const image = product.images?.[0] ?? null;
-  const price = Number(product.price);
+  const price = isB2B && product.b2bPrice ? Number(product.b2bPrice) : Number(product.price);
 
   return (
     <article className="group flex flex-col bg-white border border-[#E8E4DE] hover:border-[#C4A882] hover:shadow-lg transition-all duration-500">
@@ -65,9 +70,22 @@ export default function ProductCard({ product }: { product: Product }) {
 
         <div className="mt-auto pt-3 border-t border-[#E8E4DE]">
           <div className="flex items-baseline gap-2 mb-3">
-            <span className="font-sans text-base font-medium text-[#1A1A1A]">
-              {price.toLocaleString("tr-TR")} ₺
-            </span>
+            {isLoggedIn === false ? (
+              <Link href="/giris" className="font-sans text-xs text-[#C4A882] hover:underline">
+                Fiyat için giriş yapın →
+              </Link>
+            ) : isB2B && product.b2bPrice ? (
+              <div>
+                <span className="font-sans text-base font-medium text-[#1A1A1A]">
+                  {price.toLocaleString("tr-TR")} ₺
+                </span>
+                <span className="font-sans text-[10px] text-[#C4A882] ml-2 uppercase tracking-wide">Bayi</span>
+              </div>
+            ) : (
+              <span className="font-sans text-base font-medium text-[#1A1A1A]">
+                {price.toLocaleString("tr-TR")} ₺
+              </span>
+            )}
           </div>
           {product.isBestSeller && (
             <p className="font-sans text-[9px] tracking-widest text-[#C4A882] uppercase mb-2">★ En Çok Tercih Edilenler</p>

@@ -171,7 +171,11 @@ model SiteUser {
   segment            String?     // BRONZE | SILVER | GOLD | null
   isB2B              Boolean     @default(false)
   isB2BApproved      Boolean     @default(false)
-  b2bNote            String?     // Bayi başvuru notu (işyeri, sosyal medya vs.)
+  b2bNote            String?
+  referralCode       String?     @unique
+  referredById       String?
+  referredBy         SiteUser?   @relation("Referrals", fields: [referredById], references: [id])
+  referrals          SiteUser[]  @relation("Referrals")
   createdAt          DateTime    @default(now())
   cart               Cart?
   addresses          Address[]

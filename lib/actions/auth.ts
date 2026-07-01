@@ -34,12 +34,23 @@ export async function register(formData: FormData) {
   });
   if (exists) return { error: "Bu telefon numarası zaten kayıtlı." };
 
-  const isB2B  = formData.get("isB2B") === "true" || formData.get("isB2B") === "on";
-  const b2bNote = (formData.get("b2bNote") as string)?.trim() || null;
+  // Referral: ref kodu ile gelen kayıtlarda referrer'ı bul
+  const refCode = (formData.get("refCode") as string)?.trim() || null;
+  let referredById: string | null = null;
+  if (refCode) {
+    const referrer = await prisma.siteUser.findUnique({
+      where: { referralCode: refCode },
+      select: { id: true },
+    });
+    if (referrer) referredById = referrer.id;
+  }
+
+  // Her kullanıcıya benzersiz referral kodu üret
+  const referralCode = Math.random().toString(36).slice(2, 8).toUpperCase();
 
   const passwordHash = await bcrypt.hash(password, 12);
   const user = await prisma.siteUser.create({
-    data: { phone, name, passwordHash, isB2B, b2bNote: isB2B ? b2bNote : null },
+    data: { phone, name, passwordHash, referralCode, referredById },
   });
 
   const existingCustomer = await prisma.customer.findFirst({ where: { phone } });

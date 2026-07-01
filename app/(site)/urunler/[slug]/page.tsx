@@ -60,10 +60,11 @@ export default async function UrunDetayPage({
   const session     = await getSession();
   const loggedIn    = !!session;
   const userSegment = session?.segment ?? null;
+  const isB2B       = session?.isB2BApproved ?? false;
   const segmentSettings = await getSegmentSettings();
 
   const product = await prisma.product.findFirst({
-    where: { slug, deletedAt: null, isActive: true },
+    where: { slug, deletedAt: null, isActive: true, isTester: false },
     include: { category: true, brand: true },
   });
   if (!product) notFound();
@@ -159,6 +160,30 @@ export default async function UrunDetayPage({
 
             {/* Fiyat */}
             {(() => {
+              if (!loggedIn) {
+                return (
+                  <div className="mb-3">
+                    <Link href="/giris" className="font-sans text-sm text-[#C4A882] hover:underline">
+                      Fiyat için giriş yapın →
+                    </Link>
+                  </div>
+                );
+              }
+              const b2bPrice = product.b2bPrice != null ? Number(product.b2bPrice) : null;
+              if (isB2B && b2bPrice) {
+                return (
+                  <div className="mb-3 space-y-1.5">
+                    <span className="inline-block font-sans text-[11px] px-2.5 py-1 rounded font-semibold bg-[#1A1A1A] text-[#C4A882]">
+                      Bayi Fiyatı
+                    </span>
+                    <div className="flex items-baseline gap-4">
+                      <span className="font-serif text-3xl text-[#C4A882] font-medium">
+                        {b2bPrice.toLocaleString("tr-TR")} ₺
+                      </span>
+                    </div>
+                  </div>
+                );
+              }
               const segPrice = getSegmentPrice(price, userSegment, segmentSettings, costPrice);
               return segPrice ? (
                 <div className="mb-3 space-y-1.5">
@@ -279,6 +304,22 @@ export default async function UrunDetayPage({
                       </Link>
                       <div className="mt-auto">
                         {(() => {
+                          if (!loggedIn) {
+                            return (
+                              <Link href="/giris" className="font-sans text-xs text-[#C4A882] hover:underline">
+                                Fiyat için giriş yapın →
+                              </Link>
+                            );
+                          }
+                          const rB2bPrice = (r as { b2bPrice?: unknown }).b2bPrice != null ? Number((r as { b2bPrice?: unknown }).b2bPrice) : null;
+                          if (isB2B && rB2bPrice) {
+                            return (
+                              <div className="flex flex-col gap-0.5">
+                                <span className="font-sans text-[8px] px-1 py-px rounded font-semibold self-start bg-[#1A1A1A] text-[#C4A882]">Bayi</span>
+                                <span className="font-sans text-sm font-semibold text-[#1A1A1A]">{rB2bPrice.toLocaleString("tr-TR")} ₺</span>
+                              </div>
+                            );
+                          }
               const rCostPrice = (r as { costPrice?: unknown }).costPrice != null ? Number((r as { costPrice?: unknown }).costPrice) : null;
               const rSeg = getSegmentPrice(rPrice, userSegment, segmentSettings, rCostPrice);
                           return rSeg ? (

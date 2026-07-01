@@ -261,6 +261,19 @@ export default async function HesabimPage() {
           </div>
         </div>
 
+        {/* ── Bayi Paneli ────────────────────────────── */}
+        {session.isB2BApproved && (
+          <Link href="/hesabim/bayim"
+            className="flex items-center justify-between bg-white border border-[#C4A882] p-5 hover:bg-[#FDF9F5] transition-colors group">
+            <div>
+              <p className="font-sans text-[10px] tracking-[0.3em] uppercase text-[#C4A882] mb-1">Bayi</p>
+              <p className="font-serif text-lg text-[#1A1A1A]">Bayi Panelim</p>
+              <p className="font-sans text-xs text-[#9A9A9A] mt-0.5">Referans linkiniz, müşterileriniz ve siparişler</p>
+            </div>
+            <span className="text-[#C4A882] group-hover:translate-x-1 transition-transform text-xl">→</span>
+          </Link>
+        )}
+
       </div>
     </div>
   );

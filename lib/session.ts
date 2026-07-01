@@ -11,10 +11,11 @@ function getSecret(): Uint8Array {
 }
 
 export interface SessionPayload {
-  userId:  string;
-  phone:   string;
-  name:    string | null;
-  segment: string | null;
+  userId:       string;
+  phone:        string;
+  name:         string | null;
+  segment:      string | null;
+  isB2BApproved?: boolean;
 }
 
 export async function createSession(payload: SessionPayload) {
@@ -50,20 +51,21 @@ export async function getSession(): Promise<SessionPayload | null> {
     const { prisma } = await import("@/lib/prisma");
     let user = await prisma.siteUser.findUnique({
       where:  { id: jwt.userId },
-      select: { id: true, phone: true, name: true, segment: true },
+      select: { id: true, phone: true, name: true, segment: true, isB2BApproved: true },
     });
     if (!user) return null;
 
     if (!user.name || !user.segment) {
       const synced = await syncSiteUserFromCustomerPhone(user.phone);
-      if (synced) user = synced;
+      if (synced) user = { ...user, ...synced };
     }
 
     return {
-      userId:  user.id,
-      phone:   user.phone,
-      name:    user.name,
-      segment: user.segment ?? null,
+      userId:       user.id,
+      phone:        user.phone,
+      name:         user.name,
+      segment:      user.segment ?? null,
+      isB2BApproved: user.isB2BApproved,
     };
   } catch {
     return null;
