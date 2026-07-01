@@ -500,6 +500,16 @@ export async function deleteOrderById(orderId: string, source: "web" | "manuel")
     });
     await prisma.finance.deleteMany({ where: { siteOrderId: orderId } });
     await prisma.finance.deleteMany({ where: { description: { contains: `#${order.orderNo}` } } });
+    // Borç/alacak kayıtlarını sil
+    const debts = await prisma.customerDebt.findMany({
+      where: { description: { contains: `#${order.orderNo}` } },
+      select: { id: true },
+    });
+    if (debts.length > 0) {
+      const debtIds = debts.map((d) => d.id);
+      await prisma.debtPayment.deleteMany({ where: { debtId: { in: debtIds } } });
+      await prisma.customerDebt.deleteMany({ where: { id: { in: debtIds } } });
+    }
     await restoreStock(order.items);
     await prisma.siteOrder.delete({ where: { id: orderId } });
   } else {
@@ -515,5 +525,7 @@ export async function deleteOrderById(orderId: string, source: "web" | "manuel")
   revalidatePath("/admin/finans");
   revalidatePath("/admin/urunler");
   revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/borc-alacak");
+  revalidatePath("/hesabim", "layout");
   return { success: true };
 }
