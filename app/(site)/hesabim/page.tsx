@@ -1,6 +1,7 @@
 import { redirect }         from "next/navigation";
 import { getSession }        from "@/lib/session";
 import { prisma }            from "@/lib/prisma";
+import { phoneLookupVariants } from "@/lib/phone";
 import Image                 from "next/image";
 import Link                  from "next/link";
 import AddressActions        from "./AddressActions";
@@ -49,7 +50,7 @@ export default async function HesabimPage() {
   if (!user) redirect("/giris");
 
   const customer = await prisma.customer.findFirst({
-    where: { phone: user.phone },
+    where: { phone: { in: phoneLookupVariants(user.phone) } },
     include: {
       debts: { where: { status: { not: "ODENDI" } }, orderBy: { createdAt: "desc" } },
       orders: {

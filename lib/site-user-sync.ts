@@ -22,23 +22,39 @@ export async function syncSiteUserFromCustomerPhone(phone: string) {
 
   if (!siteUser || !customer) return siteUser;
 
-  const updateData: { name?: string; segment?: string | null } = {};
+  const siteUserFull = await prisma.siteUser.findUnique({
+    where: { id: siteUser.id },
+    select: { id: true, phone: true, name: true, segment: true, isB2BApproved: true, isB2B: true, b2bMarkup: true },
+  });
+  if (!siteUserFull) return siteUser;
+
+  const updateData: Record<string, unknown> = {};
   const customerName = customer.name?.trim();
 
-  if ((!siteUser.name || !siteUser.name.trim()) && customerName) {
+  if ((!siteUserFull.name || !siteUserFull.name.trim()) && customerName) {
     updateData.name = customerName;
   }
 
-  if (!siteUser.segment && customer.segment) {
+  if (!siteUserFull.segment && customer.segment) {
     updateData.segment = customer.segment;
   }
 
+  // Diamond müşteri → otomatik bayi yap
+  if (customer.segment === "DIAMOND" && !siteUserFull.isB2BApproved) {
+    updateData.isB2BApproved = true;
+    updateData.isB2B = true;
+    if (siteUserFull.b2bMarkup == null) {
+      const { DEFAULT_DIAMOND_MARKUP } = await import("@/lib/segment");
+      updateData.b2bMarkup = DEFAULT_DIAMOND_MARKUP;
+    }
+  }
+
   if (Object.keys(updateData).length === 0) {
-    return siteUser;
+    return siteUserFull;
   }
 
   return prisma.siteUser.update({
-    where: { id: siteUser.id },
+    where: { id: siteUserFull.id },
     data: updateData,
     select: { id: true, phone: true, name: true, segment: true },
   });

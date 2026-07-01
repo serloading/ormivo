@@ -15,13 +15,14 @@ export function phoneLookupVariants(phone: string) {
   const digits = normalizePhoneDigits(phone);
   if (!digits) return [];
 
-  const variants = new Set<string>([
-    digits,
-    canonicalPhone(digits),
-  ]);
+  const canonical = canonicalPhone(digits);
+  const variants = new Set<string>([digits, canonical]);
 
   if (digits.startsWith("90") && digits.length > 2) variants.add(digits.slice(2));
   if (digits.startsWith("0") && digits.length > 1) variants.add(digits.slice(1));
+  // + prefix variants — bazı müşteriler +905XX formatında kayıtlı
+  if (canonical) variants.add(`+${canonical}`);
+  if (canonical?.startsWith("90")) variants.add(`+${canonical.slice(2)}`);
 
   return [...variants].filter(Boolean);
 }
