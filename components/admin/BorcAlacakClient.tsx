@@ -283,221 +283,180 @@ export default function BorcAlacakClient({
       </div>
 
       {/* ─────────────────────────────────────── */}
-      {/* MÜŞTERİ ALACAKLARI */}
+      {/* MÜŞTERİ ALACAKLARI — tek birleşik tablo */}
       {/* ─────────────────────────────────────── */}
-      {tab === "musteri" && (
-        <div className="space-y-6">
-          {/* Web Sipariş Alacakları */}
-          {pendingSiteOrders.length > 0 && (
-            <div>
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-purple-600 mb-3">Web Sipariş Alacakları ({pendingSiteOrders.length})</h3>
-              <div className="overflow-x-auto bg-white border border-purple-100 rounded">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-100 bg-purple-50 text-left">
-                      {["Sipariş No", "Müşteri", "Ürünler", "Durum", "Tutar", "Tarih", ""].map((h) => (
-                        <th key={h} className="px-4 py-2.5 text-[11px] uppercase tracking-wide text-purple-400 font-medium whitespace-nowrap">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {pendingSiteOrders.map((o) => {
+      {tab === "musteri" && (() => {
+        // Normalize: tüm kaynakları tek satır tipine çevir
+        type Row =
+          | { kind: "site";   data: PendingSiteOrder }
+          | { kind: "b2b";    data: PendingB2BOrder }
+          | { kind: "debt";   data: CDebt };
+
+        const rows: Row[] = [
+          ...pendingSiteOrders.map((o) => ({ kind: "site" as const, data: o })),
+          ...pendingB2BOrders.map((o)  => ({ kind: "b2b"  as const, data: o })),
+          ...initCD.map((d)            => ({ kind: "debt" as const, data: d })),
+        ];
+        // Tarihe göre yeniden eskiye sırala
+        rows.sort((a, b) => {
+          const dateA = a.kind === "debt" ? a.data.createdAt : a.data.createdAt;
+          const dateB = b.kind === "debt" ? b.data.createdAt : b.data.createdAt;
+          return new Date(dateB).getTime() - new Date(dateA).getTime();
+        });
+
+        const grandTotal =
+          pendingSiteOrders.reduce((s, o) => s + Number(o.total), 0) +
+          pendingB2BOrders.reduce((s, o) => s + Number(o.total), 0) +
+          initCD.reduce((s, d) => s + (d.totalAmount - d.paidAmount), 0);
+
+        const statusCls = (st: string) =>
+          st === "PENDING"   ? "bg-yellow-50 text-yellow-700 border-yellow-200" :
+          st === "SHIPPED"   ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
+          st === "DELIVERED" ? "bg-green-50 text-green-700 border-green-200" :
+                               "bg-gray-100 text-gray-600 border-gray-200";
+        const statusLabel = (st: string) =>
+          st === "PENDING" ? "Beklemede" : st === "SHIPPED" ? "Kargoya Verildi" : st === "DELIVERED" ? "Teslim Edildi" : st;
+
+        return (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-500">{rows.length} kayıt</span>
+              <button
+                onClick={() => setModal({ type: "new-customer" })}
+                className="bg-[#2c1810] text-white text-xs tracking-wide px-4 py-2 hover:bg-[#3d2418] transition-colors"
+              >
+                + Yeni Alacak
+              </button>
+            </div>
+
+            <div className="overflow-x-auto bg-white border border-gray-200">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50 text-left">
+                    {["Sipariş No", "Müşteri", "Ürünler / Açıklama", "Durum", "Tutar", "Ödenen", "Kalan", "Tarih", ""].map((h) => (
+                      <th key={h} className="px-4 py-3 text-[11px] uppercase tracking-wide text-gray-400 font-medium whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {rows.length === 0 && (
+                    <tr><td colSpan={9} className="text-center py-12 text-gray-400 text-sm">Henüz alacak kaydı yok.</td></tr>
+                  )}
+
+                  {rows.map((row) => {
+                    if (row.kind === "site") {
+                      const o = row.data;
                       const items = o.items as { name: string; qty: number }[];
                       return (
-                        <tr key={o.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-2.5 font-mono text-xs font-semibold text-gray-700">#{o.orderNo.slice(-8)}</td>
-                          <td className="px-4 py-2.5">
+                        <tr key={`site-${o.id}`} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 font-mono text-xs font-semibold text-gray-700">#{o.orderNo.slice(-8)}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">
                             <p className="font-medium text-[#2c1810]">{o.recipientName ?? o.user?.name}</p>
                             {(o.recipientPhone ?? o.user?.phone) && <p className="text-[11px] text-gray-400">{o.recipientPhone ?? o.user?.phone}</p>}
                           </td>
-                          <td className="px-4 py-2.5 max-w-[200px]">
-                            {items.map((item, i) => (
-                              <p key={i} className="text-xs text-gray-600 truncate">{item.name} ×{item.qty}</p>
-                            ))}
+                          <td className="px-4 py-3 max-w-[200px]">
+                            {items.map((item, i) => <p key={i} className="text-xs text-gray-600 truncate">{item.name} ×{item.qty}</p>)}
                           </td>
-                          <td className="px-4 py-2.5">
-                            <span className={`text-[10px] px-2 py-0.5 rounded border font-medium ${
-                              o.status === "PENDING" ? "bg-yellow-50 text-yellow-700 border-yellow-200" :
-                              o.status === "SHIPPED" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
-                              o.status === "DELIVERED" ? "bg-green-50 text-green-700 border-green-200" :
-                              "bg-gray-100 text-gray-600 border-gray-200"
-                            }`}>
-                              {o.status === "PENDING" ? "Beklemede" : o.status === "SHIPPED" ? "Kargoya Verildi" : o.status === "DELIVERED" ? "Teslim Edildi" : o.status}
-                            </span>
+                          <td className="px-4 py-3">
+                            <span className={`text-[10px] px-2 py-0.5 rounded border font-medium ${statusCls(o.status)}`}>{statusLabel(o.status)}</span>
                           </td>
-                          <td className="px-4 py-2.5 font-semibold text-orange-600 whitespace-nowrap">{Number(o.total).toLocaleString("tr-TR")} ₺</td>
-                          <td className="px-4 py-2.5 text-[11px] text-gray-400 whitespace-nowrap">{new Date(o.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}</td>
-                          <td className="px-4 py-2.5">
-                            <button
-                              onClick={() => {
-                                const autoId = autoMatchCustomer(o.user?.phone ?? o.recipientPhone);
-                                setSoForm({ customerId: autoId, amount: String(Number(o.total)), note: "" });
-                                setModal({ type: "pay-site-order", order: o });
-                              }}
-                              className="text-[11px] bg-green-600 text-white px-2.5 py-1 hover:bg-green-700 transition-colors whitespace-nowrap"
-                            >
+                          <td className="px-4 py-3 font-semibold text-orange-600 whitespace-nowrap">{Number(o.total).toLocaleString("tr-TR")} ₺</td>
+                          <td className="px-4 py-3 text-gray-400 whitespace-nowrap">—</td>
+                          <td className="px-4 py-3 font-semibold text-orange-600 whitespace-nowrap">{Number(o.total).toLocaleString("tr-TR")} ₺</td>
+                          <td className="px-4 py-3 text-[11px] text-gray-400 whitespace-nowrap">{new Date(o.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}</td>
+                          <td className="px-4 py-3">
+                            <button onClick={() => { const autoId = autoMatchCustomer(o.user?.phone ?? o.recipientPhone); setSoForm({ customerId: autoId, amount: String(Number(o.total)), note: "" }); setModal({ type: "pay-site-order", order: o }); }}
+                              className="text-[11px] bg-green-600 text-white px-2.5 py-1 hover:bg-green-700 transition-colors whitespace-nowrap">
                               Ödeme Al
                             </button>
                           </td>
                         </tr>
                       );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <div className="text-right mt-1">
-                <span className="text-xs text-gray-500">Toplam beklenen: <span className="font-semibold text-orange-600">{pendingSiteOrders.reduce((s, o) => s + Number(o.total), 0).toLocaleString("tr-TR")} ₺</span></span>
-              </div>
-            </div>
-          )}
-
-          {/* B2B Manuel Sipariş Alacakları */}
-          {pendingB2BOrders.length > 0 && (
-            <div>
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-amber-600 mb-3">Manuel Sipariş Alacakları ({pendingB2BOrders.length})</h3>
-              <div className="overflow-x-auto bg-white border border-amber-100 rounded">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-100 bg-amber-50 text-left">
-                      {["Sipariş No", "Müşteri", "Ürünler", "Durum", "Tutar", "Tarih", ""].map((h) => (
-                        <th key={h} className="px-4 py-2.5 text-[11px] uppercase tracking-wide text-amber-500 font-medium whitespace-nowrap">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {pendingB2BOrders.map((o) => {
+                    }
+                    if (row.kind === "b2b") {
+                      const o = row.data;
                       const items = o.items as { productName?: string; name?: string; quantity?: number; qty?: number }[];
                       return (
-                        <tr key={o.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-2.5 font-mono text-xs font-semibold text-gray-700">#{o.orderNo.slice(-8)}</td>
-                          <td className="px-4 py-2.5">
+                        <tr key={`b2b-${o.id}`} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 font-mono text-xs font-semibold text-gray-700">#{o.orderNo.slice(-8)}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">
                             {o.customer ? (
                               <>
                                 <p className="font-medium text-[#2c1810]">{o.customer.name}</p>
                                 {o.customer.phone && <p className="text-[11px] text-gray-400">{o.customer.phone}</p>}
                               </>
-                            ) : (
-                              <p className="text-gray-400 text-xs">Müşteri yok</p>
-                            )}
+                            ) : <p className="text-gray-400 text-xs">Müşteri yok</p>}
                           </td>
-                          <td className="px-4 py-2.5 max-w-[200px]">
-                            {items.map((item, i) => (
-                              <p key={i} className="text-xs text-gray-600 truncate">{item.productName ?? item.name ?? "—"} ×{item.quantity ?? item.qty ?? 1}</p>
-                            ))}
+                          <td className="px-4 py-3 max-w-[200px]">
+                            {items.map((item, i) => <p key={i} className="text-xs text-gray-600 truncate">{item.productName ?? item.name ?? "—"} ×{item.quantity ?? item.qty ?? 1}</p>)}
                           </td>
-                          <td className="px-4 py-2.5">
-                            <span className={`text-[10px] px-2 py-0.5 rounded border font-medium ${
-                              o.status === "PENDING" ? "bg-yellow-50 text-yellow-700 border-yellow-200" :
-                              o.status === "SHIPPED" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
-                              o.status === "DELIVERED" ? "bg-green-50 text-green-700 border-green-200" :
-                              "bg-gray-100 text-gray-600 border-gray-200"
-                            }`}>
-                              {o.status === "PENDING" ? "Beklemede" : o.status === "SHIPPED" ? "Kargoya Verildi" : o.status === "DELIVERED" ? "Teslim Edildi" : o.status}
-                            </span>
+                          <td className="px-4 py-3">
+                            <span className={`text-[10px] px-2 py-0.5 rounded border font-medium ${statusCls(o.status)}`}>{statusLabel(o.status)}</span>
                           </td>
-                          <td className="px-4 py-2.5 font-semibold text-amber-700 whitespace-nowrap">{Number(o.total).toLocaleString("tr-TR")} ₺</td>
-                          <td className="px-4 py-2.5 text-[11px] text-gray-400 whitespace-nowrap">{new Date(o.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}</td>
-                          <td className="px-4 py-2.5">
-                            <button
-                              onClick={() => {
-                                const autoId = autoMatchCustomer(o.customer?.phone);
-                                setB2bForm({ customerId: autoId, amount: String(Number(o.total)), note: "" });
-                                setModal({ type: "pay-b2b-order", order: o });
-                              }}
-                              className="text-[11px] bg-amber-600 text-white px-2.5 py-1 hover:bg-amber-700 transition-colors whitespace-nowrap"
-                            >
+                          <td className="px-4 py-3 font-semibold text-orange-600 whitespace-nowrap">{Number(o.total).toLocaleString("tr-TR")} ₺</td>
+                          <td className="px-4 py-3 text-gray-400 whitespace-nowrap">—</td>
+                          <td className="px-4 py-3 font-semibold text-orange-600 whitespace-nowrap">{Number(o.total).toLocaleString("tr-TR")} ₺</td>
+                          <td className="px-4 py-3 text-[11px] text-gray-400 whitespace-nowrap">{new Date(o.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}</td>
+                          <td className="px-4 py-3">
+                            <button onClick={() => { const autoId = autoMatchCustomer(o.customer?.phone); setB2bForm({ customerId: autoId, amount: String(Number(o.total)), note: "" }); setModal({ type: "pay-b2b-order", order: o }); }}
+                              className="text-[11px] bg-green-600 text-white px-2.5 py-1 hover:bg-green-700 transition-colors whitespace-nowrap">
                               Ödeme Al
                             </button>
                           </td>
                         </tr>
                       );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <div className="text-right mt-1">
-                <span className="text-xs text-gray-500">Toplam beklenen: <span className="font-semibold text-amber-700">{pendingB2BOrders.reduce((s, o) => s + Number(o.total), 0).toLocaleString("tr-TR")} ₺</span></span>
-              </div>
-            </div>
-          )}
-
-          {/* Manuel Alacaklar */}
-          <div className="space-y-4">
-            {(pendingSiteOrders.length > 0 || pendingB2BOrders.length > 0) && <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">Manuel Alacaklar</h3>}
-            <div className="flex justify-end">
-            <button
-              onClick={() => setModal({ type: "new-customer" })}
-              className="bg-[#2c1810] text-white text-xs tracking-wide px-4 py-2 hover:bg-[#3d2418] transition-colors"
-            >
-              + Yeni Alacak
-            </button>
-          </div>
-
-          <div className="overflow-x-auto bg-white border border-gray-200">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50 text-left">
-                  {["Müşteri", "Açıklama", "Toplam", "Ödenen", "Kalan", "Durum", "İşlemler"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-[11px] uppercase tracking-wide text-gray-400 font-medium whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {initCD.length === 0 && (
-                  <tr><td colSpan={7} className="text-center py-12 text-gray-400 text-sm">Henüz alacak kaydı yok.</td></tr>
-                )}
-                {initCD.map((d) => {
-                  const remaining = d.totalAmount - d.paidAmount;
-                  return (
-                    <tr key={d.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <p className="font-medium text-[#2c1810]">{d.customer.name}</p>
-                        {d.customer.phone && <p className="text-[11px] text-gray-400">{d.customer.phone}</p>}
-                      </td>
-                      <td className="px-4 py-3 max-w-[180px]">
-                        <p className="truncate text-gray-700">{d.description}</p>
-                        {d.order && <p className="text-[11px] text-gray-400">#{d.order.orderNo}</p>}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap font-medium">{fmt(d.totalAmount)} ₺</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-green-700">{fmt(d.paidAmount)} ₺</td>
-                      <td className={`px-4 py-3 whitespace-nowrap font-semibold ${remaining > 0 ? "text-orange-600" : "text-gray-400"}`}>
-                        {fmt(remaining)} ₺
-                      </td>
-                      <td className="px-4 py-3"><StatusBadge status={d.status} /></td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2 whitespace-nowrap">
-                          {d.status !== "ODENDI" && (
-                            <button
-                              onClick={() => { setCpForm({ amount: "", note: "" }); setModal({ type: "pay-customer", debt: d }); }}
-                              className="text-[11px] bg-green-600 text-white px-2.5 py-1 hover:bg-green-700 transition-colors"
-                            >
-                              Ödeme Al
+                    }
+                    // debt
+                    const d = row.data;
+                    const remaining = d.totalAmount - d.paidAmount;
+                    return (
+                      <tr key={`debt-${d.id}`} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-xs text-gray-400">—</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <p className="font-medium text-[#2c1810]">{d.customer.name}</p>
+                          {d.customer.phone && <p className="text-[11px] text-gray-400">{d.customer.phone}</p>}
+                        </td>
+                        <td className="px-4 py-3 max-w-[200px]">
+                          <p className="truncate text-gray-700 text-xs">{d.description}</p>
+                          {d.order && <p className="text-[11px] text-gray-400">#{d.order.orderNo}</p>}
+                        </td>
+                        <td className="px-4 py-3"><StatusBadge status={d.status} /></td>
+                        <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-700">{fmt(d.totalAmount)} ₺</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-green-700">{fmt(d.paidAmount)} ₺</td>
+                        <td className={`px-4 py-3 whitespace-nowrap font-semibold ${remaining > 0 ? "text-orange-600" : "text-gray-400"}`}>{fmt(remaining)} ₺</td>
+                        <td className="px-4 py-3 text-[11px] text-gray-400 whitespace-nowrap">{new Date(d.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1.5 whitespace-nowrap">
+                            {d.status !== "ODENDI" && (
+                              <button onClick={() => { setCpForm({ amount: "", note: "" }); setModal({ type: "pay-customer", debt: d }); }}
+                                className="text-[11px] bg-green-600 text-white px-2.5 py-1 hover:bg-green-700 transition-colors">
+                                Ödeme Al
+                              </button>
+                            )}
+                            <button onClick={() => setModal({ type: "history-customer", debt: d })}
+                              className="text-[11px] border border-gray-200 px-2.5 py-1 hover:bg-gray-100 transition-colors">
+                              Geçmiş
                             </button>
-                          )}
-                          <button
-                            onClick={() => setModal({ type: "history-customer", debt: d })}
-                            className="text-[11px] border border-gray-200 px-2.5 py-1 hover:bg-gray-100 transition-colors"
-                            title="Ödeme geçmişi"
-                          >
-                            Geçmiş
-                          </button>
-                          <button
-                            onClick={() => { if (confirm("Silinsin mi?")) startT(() => deleteCustomerDebt(d.id)); }}
-                            className="text-[11px] text-red-400 hover:text-red-600 px-1"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                            <button onClick={() => { if (confirm("Silinsin mi?")) startT(() => deleteCustomerDebt(d.id)); }}
+                              className="text-[11px] text-red-400 hover:text-red-600 px-1">×</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot className="border-t-2 border-gray-200 bg-gray-50">
+                  <tr>
+                    <td colSpan={6} className="px-4 py-2.5 text-xs text-gray-500 text-right">Toplam beklenen:</td>
+                    <td className="px-4 py-2.5 font-semibold text-orange-600 whitespace-nowrap">{grandTotal.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</td>
+                    <td colSpan={2} />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </div>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ─────────────────────────────────────── */}
       {/* TEDARİKÇİ BORÇLARI */}
