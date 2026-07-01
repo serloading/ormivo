@@ -1160,7 +1160,9 @@ function SendToDepoButton({ order }: { order: OrderRow }) {
 
   return (
     <>
-      <button onClick={handleSend} disabled={pending} className="text-xs text-emerald-600 hover:text-emerald-800 mr-3 disabled:opacity-50">
+      <button onClick={handleSend} disabled={pending || order.status === "SHIPPED" || order.status === "DELIVERED" || order.status === "CANCELLED"}
+        title={order.status !== "PENDING" ? "Sadece beklemedeki siparişler depoya eklenebilir" : undefined}
+        className="text-xs text-emerald-600 hover:text-emerald-800 mr-3 disabled:opacity-50 disabled:cursor-not-allowed">
         Depoya Ekle
       </button>
       {showModal && (
