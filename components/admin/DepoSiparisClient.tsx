@@ -581,7 +581,9 @@ export default function DepoSiparisClient({ siparisler, usdRate, suppliers: init
                 {isOpen && (
                   <div className="px-6 py-3 border-t border-[#f0ebe6]">
                     <p className="text-[11px] text-[#8b6f5e] mb-2">
-                      Ürün: ${productTotalUSD.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · Kur: {usdRate.toLocaleString("tr-TR")} ₺/$
+                      Ürün: <span className="font-medium text-[#2c1810]">${productTotalUSD.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="text-[#b8a89e] ml-1">({productTotal.toLocaleString("tr-TR")} ₺)</span>
+                      <span className="ml-2">· Kur: {usdRate.toLocaleString("tr-TR")} ₺/$</span>
                       {order.depoPhone && <span className="ml-3">· {order.depoPhone}</span>}
                     </p>
                     <table className="w-full text-sm">
@@ -589,20 +591,27 @@ export default function DepoSiparisClient({ siparisler, usdRate, suppliers: init
                         <tr className="text-left border-b border-[#f0ebe6]">
                           <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium">Ürün Adı</th>
                           <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium text-right">Adet</th>
-                          <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium text-right">Alış ($)</th>
-                          <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium text-right">Toplam ($)</th>
+                          <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium text-right">Birim Alış</th>
+                          <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium text-right">Toplam</th>
                         </tr>
                       </thead>
                       <tbody>
                         {normalizedItems.map((item, index) => {
                           const unitUSD = usdRate > 0 ? item.unitPrice / usdRate : 0;
                           const lineUSD = unitUSD * item.qty;
+                          const lineTL  = item.qty * item.unitPrice;
                           return (
                           <tr key={index} className="border-b border-[#f9f6f3] last:border-0">
                             <td className="py-2 text-[#2c1810]">{item.name}</td>
                             <td className="py-2 text-right text-[#5c4033]">{item.qty}</td>
-                            <td className="py-2 text-right text-[#5c4033]">${unitUSD.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                            <td className="py-2 text-right font-medium text-[#2c1810]">${lineUSD.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td className="py-2 text-right">
+                              <div className="text-[#5c4033]">${unitUSD.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                              <div className="text-[10px] text-[#b8a89e]">{item.unitPrice.toLocaleString("tr-TR")} ₺</div>
+                            </td>
+                            <td className="py-2 text-right">
+                              <div className="font-medium text-[#2c1810]">${lineUSD.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                              <div className="text-[10px] text-[#b8a89e]">{lineTL.toLocaleString("tr-TR")} ₺</div>
+                            </td>
                           </tr>
                           );
                         })}
@@ -692,7 +701,12 @@ export default function DepoSiparisClient({ siparisler, usdRate, suppliers: init
             <div className="mt-4 pt-4 border-t border-[#f0ebe6] space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-[#8b6f5e]">Ürün Toplamı</span>
-                <span className="text-sm font-semibold text-[#2c1810]">{itemsTotal.toLocaleString("tr-TR")} ₺</span>
+                <div className="text-right">
+                  <div className="text-sm font-semibold text-[#2c1810]">
+                    {usdRate > 0 ? `$${(itemsTotal / usdRate).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ""}
+                  </div>
+                  <div className="text-[11px] text-[#b8a89e]">{itemsTotal.toLocaleString("tr-TR")} ₺</div>
+                </div>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-[#8b6f5e]">Kargo</span>
@@ -700,7 +714,12 @@ export default function DepoSiparisClient({ siparisler, usdRate, suppliers: init
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-[#8b6f5e]">Sipariş Toplamı</span>
-                <span className="text-lg font-semibold text-[#2c1810]">{grandTotal.toLocaleString("tr-TR")} ₺</span>
+                <div className="text-right">
+                  <div className="text-lg font-semibold text-[#2c1810]">
+                    {usdRate > 0 ? `$${(grandTotal / usdRate).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ""}
+                  </div>
+                  <div className="text-[11px] text-[#b8a89e]">{grandTotal.toLocaleString("tr-TR")} ₺</div>
+                </div>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-[#8b6f5e]">Kalan Borç</span>
