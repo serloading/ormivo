@@ -39,14 +39,14 @@ interface PendingSiteOrder {
   id: string; orderNo: string; createdAt: Date;
   recipientName: string | null; recipientPhone: string | null;
   total: number; items: unknown;
-  deliveryMethod: string;
+  status: string;
   user: { name: string | null; phone: string } | null;
 }
 
 interface PendingB2BOrder {
   id: string; orderNo: string; createdAt: Date;
   total: number; items: unknown;
-  deliveryMethod: string;
+  status: string;
   note: string | null;
   customer: { name: string; phone: string | null; id?: string } | null;
 }
@@ -295,7 +295,7 @@ export default function BorcAlacakClient({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 bg-purple-50 text-left">
-                      {["Sipariş No", "Müşteri", "Ürünler", "Teslimat", "Tutar", "Tarih", ""].map((h) => (
+                      {["Sipariş No", "Müşteri", "Ürünler", "Durum", "Tutar", "Tarih", ""].map((h) => (
                         <th key={h} className="px-4 py-2.5 text-[11px] uppercase tracking-wide text-purple-400 font-medium whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -316,8 +316,13 @@ export default function BorcAlacakClient({
                             ))}
                           </td>
                           <td className="px-4 py-2.5">
-                            <span className={`text-[10px] px-2 py-0.5 rounded border font-medium ${o.deliveryMethod === "CARGO" ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-teal-50 text-teal-700 border-teal-200"}`}>
-                              {o.deliveryMethod === "CARGO" ? "Kargo" : "Ofisten Teslim"}
+                            <span className={`text-[10px] px-2 py-0.5 rounded border font-medium ${
+                              o.status === "PENDING" ? "bg-yellow-50 text-yellow-700 border-yellow-200" :
+                              o.status === "SHIPPED" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
+                              o.status === "DELIVERED" ? "bg-green-50 text-green-700 border-green-200" :
+                              "bg-gray-100 text-gray-600 border-gray-200"
+                            }`}>
+                              {o.status === "PENDING" ? "Beklemede" : o.status === "SHIPPED" ? "Kargoya Verildi" : o.status === "DELIVERED" ? "Teslim Edildi" : o.status}
                             </span>
                           </td>
                           <td className="px-4 py-2.5 font-semibold text-orange-600 whitespace-nowrap">{Number(o.total).toLocaleString("tr-TR")} ₺</td>
@@ -354,7 +359,7 @@ export default function BorcAlacakClient({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 bg-amber-50 text-left">
-                      {["Sipariş No", "Müşteri", "Ürünler", "Teslimat", "Tutar", "Tarih", ""].map((h) => (
+                      {["Sipariş No", "Müşteri", "Ürünler", "Durum", "Tutar", "Tarih", ""].map((h) => (
                         <th key={h} className="px-4 py-2.5 text-[11px] uppercase tracking-wide text-amber-500 font-medium whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -381,8 +386,13 @@ export default function BorcAlacakClient({
                             ))}
                           </td>
                           <td className="px-4 py-2.5">
-                            <span className={`text-[10px] px-2 py-0.5 rounded border font-medium ${o.deliveryMethod === "CARGO" ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-teal-50 text-teal-700 border-teal-200"}`}>
-                              {o.deliveryMethod === "CARGO" ? "Kargo" : "Ofisten Teslim"}
+                            <span className={`text-[10px] px-2 py-0.5 rounded border font-medium ${
+                              o.status === "PENDING" ? "bg-yellow-50 text-yellow-700 border-yellow-200" :
+                              o.status === "SHIPPED" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
+                              o.status === "DELIVERED" ? "bg-green-50 text-green-700 border-green-200" :
+                              "bg-gray-100 text-gray-600 border-gray-200"
+                            }`}>
+                              {o.status === "PENDING" ? "Beklemede" : o.status === "SHIPPED" ? "Kargoya Verildi" : o.status === "DELIVERED" ? "Teslim Edildi" : o.status}
                             </span>
                           </td>
                           <td className="px-4 py-2.5 font-semibold text-amber-700 whitespace-nowrap">{Number(o.total).toLocaleString("tr-TR")} ₺</td>
