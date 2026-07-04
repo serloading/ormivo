@@ -271,7 +271,7 @@ export default async function UrunDetayPage({
                     key={r.id}
                     className="group bg-white border border-[#E8E4DE] hover:border-[#C4A882] hover:shadow-lg transition-all duration-300 flex flex-col shrink-0 w-48 md:w-auto"
                   >
-                    <div className="relative overflow-hidden bg-[#F5F0EA]" style={{ aspectRatio: "4/5" }}>
+                    <div className="relative overflow-hidden bg-white" style={{ aspectRatio: "4/5" }}>
                       <Link href={`/urunler/${r.slug}`} className="absolute inset-0" aria-label={r.name} />
                       {rImg ? (
                         <Image src={rImg} alt={r.name} fill
@@ -284,7 +284,7 @@ export default async function UrunDetayPage({
                       )}
                       <AddToCartButton productId={r.id} loggedIn={loggedIn} />
                     </div>
-                    <div className="p-3 flex flex-col flex-1">
+                    <div className="p-3 flex flex-col flex-1 border-t border-[#E8E4DE]">
                       {r.brand?.name && (
                         <Link href={`/urunler?marka=${r.brand.slug}`}
                           className="font-sans text-[8px] tracking-[0.2em] text-[#C4A882] hover:text-[#8B6F4E] mb-1 block transition-colors">

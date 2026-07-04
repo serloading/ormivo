@@ -226,7 +226,7 @@ export default async function HomePage({
                   const img     = p.images?.[0] ?? null;
                   return (
                     <article key={p.id} className="group bg-white border border-[#E8E4DE] hover:border-[#C4A882] hover:shadow-md transition-all duration-300 flex flex-col">
-                      <div className="relative overflow-hidden bg-[#F5F0EA]" style={{ aspectRatio: "4/5" }}>
+                      <div className="relative overflow-hidden bg-white" style={{ aspectRatio: "4/5" }}>
                         <Link href={`/urunler/${p.slug}`} className="absolute inset-0" aria-label={p.name} />
                         {img ? (
                           <Image src={img} alt={p.name} fill sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 20vw"
@@ -242,7 +242,7 @@ export default async function HomePage({
                         <FavoriteButton productId={p.id} loggedIn={loggedIn} initialFavorited={favoritedIds.includes(p.id)} />
                         <AddToCartButton productId={p.id} loggedIn={loggedIn} />
                       </div>
-                      <div className="p-2.5 flex flex-col flex-1">
+                      <div className="p-2.5 flex flex-col flex-1 border-t border-[#E8E4DE]">
                         <div className="flex items-center justify-between mb-0.5">
                           {p.brand ? (
                             <Link href={`/urunler?marka=${p.brand.slug}`} className="font-sans text-[8px] tracking-[0.2em] text-[#C4A882] hover:text-[#8B6F4E] truncate transition-colors">
