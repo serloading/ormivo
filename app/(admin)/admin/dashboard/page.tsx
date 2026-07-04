@@ -25,6 +25,7 @@ export default async function DashboardPage() {
     pendingSiteOrders,
     pendingB2BOrders,
     supplierDebtTotal,
+    referralUsersRaw,
   ] = await Promise.all([
     prisma.product.count({ where: { isActive: true, deletedAt: null } }),
     prisma.siteUser.count(),
@@ -71,6 +72,18 @@ export default async function DashboardPage() {
     prisma.supplierDebt.aggregate({
       where: { status: { not: "ODENDI" } },
       _sum: { totalAmount: true, paidAmount: true },
+    }),
+    // Referral ödülleri — referralları sipariş vermiş tüm kullanıcılar
+    prisma.siteUser.findMany({
+      where: { referrals: { some: { siteOrders: { some: { status: { not: "CANCELLED" } } } } } },
+      select: {
+        id: true, name: true, phone: true, segment: true,
+        referrals: {
+          select: {
+            _count: { select: { siteOrders: { where: { status: { not: "CANCELLED" } } } } },
+          },
+        },
+      },
     }),
   ]);
 
@@ -154,6 +167,18 @@ export default async function DashboardPage() {
     }
   }
   const topDealerProducts = [...dealerItemMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+
+  // Referral ödülü hesaplama
+  type RefUserRaw = { id: string; name: string | null; phone: string; segment: string | null; referrals: { _count: { siteOrders: number } }[] };
+  const referralRewards = (referralUsersRaw as RefUserRaw[])
+    .map((u) => {
+      const totalRefOrders = u.referrals.reduce((s, r) => s + r._count.siteOrders, 0);
+      const earned = Math.floor(totalRefOrders / 10);
+      const progress = totalRefOrders % 10;
+      return { id: u.id, name: u.name, phone: u.phone, segment: u.segment, totalRefOrders, earned, progress };
+    })
+    .filter((u) => u.totalRefOrders > 0)
+    .sort((a, b) => b.earned - a.earned || b.totalRefOrders - a.totalRefOrders);
 
   const stats = [
     { label: "Aktif Ürün",      value: totalProducts,  sub: "yayında",         href: "/admin/urunler",    icon: "◇" },
@@ -310,6 +335,49 @@ export default async function DashboardPage() {
         </div>
 
       </div>
+
+      {/* Referral Ödülleri */}
+      {referralRewards.length > 0 && (
+        <div className="bg-white border border-[#e8ddd6] rounded-sm">
+          <div className="px-5 py-4 border-b border-[#f0ebe6] flex items-center justify-between">
+            <h3 className="text-[10px] tracking-widest text-[#5c4033] uppercase">Referral Ödülleri</h3>
+            <span className="text-[11px] text-[#8b6f5e]">Her 10 referral siparişi = 1 hediye parfüm</span>
+          </div>
+          <div className="divide-y divide-[#f0ebe6]">
+            {referralRewards.map((u) => (
+              <div key={u.id} className="flex items-center gap-4 px-5 py-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-[#2c1810] font-medium truncate">{u.name ?? u.phone}</p>
+                  <p className="text-[11px] text-[#8b6f5e] mt-0.5">{u.phone}</p>
+                </div>
+
+                {/* Progress bar */}
+                <div className="w-32 hidden sm:block">
+                  <div className="h-1.5 bg-[#f0ebe6] rounded-full overflow-hidden">
+                    <div
+                      className="h-1.5 bg-[#C4A882] rounded-full"
+                      style={{ width: `${Math.round((u.progress / 10) * 100)}%` }}
+                    />
+                  </div>
+                  <p className="text-[9px] text-[#b8a89e] mt-0.5 text-right">{u.progress}/10</p>
+                </div>
+
+                <div className="text-right shrink-0">
+                  <p className="text-[11px] text-[#8b6f5e]">{u.totalRefOrders} sipariş</p>
+                  {u.earned > 0 ? (
+                    <span className="inline-block text-[10px] font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 mt-0.5">
+                      {u.earned} hediye hakkı
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-[#b8a89e]">henüz hak yok</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

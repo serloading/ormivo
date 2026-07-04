@@ -50,11 +50,23 @@ export default async function BayiDetailPage({ params }: { params: Promise<{ id:
         if (!customers.length) return [];
         const custIds = customers.map((c) => c.id);
         return prisma.order.findMany({
-          where: { customerId: { in: custIds }, status: { not: "CANCELLED" } },
+          where: { customerId: { in: custIds } },
           orderBy: { createdAt: "desc" },
           select: { id: true, orderNo: true, status: true, total: true, createdAt: true, items: true },
         });
       })()
+    : [];
+
+  // Aynı telefonla farklı hesapla verilmiş SiteOrder'lar (misafir çıkış veya eski hesap)
+  const phoneOrders = user.phone
+    ? await prisma.siteOrder.findMany({
+        where: {
+          recipientPhone: { in: phoneLookupVariants(user.phone) },
+          userId: { not: user.id },
+        },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, orderNo: true, status: true, paymentStatus: true, total: true, createdAt: true, recipientName: true, city: true, items: true },
+      })
     : [];
 
   // Borç/alacak: Customer lookup by phone
@@ -70,9 +82,9 @@ export default async function BayiDetailPage({ params }: { params: Promise<{ id:
       })
     : null;
 
-  // Top products: aggregate SiteOrder + CRM Order items JSON
+  // Top products: aggregate SiteOrder + phone-matched SiteOrders + CRM Order items JSON
   const productMap = new Map<string, { name: string; qty: number; total: number }>();
-  for (const order of [...user.siteOrders, ...crmOrders]) {
+  for (const order of [...user.siteOrders, ...phoneOrders, ...crmOrders]) {
     const rawItems = normalizeOrderItems(order.items);
     for (const item of rawItems) {
       const key = item.name ?? "unknown";
@@ -89,8 +101,8 @@ export default async function BayiDetailPage({ params }: { params: Promise<{ id:
     .sort((a, b) => b.qty - a.qty)
     .slice(0, 10);
 
-  // Stats — kendi + referral + CRM siparişleri
-  const allOrders = [...user.siteOrders, ...referralOrders, ...crmOrders];
+  // Stats — kendi + phone eşleşmeli + referral + CRM siparişleri
+  const allOrders = [...user.siteOrders, ...phoneOrders, ...referralOrders, ...crmOrders];
   const totalSpend = allOrders.reduce((s, o) => s + Number(o.total), 0);
   const pendingPayment = allOrders
     .filter((o) => ("paymentStatus" in o ? o.paymentStatus !== "PAID" : false))
@@ -132,6 +144,12 @@ export default async function BayiDetailPage({ params }: { params: Promise<{ id:
             total: Number(o.total), createdAt: o.createdAt,
             recipientName: o.recipientName, city: o.city,
             items: o.items as OrderItem[], referralName: o.referralName,
+          })),
+          ...phoneOrders.map((o) => ({
+            id: o.id, orderNo: o.orderNo, status: o.status, paymentStatus: o.paymentStatus,
+            total: Number(o.total), createdAt: o.createdAt,
+            recipientName: o.recipientName, city: o.city,
+            items: o.items as OrderItem[], referralName: null as string | null,
           })),
           ...crmOrders.map((o) => ({
             id: o.id, orderNo: o.orderNo, status: o.status, paymentStatus: "PAID",

@@ -826,7 +826,7 @@ export default function SiparislerClient({
 }) {
   const [filter, setFilter] = useState(initialFilter ?? "");
   const [sourceFilter, setSourceFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState(initialFilter ? "ALL" : "PENDING");
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [editOrder, setEditOrder] = useState<OrderRow | null>(null);
   const [summaryOrder, setSummaryOrder] = useState<OrderRow | null>(null);

@@ -48,7 +48,7 @@ export async function addB2BByPhone(
 export async function revokeB2B(userId: string) {
   await prisma.siteUser.update({
     where: { id: userId },
-    data: { isB2BApproved: false, isB2B: false },
+    data: { isB2BApproved: false, isB2B: false, segment: null },
   });
   revalidatePath("/admin/bayiler");
 }
