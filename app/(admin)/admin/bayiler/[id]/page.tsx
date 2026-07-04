@@ -33,16 +33,24 @@ export default async function BayiDetailPage({ params }: { params: Promise<{ id:
     r.siteOrders.map((o) => ({ ...o, referralName: r.name ?? r.phone }))
   );
 
-  // CRM (admin Order) siparişleri — eski siparişler
+  // CRM (admin Order) siparişleri — eski siparişler (tüm eşleşen Customer kayıtları)
   const crmOrders = user.phone
     ? await (async () => {
-        const cust = await prisma.customer.findFirst({
-          where: { phone: { in: phoneLookupVariants(user.phone) } },
+        const variants = phoneLookupVariants(user.phone);
+        // İsme göre de ara (telefon kaydedilmemiş olabilir)
+        const customers = await prisma.customer.findMany({
+          where: {
+            OR: [
+              { phone: { in: variants } },
+              ...(user.name ? [{ name: user.name }] : []),
+            ],
+          },
           select: { id: true },
         });
-        if (!cust) return [];
+        if (!customers.length) return [];
+        const custIds = customers.map((c) => c.id);
         return prisma.order.findMany({
-          where: { customerId: cust.id, status: { not: "CANCELLED" } },
+          where: { customerId: { in: custIds }, status: { not: "CANCELLED" } },
           orderBy: { createdAt: "desc" },
           select: { id: true, orderNo: true, status: true, total: true, createdAt: true, items: true },
         });

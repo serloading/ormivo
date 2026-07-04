@@ -47,13 +47,17 @@ export default async function DashboardPage() {
       where: { createdAt: { gte: monthStart }, status: { not: "CANCELLED" }, user: { segment: "DIAMOND" } },
       select: { items: true, total: true, user: { select: { id: true, name: true, phone: true } } },
     }),
-    // Bu ayın sipariş verenlerini bul — sadece web (non-Diamond) kullanıcılar
+    // Bu ayın sipariş verenlerini bul — web + manuel, Diamond/B2B hariç
     Promise.all([
       prisma.siteOrder.findMany({
         where: { createdAt: { gte: monthStart }, status: { not: "CANCELLED" } },
         select: { user: { select: { name: true, phone: true, isB2BApproved: true, segment: true } } },
       }),
-      [] as never[], // artık kullanılmıyor
+      // Manuel (CRM) siparişler — bu ay
+      prisma.order.findMany({
+        where: { createdAt: { gte: monthStart }, status: { not: "CANCELLED" } },
+        select: { customer: { select: { name: true, phone: true } } },
+      }),
     ]),
     getDebtStats(),
     prisma.siteOrder.findMany({
@@ -70,13 +74,21 @@ export default async function DashboardPage() {
     }),
   ]);
 
-  // Bu ayın en çok sipariş verenleri — sadece web (non-B2B, non-Diamond) müşteriler
-  const [monthSiteForRanking] = monthTopCustomers as [
-    { user: { name: string; phone: string; isB2BApproved: boolean; segment: string | null } | null }[],
-    never[],
+  // Bu ayın en çok sipariş verenleri — web + manuel, Diamond/B2B hariç
+  const [monthSiteForRanking, monthCrmForRanking] = monthTopCustomers as [
+    { user: { name: string | null; phone: string; isB2BApproved: boolean; segment: string | null } | null }[],
+    { customer: { name: string | null; phone: string | null } | null }[],
   ];
 
-  // Web müşteri sıralaması — Diamond ve B2B hariç
+  // Önce tüm Diamond/B2B telefonlarını bir set'e al (bunları sıralamadan çıkarmak için)
+  const excludedPhones = new Set<string>();
+  for (const so of monthSiteForRanking) {
+    if (so.user && (so.user.isB2BApproved || so.user.segment === "DIAMOND")) {
+      excludedPhones.add(so.user.phone);
+    }
+  }
+
+  // Web siparişler — Diamond ve B2B hariç
   const rankMap = new Map<string, { name: string; phone: string; id: string; count: number }>();
   for (const so of monthSiteForRanking) {
     if (!so.user) continue;
@@ -84,7 +96,16 @@ export default async function DashboardPage() {
     const key = so.user.phone;
     const existing = rankMap.get(key);
     if (existing) existing.count++;
-    else rankMap.set(key, { name: so.user.name, phone: so.user.phone, id: key, count: 1 });
+    else rankMap.set(key, { name: so.user.name ?? "—", phone: so.user.phone, id: key, count: 1 });
+  }
+  // Manuel (CRM) siparişler — telefonu excluded set'te olmayan müşteriler
+  for (const co of monthCrmForRanking) {
+    if (!co.customer?.phone) continue;
+    const phone = co.customer.phone;
+    if (excludedPhones.has(phone)) continue;
+    const existing = rankMap.get(phone);
+    if (existing) existing.count++;
+    else rankMap.set(phone, { name: co.customer.name ?? "—", phone, id: phone, count: 1 });
   }
   const monthRankedCustomers = [...rankMap.values()].sort((a, b) => b.count - a.count).slice(0, 6);
 
