@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { phoneLookupVariants } from "@/lib/phone";
+import { normalizeOrderItems } from "@/lib/order-items";
 import BayiDetailClient from "@/components/admin/BayiDetailClient";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,7 @@ export default async function BayiDetailPage({ params }: { params: Promise<{ id:
       referrals: {
         select: {
           id: true, name: true, phone: true, email: true, segment: true, createdAt: true,
+          siteOrders: { orderBy: { createdAt: "desc" }, select: { id: true, orderNo: true, status: true, paymentStatus: true, total: true, createdAt: true, recipientName: true, city: true, items: true } },
           _count: { select: { siteOrders: true } },
         },
         orderBy: { createdAt: "desc" },
@@ -25,6 +27,27 @@ export default async function BayiDetailPage({ params }: { params: Promise<{ id:
     },
   });
   if (!user) notFound();
+
+  // Referral siparişlerini düzleştir (isim etiketiyle)
+  const referralOrders = user.referrals.flatMap((r) =>
+    r.siteOrders.map((o) => ({ ...o, referralName: r.name ?? r.phone }))
+  );
+
+  // CRM (admin Order) siparişleri — eski siparişler
+  const crmOrders = user.phone
+    ? await (async () => {
+        const cust = await prisma.customer.findFirst({
+          where: { phone: { in: phoneLookupVariants(user.phone) } },
+          select: { id: true },
+        });
+        if (!cust) return [];
+        return prisma.order.findMany({
+          where: { customerId: cust.id, status: { not: "CANCELLED" } },
+          orderBy: { createdAt: "desc" },
+          select: { id: true, orderNo: true, status: true, total: true, createdAt: true, items: true },
+        });
+      })()
+    : [];
 
   // Borç/alacak: Customer lookup by phone
   const customer = user.phone
@@ -39,20 +62,18 @@ export default async function BayiDetailPage({ params }: { params: Promise<{ id:
       })
     : null;
 
-  // Top products: aggregate SiteOrder.items JSON
+  // Top products: aggregate SiteOrder + CRM Order items JSON
   const productMap = new Map<string, { name: string; qty: number; total: number }>();
-  for (const order of user.siteOrders) {
-    const items = (order.items as OrderItem[]) ?? [];
-    for (const item of items) {
-      const key = item.productId ?? item.name ?? "unknown";
-      const qty = item.qty ?? item.quantity ?? 1;
-      const price = item.price ?? 0;
+  for (const order of [...user.siteOrders, ...crmOrders]) {
+    const rawItems = normalizeOrderItems(order.items);
+    for (const item of rawItems) {
+      const key = item.name ?? "unknown";
       const existing = productMap.get(key);
       if (existing) {
-        existing.qty += qty;
-        existing.total += price * qty;
+        existing.qty += item.qty;
+        existing.total += item.price * item.qty;
       } else {
-        productMap.set(key, { name: item.name ?? key, qty, total: price * qty });
+        productMap.set(key, { name: item.name, qty: item.qty, total: item.price * item.qty });
       }
     }
   }
@@ -60,10 +81,11 @@ export default async function BayiDetailPage({ params }: { params: Promise<{ id:
     .sort((a, b) => b.qty - a.qty)
     .slice(0, 10);
 
-  // Stats
-  const totalSpend = user.siteOrders.reduce((s, o) => s + Number(o.total), 0);
-  const pendingPayment = user.siteOrders
-    .filter((o) => o.paymentStatus !== "PAID")
+  // Stats — kendi + referral + CRM siparişleri
+  const allOrders = [...user.siteOrders, ...referralOrders, ...crmOrders];
+  const totalSpend = allOrders.reduce((s, o) => s + Number(o.total), 0);
+  const pendingPayment = allOrders
+    .filter((o) => ("paymentStatus" in o ? o.paymentStatus !== "PAID" : false))
     .reduce((s, o) => s + Number(o.total), 0);
   const totalDebt = customer?.debts.reduce((s, d) => s + (d.totalAmount - d.paidAmount), 0) ?? 0;
 
@@ -90,12 +112,26 @@ export default async function BayiDetailPage({ params }: { params: Promise<{ id:
           createdAt: user.createdAt,
         }}
         stats={{ totalSpend, pendingPayment, totalDebt, orderCount: user.siteOrders.length, referralCount: user.referrals.length }}
-        orders={user.siteOrders.map((o) => ({
-          id: o.id, orderNo: o.orderNo, status: o.status, paymentStatus: o.paymentStatus,
-          total: Number(o.total), createdAt: o.createdAt,
-          recipientName: o.recipientName, city: o.city,
-          items: o.items as OrderItem[],
-        }))}
+        orders={[
+          ...user.siteOrders.map((o) => ({
+            id: o.id, orderNo: o.orderNo, status: o.status, paymentStatus: o.paymentStatus,
+            total: Number(o.total), createdAt: o.createdAt,
+            recipientName: o.recipientName, city: o.city,
+            items: o.items as OrderItem[], referralName: null as string | null,
+          })),
+          ...referralOrders.map((o) => ({
+            id: o.id, orderNo: o.orderNo, status: o.status, paymentStatus: o.paymentStatus,
+            total: Number(o.total), createdAt: o.createdAt,
+            recipientName: o.recipientName, city: o.city,
+            items: o.items as OrderItem[], referralName: o.referralName,
+          })),
+          ...crmOrders.map((o) => ({
+            id: o.id, orderNo: o.orderNo, status: o.status, paymentStatus: "PAID",
+            total: Number(o.total), createdAt: o.createdAt,
+            recipientName: null, city: null,
+            items: o.items as OrderItem[], referralName: null as string | null,
+          })),
+        ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())}
         debts={(customer?.debts ?? []).map((d) => ({
           id: d.id, description: d.description, totalAmount: d.totalAmount,
           paidAmount: d.paidAmount, status: d.status, dueDate: d.dueDate,

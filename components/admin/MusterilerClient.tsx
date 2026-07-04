@@ -131,18 +131,24 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    // Ülke kodu + numara birleştir
     const fullPhone = form.phone.trim()
       ? `${form.countryCode}${form.phone.trim()}`
       : "";
-    const payload = { ...form, phone: fullPhone };
+    // countryCode sadece UI için — DB'ye gönderilmemeli
+    const { countryCode: _cc, ...rest } = form;
+    void _cc;
+    const payload = { ...rest, phone: fullPhone || undefined };
     startTransition(async () => {
       try {
         if (editing) {
           await updateCustomer(editing.id, payload);
           await updateCustomerSegment(editing.id, formSegment || null);
         } else {
-          await createCustomer(payload);
+          const result = await createCustomer(payload);
+          if (!result.success) {
+            alert("Müşteri eklenemedi:\n" + (result.error ?? "Bilinmeyen hata"));
+            return;
+          }
         }
         router.refresh();
         setModal(false);

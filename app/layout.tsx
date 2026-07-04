@@ -1,11 +1,11 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
 
 export const metadata: Metadata = {
-  title: "Ormivo â€” LÃ¼ks ParfÃ¼m",
-  description: "Ormivo, Ã¶zenle seÃ§ilmiÅŸ lÃ¼ks parfÃ¼m koleksiyonu. DÃ¼nyaca Ã¼nlÃ¼ parfÃ¼m evlerinden en seÃ§kin kreasyonlar.",
+  title: "Ormivo - Luks Parfum",
+  description: "Ormivo, ozenle secilmis luks parfum koleksiyonu.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

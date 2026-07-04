@@ -9,7 +9,7 @@ import Link               from "next/link";
 import AddToCartButton    from "@/components/site/AddToCartButton";
 import FavoriteButton    from "@/components/site/FavoriteButton";
 import { getUserFavoriteIds } from "@/lib/actions/favorite";
-import { getSegmentPrice, SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/segment";
+import { calcDisplayPrice, SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/segment";
 import { getSegmentSettings } from "@/lib/actions/settings";
 
 export const dynamic = "force-dynamic";
@@ -78,6 +78,8 @@ export default async function HomePage({
   const session    = await getSession();
   const loggedIn   = !!session;
   const userSegment = session?.segment ?? null;
+  const isB2B       = session?.isB2BApproved ?? false;
+  const b2bMarkup   = session?.b2bMarkup ?? null;
 
   const [rawProducts, categories, brands, topSellers, favoritedIds, segmentSettings] = await Promise.all([
     prisma.product.findMany({
@@ -96,7 +98,7 @@ export default async function HomePage({
     getSegmentSettings(),
   ]);
 
-  type RawProduct = { id: string; slug: string; name: string; price: unknown; comparePrice: unknown; images: string[]; stock: number; brand: { name: string; slug: string } | null };
+  type RawProduct = { id: string; slug: string; name: string; price: unknown; comparePrice: unknown; costPrice: unknown; images: string[]; stock: number; brand: { name: string; slug: string } | null; category: { name: string } | null };
   type RawCategory = { id: string; name: string; slug: string };
   type RawBrand = { id: string; name: string; slug: string };
 
@@ -110,9 +112,11 @@ export default async function HomePage({
     name:         p.name,
     price:        Number(p.price),
     comparePrice: p.comparePrice ? Number(p.comparePrice) : null,
+    costPrice:    p.costPrice != null ? Number(p.costPrice) : null,
     images:       p.images as string[],
     stock:        p.stock,
     brand:        p.brand ? { name: p.brand.name, slug: p.brand.slug } : null,
+    categoryName: p.category?.name ?? null,
   }));
 
   /* ── Sidebar link builder ── */
@@ -239,11 +243,18 @@ export default async function HomePage({
                         <AddToCartButton productId={p.id} loggedIn={loggedIn} />
                       </div>
                       <div className="p-2.5 flex flex-col flex-1">
-                        {p.brand && (
-                          <Link href={`/urunler?marka=${p.brand.slug}`} className="font-sans text-[8px] tracking-[0.2em] text-[#C4A882] hover:text-[#8B6F4E] mb-0.5 block transition-colors">
-                            {p.brand.name}
-                          </Link>
-                        )}
+                        <div className="flex items-center justify-between mb-0.5">
+                          {p.brand ? (
+                            <Link href={`/urunler?marka=${p.brand.slug}`} className="font-sans text-[8px] tracking-[0.2em] text-[#C4A882] hover:text-[#8B6F4E] truncate transition-colors">
+                              {p.brand.name}
+                            </Link>
+                          ) : <span />}
+                          {(p as { category?: { name: string } | null }).category?.name && (
+                            <span className="font-sans text-[7px] tracking-[0.15em] text-[#9A9A9A] truncate ml-1 shrink-0">
+                              {(p as { category?: { name: string } | null }).category!.name}
+                            </span>
+                          )}
+                        </div>
                         <Link href={`/urunler/${p.slug}`}>
                           <h3 className="font-serif text-xs leading-snug text-[#1A1A1A] hover:text-[#C4A882] transition-colors line-clamp-2 mb-1.5">{p.name}</h3>
                         </Link>
@@ -256,20 +267,21 @@ export default async function HomePage({
                                 </Link>
                               );
                             }
-                            const segPrice = getSegmentPrice(price, userSegment, segmentSettings);
-                            return segPrice ? (
+                            const pCostPrice = (p as { costPrice?: unknown }).costPrice != null ? Number((p as { costPrice?: unknown }).costPrice) : null;
+                            const { displayPrice, originalPrice, label, labelColor } = calcDisplayPrice(price, pCostPrice, isB2B, b2bMarkup, userSegment, segmentSettings);
+                            return label ? (
                               <div className="flex flex-col gap-0.5">
-                                <span className={`font-sans text-[9px] px-1.5 py-0.5 rounded font-semibold ${SEGMENT_COLORS[userSegment!]}`}>
-                                  {SEGMENT_LABELS[userSegment!]}
+                                <span className={`font-sans text-[9px] px-1.5 py-0.5 rounded font-semibold ${labelColor}`}>
+                                  {label}
                                 </span>
                                 <div className="flex items-baseline gap-1">
-                                  <span className="font-sans text-xs font-semibold text-[#C4A882]">{segPrice.toLocaleString("tr-TR")} ₺</span>
-                                  <span className="font-sans text-[10px] text-[#9A9A9A] line-through">{price.toLocaleString("tr-TR")} ₺</span>
+                                  <span className="font-sans text-xs font-semibold text-[#C4A882]">{displayPrice.toLocaleString("tr-TR")} ₺</span>
+                                  {originalPrice && <span className="font-sans text-[10px] text-[#9A9A9A] line-through">{originalPrice.toLocaleString("tr-TR")} ₺</span>}
                                 </div>
                               </div>
                             ) : (
                               <div className="flex items-baseline gap-1">
-                                <span className="font-sans text-xs font-medium text-[#1A1A1A]">{price.toLocaleString("tr-TR")} ₺</span>
+                                <span className="font-sans text-xs font-medium text-[#1A1A1A]">{displayPrice.toLocaleString("tr-TR")} ₺</span>
                               </div>
                             );
                           })()}
@@ -295,6 +307,8 @@ export default async function HomePage({
             loggedIn={loggedIn}
             favoritedIds={favoritedIds}
             userSegment={userSegment}
+            isB2B={isB2B}
+            b2bMarkup={b2bMarkup}
             segmentSettings={segmentSettings}
             filters={{ kategori, marka, q, sirala }}
           />

@@ -4,30 +4,39 @@ import Image from "next/image";
 import Link from "next/link";
 import { useTransition } from "react";
 import { updateCartItem, removeFromCart } from "@/lib/actions/cart";
-import { getSegmentPrice, SEGMENT_LABELS, SEGMENT_COLORS, type SegmentPricingSettings } from "@/lib/segment";
+import { calcDisplayPrice, type SegmentPricingSettings } from "@/lib/segment";
 
 interface CartItemRowProps {
   item: {
-    id:       string;
-    quantity: number;
+    id:          string;
+    quantity:    number;
+    customPrice?: unknown;
     product: {
-      id:     string;
-      name:   string;
-      slug:   string;
-      price:  unknown;
-      images: string[];
+      id:        string;
+      name:      string;
+      slug:      string;
+      price:     unknown;
+      costPrice?: unknown;
+      images:    string[];
       brand?: { name: string; slug: string } | null;
     };
   };
-  userSegment?: string | null;
+  userSegment?:     string | null;
+  isB2B?:           boolean;
+  b2bMarkup?:       number | null;
   segmentSettings?: SegmentPricingSettings;
 }
 
-export default function CartItemRow({ item, userSegment, segmentSettings }: CartItemRowProps) {
+export default function CartItemRow({ item, userSegment, isB2B = false, b2bMarkup = null, segmentSettings }: CartItemRowProps) {
   const [pending, startTransition] = useTransition();
-  const price    = Number(item.product.price);
-  const segPrice = getSegmentPrice(price, userSegment, segmentSettings);
-  const img      = item.product.images?.[0] ?? null;
+  const price     = Number(item.product.price);
+  const costPrice = item.product.costPrice != null ? Number(item.product.costPrice) : null;
+  const { displayPrice: segmentedPrice, originalPrice, label, labelColor } = calcDisplayPrice(price, costPrice, isB2B, b2bMarkup, userSegment, segmentSettings);
+  // customPrice (cross-sell indirimli fiyat) varsa onu kullan
+  const customPriceNum = item.customPrice != null ? Number(item.customPrice) : null;
+  const displayPrice   = customPriceNum ?? segmentedPrice;
+  const crossSellLabel = customPriceNum != null && customPriceNum < price ? "%30 İndirim" : null;
+  const img = item.product.images?.[0] ?? null;
 
   const update = (qty: number) =>
     startTransition(async () => { await updateCartItem(item.id, qty); });
@@ -51,24 +60,23 @@ export default function CartItemRow({ item, userSegment, segmentSettings }: Cart
         <div>
           {item.product.brand?.name && (
             <Link href={`/urunler?marka=${item.product.brand.slug}`}
-              className="font-sans text-[9px] tracking-[0.2em] text-[#C4A882] mb-0.5 hover:text-[#8B6F4E] transition-colors block"
-              >
+              className="font-sans text-[9px] tracking-[0.2em] text-[#C4A882] mb-0.5 hover:text-[#8B6F4E] transition-colors block">
               {item.product.brand.name}
             </Link>
           )}
           <Link href={`/urunler/${item.product.slug}`} className="font-sans text-sm text-[#1A1A1A] leading-snug line-clamp-2 hover:text-[#C4A882] transition-colors">
             {item.product.name}
           </Link>
-          {segPrice ? (
+          {(crossSellLabel || label) ? (
             <div className="mt-1 space-y-0.5">
               <div className="flex items-center gap-1.5">
-                <span className={`font-sans text-[9px] px-1.5 py-0.5 rounded font-semibold ${SEGMENT_COLORS[userSegment!]}`}>
-                  {SEGMENT_LABELS[userSegment!]}
+                <span className={`font-sans text-[9px] px-1.5 py-0.5 rounded font-semibold ${crossSellLabel ? "bg-orange-100 text-orange-700" : labelColor}`}>
+                  {crossSellLabel ?? label}
                 </span>
               </div>
               <div className="flex items-baseline gap-1.5">
                 <span className="font-sans text-sm font-semibold text-[#C4A882]">
-                  {(segPrice * item.quantity).toLocaleString("tr-TR")} ₺
+                  {(displayPrice * item.quantity).toLocaleString("tr-TR")} ₺
                 </span>
                 <span className="font-sans text-xs text-[#9A9A9A] line-through">
                   {(price * item.quantity).toLocaleString("tr-TR")} ₺
@@ -77,7 +85,7 @@ export default function CartItemRow({ item, userSegment, segmentSettings }: Cart
             </div>
           ) : (
             <p className="font-sans text-sm font-semibold text-[#1A1A1A] mt-1">
-              {(price * item.quantity).toLocaleString("tr-TR")} ₺
+              {(displayPrice * item.quantity).toLocaleString("tr-TR")} ₺
             </p>
           )}
         </div>

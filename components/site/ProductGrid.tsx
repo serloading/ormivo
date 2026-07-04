@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link  from "next/link";
 import AddToCartButton  from "./AddToCartButton";
 import FavoriteButton   from "./FavoriteButton";
-import { getSegmentPrice, SEGMENT_LABELS, SEGMENT_COLORS, type SegmentPricingSettings } from "@/lib/segment";
+import { calcDisplayPrice, type SegmentPricingSettings } from "@/lib/segment";
 
 interface Product {
   id:           string;
@@ -13,9 +13,11 @@ interface Product {
   name:         string;
   price:        number;
   comparePrice: number | null;
+  costPrice?:   number | null;
   images:       string[];
   stock:        number;
   brand:        { name: string; slug: string } | null;
+  categoryName?: string | null;
 }
 
 interface Props {
@@ -24,6 +26,8 @@ interface Props {
   loggedIn:        boolean;
   favoritedIds?:   string[];
   userSegment?:    string | null;
+  isB2B?:          boolean;
+  b2bMarkup?:      number | null;
   segmentSettings?: SegmentPricingSettings;
   filters: {
     kategori: string;
@@ -33,7 +37,7 @@ interface Props {
   };
 }
 
-export default function ProductGrid({ initialProducts, total, loggedIn, favoritedIds = [], userSegment, segmentSettings, filters }: Props) {
+export default function ProductGrid({ initialProducts, total, loggedIn, favoritedIds = [], userSegment, isB2B = false, b2bMarkup = null, segmentSettings, filters }: Props) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [loading,  setLoading]  = useState(false);
   const [hasMore,  setHasMore]  = useState(initialProducts.length < total);
@@ -137,12 +141,19 @@ export default function ProductGrid({ initialProducts, total, loggedIn, favorite
               </div>
 
               <div className="p-2 md:p-2.5 flex flex-col flex-1">
-                {product.brand && (
-                  <Link href={`/urunler?marka=${product.brand.slug}`} onClick={(e) => e.stopPropagation()}
-                    className="font-sans text-[7px] tracking-[0.2em] text-[#C4A882] hover:text-[#8B6F4E] mb-0.5 truncate block transition-colors">
-                    {product.brand.name}
-                  </Link>
-                )}
+                <div className="flex items-center justify-between mb-0.5">
+                  {product.brand ? (
+                    <Link href={`/urunler?marka=${product.brand.slug}`} onClick={(e) => e.stopPropagation()}
+                      className="font-sans text-[7px] tracking-[0.2em] text-[#C4A882] hover:text-[#8B6F4E] truncate transition-colors">
+                      {product.brand.name}
+                    </Link>
+                  ) : <span />}
+                  {product.categoryName && (
+                    <span className="font-sans text-[7px] tracking-[0.15em] text-[#9A9A9A] truncate ml-1 shrink-0">
+                      {product.categoryName}
+                    </span>
+                  )}
+                </div>
                 <Link href={`/urunler/${product.slug}`} className="block">
                   <h3 className="font-sans text-[11px] md:text-xs leading-snug text-[#1A1A1A] hover:text-[#C4A882] transition-colors line-clamp-2 mb-1">
                     {product.name}
@@ -157,20 +168,22 @@ export default function ProductGrid({ initialProducts, total, loggedIn, favorite
                         </a>
                       );
                     }
-                    const segPrice = getSegmentPrice(price, userSegment, segmentSettings);
-                    return segPrice ? (
+                    const { displayPrice, originalPrice, label, labelColor } = calcDisplayPrice(
+                      price, product.costPrice, isB2B, b2bMarkup, userSegment, segmentSettings
+                    );
+                    return label ? (
                       <div className="flex flex-col gap-0.5 min-w-0">
-                        <span className={`font-sans text-[8px] px-1 py-px rounded font-semibold self-start ${SEGMENT_COLORS[userSegment!]}`}>
-                          {SEGMENT_LABELS[userSegment!]}
+                        <span className={`font-sans text-[8px] px-1 py-px rounded font-semibold self-start ${labelColor}`}>
+                          {label}
                         </span>
                         <div className="flex items-baseline gap-1">
-                          <span className="font-sans text-xs font-semibold text-[#C4A882]">{segPrice.toLocaleString("tr-TR")} ₺</span>
-                          <span className="font-sans text-[10px] text-[#9A9A9A] line-through">{price.toLocaleString("tr-TR")} ₺</span>
+                          <span className="font-sans text-xs font-semibold text-[#C4A882]">{displayPrice.toLocaleString("tr-TR")} ₺</span>
+                          {originalPrice && <span className="font-sans text-[10px] text-[#9A9A9A] line-through">{originalPrice.toLocaleString("tr-TR")} ₺</span>}
                         </div>
                       </div>
                     ) : (
                       <p className="font-sans text-xs md:text-sm font-semibold text-[#1A1A1A]">
-                        {price.toLocaleString("tr-TR")} ₺
+                        {displayPrice.toLocaleString("tr-TR")} ₺
                       </p>
                     );
                   })()}

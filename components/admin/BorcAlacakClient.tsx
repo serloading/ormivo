@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import {
   createCustomerDebt,
+  updateCustomerDebt,
   addCustomerPayment,
   deleteCustomerDebt,
   createSupplierDebt,
@@ -21,7 +23,9 @@ interface CDebt {
   id: string; customerId: string; orderId: string | null;
   description: string; totalAmount: number; paidAmount: number;
   dueDate: Date | null; status: string; createdAt: Date;
-  customer: Customer; order: Order | null; payments: Payment[];
+  customer: Customer;
+  order: (Order & { items?: unknown }) | null;
+  payments: Payment[];
 }
 interface SDebt {
   id: string; supplierName: string; description: string;
@@ -39,7 +43,7 @@ interface PendingSiteOrder {
   id: string; orderNo: string; createdAt: Date;
   recipientName: string | null; recipientPhone: string | null;
   total: number; items: unknown;
-  status: string;
+  status: string; note?: string | null;
   user: { name: string | null; phone: string } | null;
 }
 
@@ -156,6 +160,7 @@ export default function BorcAlacakClient({
     | { type: "history-supplier"; debt: SDebt }
     | { type: "pay-site-order"; order: PendingSiteOrder }
     | { type: "pay-b2b-order"; order: PendingB2BOrder }
+    | { type: "edit-debt"; debt: CDebt }
     | null;
   const [modal, setModal] = useState<Modal>(null);
 
@@ -197,6 +202,20 @@ export default function BorcAlacakClient({
       });
       setModal(null);
       setCdForm({ customerId: "", orderId: "", description: "", totalAmount: "", initialPayment: "", dueDate: "" });
+    });
+  }
+
+  // ── Edit debt form ────────────────────────────────────────
+  const [editForm, setEditForm] = useState({ description: "", totalAmount: "", dueDate: "" });
+
+  function submitEditForm(debtId: string) {
+    startT(async () => {
+      await updateCustomerDebt(debtId, {
+        description: editForm.description || undefined,
+        totalAmount: editForm.totalAmount ? parseFloat(editForm.totalAmount) : undefined,
+        dueDate: editForm.dueDate || null,
+      });
+      setModal(null);
     });
   }
 
@@ -295,7 +314,7 @@ export default function BorcAlacakClient({
         const rows: Row[] = [
           ...pendingSiteOrders.map((o) => ({ kind: "site" as const, data: o })),
           ...pendingB2BOrders.map((o)  => ({ kind: "b2b"  as const, data: o })),
-          ...initCD.map((d)            => ({ kind: "debt" as const, data: d })),
+          ...initCD.filter((d) => d.status !== "ODENDI").map((d) => ({ kind: "debt" as const, data: d })),
         ];
         // Tarihe göre yeniden eskiye sırala
         rows.sort((a, b) => {
@@ -333,14 +352,14 @@ export default function BorcAlacakClient({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50 text-left">
-                    {["Sipariş No", "Müşteri", "Ürünler / Açıklama", "Durum", "Tutar", "Ödenen", "Kalan", "Tarih", ""].map((h) => (
+                    {["Sipariş No", "Müşteri", "Ürünler / Açıklama", "Durum", "Tutar", "Ödenen", "Kalan", "Tarih", "Not", ""].map((h) => (
                       <th key={h} className="px-4 py-3 text-[11px] uppercase tracking-wide text-gray-400 font-medium whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {rows.length === 0 && (
-                    <tr><td colSpan={9} className="text-center py-12 text-gray-400 text-sm">Henüz alacak kaydı yok.</td></tr>
+                    <tr><td colSpan={10} className="text-center py-12 text-gray-400 text-sm">Henüz alacak kaydı yok.</td></tr>
                   )}
 
                   {rows.map((row) => {
@@ -349,7 +368,11 @@ export default function BorcAlacakClient({
                       const items = o.items as { name: string; qty: number }[];
                       return (
                         <tr key={`site-${o.id}`} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 font-mono text-xs font-semibold text-gray-700">#{o.orderNo}</td>
+                          <td className="px-4 py-3 font-mono text-xs font-semibold">
+                            <Link href={`/admin/siparisler?q=${o.orderNo}`} className="text-indigo-600 hover:text-indigo-800 hover:underline">
+                              #{o.orderNo}
+                            </Link>
+                          </td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             <p className="font-medium text-[#2c1810]">{o.recipientName ?? o.user?.name}</p>
                             {(o.recipientPhone ?? o.user?.phone) && <p className="text-[11px] text-gray-400">{o.recipientPhone ?? o.user?.phone}</p>}
@@ -364,6 +387,7 @@ export default function BorcAlacakClient({
                           <td className="px-4 py-3 text-gray-400 whitespace-nowrap">—</td>
                           <td className="px-4 py-3 font-semibold text-orange-600 whitespace-nowrap">{Number(o.total).toLocaleString("tr-TR")} ₺</td>
                           <td className="px-4 py-3 text-[11px] text-gray-400 whitespace-nowrap">{new Date(o.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}</td>
+                          <td className="px-4 py-3 max-w-[120px]"><p className="text-xs text-gray-500 truncate">{o.note ?? ""}</p></td>
                           <td className="px-4 py-3">
                             <button onClick={() => { const autoId = autoMatchCustomer(o.user?.phone ?? o.recipientPhone); setSoForm({ customerId: autoId, amount: String(Number(o.total)), note: "" }); setModal({ type: "pay-site-order", order: o }); }}
                               className="text-[11px] bg-green-600 text-white px-2.5 py-1 hover:bg-green-700 transition-colors whitespace-nowrap">
@@ -378,7 +402,11 @@ export default function BorcAlacakClient({
                       const items = o.items as { productName?: string; name?: string; quantity?: number; qty?: number }[];
                       return (
                         <tr key={`b2b-${o.id}`} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 font-mono text-xs font-semibold text-gray-700">#{o.orderNo}</td>
+                          <td className="px-4 py-3 font-mono text-xs font-semibold">
+                            <Link href={`/admin/siparisler?q=${o.orderNo}`} className="text-indigo-600 hover:text-indigo-800 hover:underline">
+                              #{o.orderNo}
+                            </Link>
+                          </td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             {o.customer ? (
                               <>
@@ -397,6 +425,7 @@ export default function BorcAlacakClient({
                           <td className="px-4 py-3 text-gray-400 whitespace-nowrap">—</td>
                           <td className="px-4 py-3 font-semibold text-orange-600 whitespace-nowrap">{Number(o.total).toLocaleString("tr-TR")} ₺</td>
                           <td className="px-4 py-3 text-[11px] text-gray-400 whitespace-nowrap">{new Date(o.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}</td>
+                          <td className="px-4 py-3 max-w-[120px]"><p className="text-xs text-gray-500 truncate">{o.note ?? ""}</p></td>
                           <td className="px-4 py-3">
                             <button onClick={() => { const autoId = autoMatchCustomer(o.customer?.phone); setB2bForm({ customerId: autoId, amount: String(Number(o.total)), note: "" }); setModal({ type: "pay-b2b-order", order: o }); }}
                               className="text-[11px] bg-green-600 text-white px-2.5 py-1 hover:bg-green-700 transition-colors whitespace-nowrap">
@@ -411,20 +440,34 @@ export default function BorcAlacakClient({
                     const remaining = d.totalAmount - d.paidAmount;
                     return (
                       <tr key={`debt-${d.id}`} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-xs text-gray-400">—</td>
+                        <td className="px-4 py-3 font-mono text-xs font-semibold">
+                          {d.order ? (
+                            <Link href={`/admin/siparisler?q=${d.order.orderNo}`} className="text-indigo-600 hover:text-indigo-800 hover:underline">
+                              #{d.order.orderNo}
+                            </Link>
+                          ) : <span className="text-gray-400">—</span>}
+                        </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <p className="font-medium text-[#2c1810]">{d.customer.name}</p>
                           {d.customer.phone && <p className="text-[11px] text-gray-400">{d.customer.phone}</p>}
                         </td>
                         <td className="px-4 py-3 max-w-[200px]">
-                          <p className="truncate text-gray-700 text-xs">{d.description}</p>
-                          {d.order && <p className="text-[11px] text-gray-400">#{d.order.orderNo}</p>}
+                          {(() => {
+                            const orderItems = d.order?.items as { name?: string; productName?: string; qty?: number; quantity?: number }[] | null;
+                            if (orderItems?.length) {
+                              return orderItems.map((it, i) => (
+                                <p key={i} className="text-xs text-gray-600 truncate">{it.name ?? it.productName ?? "—"} ×{it.qty ?? it.quantity ?? 1}</p>
+                              ));
+                            }
+                            return <p className="truncate text-gray-700 text-xs">{d.description}</p>;
+                          })()}
                         </td>
                         <td className="px-4 py-3"><StatusBadge status={d.status} /></td>
                         <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-700">{fmt(d.totalAmount)} ₺</td>
                         <td className="px-4 py-3 whitespace-nowrap text-green-700">{fmt(d.paidAmount)} ₺</td>
                         <td className={`px-4 py-3 whitespace-nowrap font-semibold ${remaining > 0 ? "text-orange-600" : "text-gray-400"}`}>{fmt(remaining)} ₺</td>
                         <td className="px-4 py-3 text-[11px] text-gray-400 whitespace-nowrap">{new Date(d.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}</td>
+                        <td className="px-4 py-3 max-w-[120px]"><p className="text-xs text-gray-500 truncate">{d.description}</p></td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1.5 whitespace-nowrap">
                             {d.status !== "ODENDI" && (
@@ -433,6 +476,10 @@ export default function BorcAlacakClient({
                                 Ödeme Al
                               </button>
                             )}
+                            <button onClick={() => { setEditForm({ description: d.description, totalAmount: String(d.totalAmount), dueDate: d.dueDate ? new Date(d.dueDate).toISOString().slice(0, 10) : "" }); setModal({ type: "edit-debt", debt: d }); }}
+                              className="text-[11px] border border-gray-200 px-2.5 py-1 hover:bg-gray-100 transition-colors">
+                              Düzenle
+                            </button>
                             <button onClick={() => setModal({ type: "history-customer", debt: d })}
                               className="text-[11px] border border-gray-200 px-2.5 py-1 hover:bg-gray-100 transition-colors">
                               Geçmiş
@@ -449,7 +496,7 @@ export default function BorcAlacakClient({
                   <tr>
                     <td colSpan={6} className="px-4 py-2.5 text-xs text-gray-500 text-right">Toplam beklenen:</td>
                     <td className="px-4 py-2.5 font-semibold text-orange-600 whitespace-nowrap">{grandTotal.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</td>
-                    <td colSpan={2} />
+                    <td colSpan={3} />
                   </tr>
                 </tfoot>
               </table>
@@ -600,6 +647,33 @@ export default function BorcAlacakClient({
                 className="bg-green-600 text-white text-sm px-6 py-2 hover:bg-green-700 disabled:opacity-40 transition-colors"
               >
                 {isPending ? "Kaydediliyor..." : "Ödeme Kaydet"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Borç Düzenle */}
+      {modal?.type === "edit-debt" && (
+        <Modal title={`Borç Düzenle — ${modal.debt.customer.name}`} onClose={() => setModal(null)}>
+          <div className="space-y-4">
+            <Field label="Açıklama *">
+              <input value={editForm.description} onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))} className={inputCls} />
+            </Field>
+            <Field label="Toplam Tutar (₺) *">
+              <input type="number" min="0" value={editForm.totalAmount} onChange={(e) => setEditForm((f) => ({ ...f, totalAmount: e.target.value }))} className={inputCls} />
+            </Field>
+            <Field label="Son Ödeme Tarihi">
+              <input type="date" value={editForm.dueDate} onChange={(e) => setEditForm((f) => ({ ...f, dueDate: e.target.value }))} className={inputCls} />
+            </Field>
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={() => setModal(null)} className="text-sm text-gray-400 hover:text-gray-700 px-4 py-2">İptal</button>
+              <button
+                onClick={() => submitEditForm(modal.debt.id)}
+                disabled={!editForm.description || !editForm.totalAmount || isPending}
+                className="bg-[#2c1810] text-white text-sm px-6 py-2 hover:bg-[#3d2418] disabled:opacity-40 transition-colors"
+              >
+                {isPending ? "Kaydediliyor..." : "Kaydet"}
               </button>
             </div>
           </div>

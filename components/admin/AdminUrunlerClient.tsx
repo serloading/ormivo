@@ -185,16 +185,24 @@ export default function AdminUrunlerClient({
     if (!photoModal || !e.target.files?.length) return;
     setUploading(true);
     const newUrls: string[] = [];
-    for (const file of Array.from(e.target.files)) {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res  = await fetch("/api/upload", { method: "POST", body: fd });
-      const json = await res.json() as { url?: string };
-      if (json.url) newUrls.push(json.url);
+    try {
+      for (const file of Array.from(e.target.files)) {
+        const fd = new FormData();
+        fd.append("file", file);
+        const res  = await fetch("/api/upload", { method: "POST", body: fd });
+        const json = await res.json() as { url?: string; error?: string };
+        if (json.error) { alert("Yükleme hatası: " + json.error); continue; }
+        if (!res.ok)    { alert(`Yükleme başarısız (${res.status})`); continue; }
+        if (json.url) newUrls.push(json.url);
+      }
+    } catch (err) {
+      alert("Yükleme sırasında hata: " + (err instanceof Error ? err.message : String(err)));
     }
-    const updated = [...(photoModal.images ?? []), ...newUrls];
-    await updateProductImages(photoModal.id, updated);
-    patchProduct(photoModal.id, { images: updated });
+    if (newUrls.length > 0) {
+      const updated = [...(photoModal.images ?? []), ...newUrls];
+      await updateProductImages(photoModal.id, updated);
+      patchProduct(photoModal.id, { images: updated });
+    }
     setUploading(false);
   }
   async function removePhoto(url: string) {
@@ -314,56 +322,22 @@ export default function AdminUrunlerClient({
                           )}
                         </div>
                         <div className="min-w-0">
-                          {isEditing(product.id, "name") ? (
-                            <input
-                              ref={editRef as React.RefObject<HTMLInputElement>}
-                              type="text"
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              onBlur={() => commitEdit()}
-                              onKeyDown={(e) => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") cancelEdit(); }}
-                              className="border border-[#8b6f5e] rounded px-2 py-1 text-sm w-48 focus:outline-none"
-                              disabled={saving}
-                            />
-                          ) : (
-                            <div className="flex items-center gap-1 group/name">
-                              <span
-                                onClick={() => startEdit(product, "name")}
-                                title="Düzenlemek için tıkla"
-                                className="font-medium text-[#2c1810] cursor-pointer hover:text-[#8b6f5e] truncate max-w-[185px] block"
-                              >
-                                {product.name}
-                              </span>
-                              <a
-                                href={`/urunler/${product.slug}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                title="Sitede görüntüle"
-                                onClick={(e) => e.stopPropagation()}
-                                className="text-[#d4c5ba] hover:text-[#8b6f5e] opacity-0 group-hover/name:opacity-100 transition-opacity shrink-0"
-                              >↗</a>
-                            </div>
-                          )}
-                          {isEditing(product.id, "slug") ? (
-                            <input
-                              ref={editRef as React.RefObject<HTMLInputElement>}
-                              type="text"
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              onBlur={() => commitEdit()}
-                              onKeyDown={(e) => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") cancelEdit(); }}
-                              className="border border-[#8b6f5e] rounded px-2 py-0.5 text-xs w-44 focus:outline-none mt-0.5"
-                              disabled={saving}
-                            />
-                          ) : (
-                            <p
-                              onClick={() => startEdit(product, "slug")}
-                              title="Slug düzenlemek için tıkla"
-                              className="text-xs text-[#b8a89e] mt-0.5 truncate max-w-[200px] cursor-pointer hover:text-[#8b6f5e] transition-colors"
-                            >
-                              /{product.slug}
-                            </p>
-                          )}
+                          <a
+                            href={`/urunler/${product.slug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-[#2c1810] hover:text-[#8b6f5e] truncate max-w-[185px] block transition-colors"
+                          >
+                            {product.name}
+                          </a>
+                          <a
+                            href={`/urunler/${product.slug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-[#b8a89e] mt-0.5 truncate max-w-[200px] hover:text-[#8b6f5e] transition-colors block"
+                          >
+                            /{product.slug}
+                          </a>
                         </div>
                       </div>
                     </td>

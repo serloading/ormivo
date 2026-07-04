@@ -40,9 +40,9 @@ export function getSegmentPrice(
   if (!segment) return null;
 
   if (segment === "DIAMOND") {
+    if (costPrice == null || costPrice <= 0) return null;
     const markup = rates?.DIAMOND ?? DEFAULT_DIAMOND_MARKUP;
-    const base = (costPrice != null && costPrice > 0) ? costPrice : basePrice;
-    return Math.round(base + markup);
+    return Math.round(costPrice + markup);
   }
 
   let discount: number;
@@ -54,4 +54,39 @@ export function getSegmentPrice(
 
   if (!discount) return null;
   return Math.round(basePrice * (1 - discount));
+}
+
+/**
+ * Kullanıcıya göre gösterilecek fiyatı hesaplar.
+ * Tüm ürün listelerinde, sepette, favori sayfasında kullanılmalı.
+ */
+export function calcDisplayPrice(
+  price:    number,
+  costPrice: number | null | undefined,
+  isB2B:    boolean,
+  b2bMarkup: number | null | undefined,
+  segment:  string | null | undefined,
+  segmentSettings?: SegmentPricingSettings | null,
+): { displayPrice: number; originalPrice?: number; label?: string; labelColor?: string } {
+  // B2B (bayi) → alış fiyatı + kişisel markup
+  if (isB2B && costPrice != null && b2bMarkup != null) {
+    return {
+      displayPrice: Math.round(costPrice + b2bMarkup),
+      label:        "Bayi",
+      labelColor:   "bg-[#1A1A1A] text-[#C4A882]",
+    };
+  }
+
+  // Segment indirimi / artışı
+  const segPrice = getSegmentPrice(price, segment, segmentSettings ?? undefined, costPrice);
+  if (segPrice != null) {
+    return {
+      displayPrice:  segPrice,
+      originalPrice: price,
+      label:         SEGMENT_LABELS[segment!],
+      labelColor:    SEGMENT_COLORS[segment!],
+    };
+  }
+
+  return { displayPrice: price };
 }

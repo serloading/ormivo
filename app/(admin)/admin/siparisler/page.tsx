@@ -8,10 +8,11 @@ export const metadata = { title: "Siparişler — Admin" };
 export default async function SiparislerPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; q?: string }>;
 }) {
   const sp = await searchParams;
   const statusFilter = sp.status ?? null;
+  const initialFilter = sp.q ?? "";
 
   // ALL = tüm siparişler, boş = aktif (DELIVERED ve CANCELLED hariç)
   const activeFilter =
@@ -35,8 +36,8 @@ export default async function SiparislerPage({
         cargo: { select: { trackingNo: true, company: true } },
       },
     }),
-    prisma.customer.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, phone: true } }),
-    prisma.product.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true, price: true, stock: true } }),
+    prisma.customer.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, phone: true, segment: true } }),
+    prisma.product.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true, price: true, stock: true, costPrice: true } }),
     prisma.category.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.brand.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
     // B2B siparişlere bağlı CustomerDebt'ler (düzenleme modalı için)
@@ -111,5 +112,5 @@ export default async function SiparislerPage({
     orderDebts.map((d) => [d.orderId!, { id: d.id, totalAmount: Number(d.totalAmount), paidAmount: Number(d.paidAmount), description: d.description }])
   );
 
-  return <SiparislerClient orders={unified} customers={customers} products={products.map(p => ({ ...p, price: Number(p.price) }))} categories={categories} brands={brands} debtByOrderId={debtByOrderId} />;
+  return <SiparislerClient orders={unified} customers={customers} products={products.map(p => ({ ...p, price: Number(p.price), costPrice: p.costPrice != null ? Number(p.costPrice) : null }))} categories={categories} brands={brands} debtByOrderId={debtByOrderId} initialFilter={initialFilter} />;
 }

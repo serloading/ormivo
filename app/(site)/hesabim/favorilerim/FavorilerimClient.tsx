@@ -5,10 +5,11 @@ import Image from "next/image";
 import Link  from "next/link";
 import { createFavoriteList, deleteFavoriteList } from "@/lib/actions/favoriteList";
 import FavoriteButton from "@/components/site/FavoriteButton";
+import { calcDisplayPrice, type SegmentPricingSettings } from "@/lib/segment";
 
 interface FavProduct {
   id: string; name: string; slug: string;
-  images: string[]; price: number; brandName: string | null; categoryName?: string | null;
+  images: string[]; price: number; costPrice?: number | null; brandName: string | null; categoryName?: string | null;
 }
 interface FavList {
   id: string; name: string; productIds: string[]; createdAt: string;
@@ -16,8 +17,8 @@ interface FavList {
 }
 
 export default function FavorilerimClient({
-  favorites, lists,
-}: { favorites: FavProduct[]; lists: FavList[] }) {
+  favorites, lists, isB2B = false, b2bMarkup = null, userSegment = null, segmentSettings,
+}: { favorites: FavProduct[]; lists: FavList[]; isB2B?: boolean; b2bMarkup?: number | null; userSegment?: string | null; segmentSettings?: SegmentPricingSettings }) {
   const [showModal, setShowModal]     = useState(false);
   const [listName, setListName]       = useState("");
   const [selected, setSelected]       = useState<Set<string>>(new Set());
@@ -154,9 +155,22 @@ export default function FavorilerimClient({
                   <Link href={`/urunler/${p.slug}`}>
                     <h3 className="font-sans text-[11px] leading-snug text-[#1A1A1A] hover:text-[#C4A882] transition-colors line-clamp-2 mb-1">{p.name}</h3>
                   </Link>
-                  <p className="font-sans text-xs font-semibold text-[#1A1A1A] mt-auto">
-                    {p.price.toLocaleString("tr-TR")} ₺
-                  </p>
+                  {(() => {
+                    const { displayPrice, originalPrice, label, labelColor } = calcDisplayPrice(p.price, p.costPrice, isB2B, b2bMarkup, userSegment, segmentSettings);
+                    return label ? (
+                      <div className="mt-auto space-y-0.5">
+                        <span className={`font-sans text-[8px] px-1 py-px rounded font-semibold ${labelColor}`}>{label}</span>
+                        <div className="flex items-baseline gap-1">
+                          <span className="font-sans text-xs font-semibold text-[#C4A882]">{displayPrice.toLocaleString("tr-TR")} ₺</span>
+                          {originalPrice && <span className="font-sans text-[10px] text-[#9A9A9A] line-through">{originalPrice.toLocaleString("tr-TR")} ₺</span>}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="font-sans text-xs font-semibold text-[#1A1A1A] mt-auto">
+                        {displayPrice.toLocaleString("tr-TR")} ₺
+                      </p>
+                    );
+                  })()}
                 </div>
               </article>
             ))}

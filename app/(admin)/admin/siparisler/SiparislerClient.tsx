@@ -17,6 +17,16 @@ import { createProduct } from "@/lib/actions/product";
 import { createCustomerDebt, addCustomerPayment } from "@/lib/actions/debt";
 import { addManualOrderToDepo, createDepoSiparisFromOrder } from "@/lib/actions/depo-siparis";
 
+const CARGO_TRACKING_URLS: Record<string, (no: string) => string> = {
+  "Yurtiçi Kargo": (no) => `https://www.yurticikargo.com/tr/online-islemler/gonderi-sorgula?code=${no}`,
+  "MNG Kargo":     (no) => `https://www.mngkargo.com.tr/sorgulama.aspx?id=${no}`,
+  "Aras Kargo":    (no) => `https://kargotakip.araskargo.com.tr/mainpage.aspx?code=${no}`,
+  "PTT Kargo":     ()   => `https://www.ptt.gov.tr/tr/ptt-kargo-kargo-sorgulama`,
+  "Sürat Kargo":   (no) => `https://suratkargo.com.tr/KargoSorgulama/${no}`,
+  "DHL":           (no) => `https://www.dhl.com/tr-tr/home/tracking.html?tracking-id=${no}`,
+  "UPS":           (no) => `https://www.ups.com/track?tracknum=${no}`,
+};
+
 const STATUS_LABELS: Record<string, string> = {
   PENDING:   "Beklemede",
   SHIPPED:   "Kargoya Verildi",
@@ -41,10 +51,11 @@ const PAYMENT_COLORS: Record<string, string> = {
   PAID:    "bg-green-50 text-green-700 border-green-200",
   FREE:    "bg-purple-50 text-purple-700 border-purple-200",
 };
-const DELIVERY_LABELS: Record<string, string> = { CARGO: "Kargo", PICKUP: "Dükkan Teslim" };
+const DELIVERY_LABELS: Record<string, string> = { CARGO: "Kargo", PICKUP: "Mağaza Teslim", STORE: "Mağaza Teslim" };
 const DELIVERY_COLORS: Record<string, string> = {
   CARGO:  "bg-blue-50 text-blue-700 border-blue-200",
   PICKUP: "bg-teal-50 text-teal-700 border-teal-200",
+  STORE:  "bg-teal-50 text-teal-700 border-teal-200",
 };
 
 function CopyButton({ text, label = "Kopyala" }: { text: string; label?: string }) {
@@ -78,8 +89,8 @@ interface OrderRow {
   trackingNo: string | null; cargoCompany: string | null;
   memberName: string | null; memberPhone: string | null;
 }
-interface Customer { id: string; name: string; phone: string | null }
-interface ProductOption { id: string; name: string; price: number; stock: number }
+interface Customer { id: string; name: string; phone: string | null; segment?: string | null }
+interface ProductOption { id: string; name: string; price: number; stock: number; costPrice?: number | null }
 interface CatBrand { id: string; name: string }
 interface OrderDebt { id: string; totalAmount: number; paidAmount: number; description: string }
 
@@ -307,7 +318,7 @@ function TrackingForm({ order }: { order: OrderRow }) {
   const [saved, setSaved] = useState(false);
   const router = useRouter();
 
-  const isPickup = order.deliveryMethod === "PICKUP";
+  const isPickup = order.deliveryMethod === "PICKUP" || order.deliveryMethod === "STORE";
 
   function handleSave() {
     startTransition(async () => {
@@ -322,7 +333,7 @@ function TrackingForm({ order }: { order: OrderRow }) {
   }
 
   if (isPickup) {
-    return <span className="text-xs text-gray-300 cursor-not-allowed">— Dükkan Teslim</span>;
+    return <span className="text-xs text-gray-300 cursor-not-allowed">— Mağaza Teslim</span>;
   }
 
   if (!open) {
@@ -361,13 +372,16 @@ function TrackingForm({ order }: { order: OrderRow }) {
 
 interface ItemForm { productId: string | null; name: string; qty: number; price: number }
 
+const DIAMOND_MARKUP = 500;
+
 function ProductInput({
-  item, idx, products, onChange,
+  item, idx, products, onChange, isDiamond,
 }: {
   item: ItemForm;
   idx: number;
   products: ProductOption[];
   onChange: (idx: number, field: keyof ItemForm, val: string | number | null) => void;
+  isDiamond?: boolean;
 }) {
   const [query, setQuery] = useState(item.name);
   const [showSug, setShowSug] = useState(false);
@@ -378,11 +392,14 @@ function ProductInput({
     : [];
 
   function select(p: ProductOption) {
+    const price = isDiamond && p.costPrice != null && p.costPrice > 0
+      ? Math.round(p.costPrice + DIAMOND_MARKUP)
+      : p.price;
     setQuery(p.name);
     setShowSug(false);
     onChange(idx, "name", p.name);
     onChange(idx, "productId", p.id);
-    onChange(idx, "price", p.price);
+    onChange(idx, "price", price);
   }
 
   function handleBlur(e: React.FocusEvent) {
@@ -403,19 +420,28 @@ function ProductInput({
       />
       {showSug && suggestions.length > 0 && (
         <div className="absolute top-full left-0 right-0 z-50 bg-white border border-gray-200 rounded shadow-lg max-h-48 overflow-y-auto mt-0.5">
-          {suggestions.map((p) => (
-            <button key={p.id} type="button" onMouseDown={() => select(p)}
-              className="w-full text-left px-3 py-2 text-xs hover:bg-indigo-50 flex items-center justify-between">
-              <span className="font-medium text-gray-800">{p.name}</span>
-              <span className="text-gray-500 ml-2 whitespace-nowrap">
-                {p.price.toLocaleString("tr-TR")}₺
-                {" · "}
-                <span className={p.stock <= 0 ? "text-red-500" : "text-green-600"}>
-                  Stok: {p.stock}
+          {suggestions.map((p) => {
+            const displayPrice = isDiamond && p.costPrice != null && p.costPrice > 0
+              ? Math.round(p.costPrice + DIAMOND_MARKUP)
+              : p.price;
+            return (
+              <button key={p.id} type="button" onMouseDown={() => select(p)}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-indigo-50 flex items-center justify-between">
+                <span className="font-medium text-gray-800">{p.name}</span>
+                <span className="text-gray-500 ml-2 whitespace-nowrap flex items-center gap-1">
+                  {isDiamond && p.costPrice != null && p.costPrice > 0 ? (
+                    <span className="text-cyan-700 font-semibold">{displayPrice.toLocaleString("tr-TR")}₺</span>
+                  ) : (
+                    <span>{displayPrice.toLocaleString("tr-TR")}₺</span>
+                  )}
+                  {" · "}
+                  <span className={p.stock <= 0 ? "text-red-500" : "text-green-600"}>
+                    Stok: {p.stock}
+                  </span>
                 </span>
-              </span>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -442,8 +468,12 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, categ
   const [items, setItems] = useState<ItemForm[]>([{ productId: null, name: "", qty: 1, price: 0 }]);
   const [useManualTotal, setUseManualTotal] = useState(false);
   const [manualTotal, setManualTotal] = useState("");
+  const [freeShipping, setFreeShipping] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
+
+  const selectedCustomer = customers.find(c => c.id === customerId);
+  const isDiamond = selectedCustomer?.segment === "DIAMOND";
 
   // Inline new customer
   const [showNewCustomer, setShowNewCustomer] = useState(false);
@@ -505,7 +535,9 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, categ
   const autoTotal = items.reduce((s, i) => s + i.qty * i.price, 0);
   const grossTotal = useManualTotal ? (Number(manualTotal) || 0) : autoTotal;
   const discountAmt = Number(discount) || 0;
-  const netTotal = Math.max(0, grossTotal - discountAmt);
+  const totalQty = items.reduce((s, i) => s + i.qty, 0);
+  const shippingFee = (!freeShipping && isDiamond && deliveryMethod === "CARGO") ? Math.ceil(totalQty / 5) * 200 : 0;
+  const netTotal = Math.max(0, grossTotal - discountAmt) + shippingFee;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -519,6 +551,7 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, categ
         items: items.map((i) => ({ productId: i.productId ?? undefined, productName: i.name, price: i.price, quantity: i.qty })),
         total: netTotal,
         discount: discountAmt,
+        shippingFee: shippingFee > 0 ? shippingFee : null,
         note: note.trim() || undefined,
         status,
         deliveryMethod,
@@ -564,9 +597,14 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, categ
                     className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
                     <option value="">Müşteri seçin...</option>
                     {customers.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}{c.phone ? ` — ${c.phone}` : ""}</option>
+                      <option key={c.id} value={c.id}>{c.name}{c.phone ? ` — ${c.phone}` : ""}{c.segment === "DIAMOND" ? " ◆ Diamond" : ""}</option>
                     ))}
                   </select>
+                  {isDiamond && (
+                    <div className="flex items-center gap-1.5 bg-cyan-50 border border-cyan-200 rounded px-3 py-1.5 text-xs text-cyan-800 font-medium">
+                      ◆ Diamond Üye — Alış fiyatı +{DIAMOND_MARKUP}₺ uygulanıyor
+                    </div>
+                  )}
                   <button type="button" onClick={() => setShowNewCustomer(true)}
                     className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
                     + Yeni müşteri ekle
@@ -600,9 +638,23 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, categ
                 <label key={k} className={`flex items-center gap-2 px-4 py-2.5 rounded border cursor-pointer transition-colors ${deliveryMethod === k ? DELIVERY_COLORS[k] + " border-current" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
                   <input type="radio" name="deliveryMethod" value={k} checked={deliveryMethod === k} onChange={() => setDeliveryMethod(k)} className="sr-only" />
                   <span className="text-sm font-medium">{v}</span>
+                  {isDiamond && k === "CARGO" && (
+                    <span className="text-[10px] text-blue-600 font-normal">+kargo ücreti</span>
+                  )}
                 </label>
               ))}
             </div>
+            {isDiamond && deliveryMethod === "CARGO" && (
+              <div className="mt-1.5 flex items-center gap-3">
+                <p className={`text-[11px] ${freeShipping ? "line-through text-gray-400" : "text-blue-600"}`}>
+                  {totalQty} ürün → Kargo: {Math.ceil(totalQty / 5) * 200}₺ (her 5 ürün için 200₺)
+                </p>
+                <label className="flex items-center gap-1 cursor-pointer text-[11px] text-green-700 font-medium">
+                  <input type="checkbox" checked={freeShipping} onChange={(e) => setFreeShipping(e.target.checked)} className="w-3 h-3" />
+                  Ücretsiz Kargo
+                </label>
+              </div>
+            )}
           </div>
 
           {/* Ürünler */}
@@ -612,7 +664,7 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, categ
               {items.map((item, idx) => (
                 <div key={idx} className="flex gap-2 items-start">
                   <div className="flex-1 space-y-0.5">
-                    <ProductInput item={item} idx={idx} products={products} onChange={changeItem} />
+                    <ProductInput item={item} idx={idx} products={products} onChange={changeItem} isDiamond={isDiamond} />
                     <button type="button" onClick={() => { setNewProductIdx(idx); setNewProd({ name: item.name, price: String(item.price || ""), costPrice: "", categoryId: "", brandId: "" }); }}
                       className="text-[10px] text-green-600 hover:text-green-800">
                       + Listede yoksa yeni ürün ekle
@@ -715,13 +767,21 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, categ
             </div>
           </div>
 
-          {discountAmt > 0 && (
-            <div className="bg-green-50 border border-green-200 rounded px-3 py-2 text-sm">
-              <span className="text-gray-600">Brüt: {grossTotal.toLocaleString("tr-TR")}₺</span>
-              <span className="mx-2 text-gray-400">−</span>
-              <span className="text-orange-600">İskonto: {discountAmt.toLocaleString("tr-TR")}₺</span>
-              <span className="mx-2 text-gray-400">=</span>
-              <span className="font-bold text-green-700">Net: {netTotal.toLocaleString("tr-TR")}₺</span>
+          {(discountAmt > 0 || shippingFee > 0) && (
+            <div className="bg-green-50 border border-green-200 rounded px-3 py-2 text-sm space-y-0.5">
+              <div>
+                <span className="text-gray-600">Ürünler: {grossTotal.toLocaleString("tr-TR")}₺</span>
+                {discountAmt > 0 && <>
+                  <span className="mx-2 text-gray-400">−</span>
+                  <span className="text-orange-600">İskonto: {discountAmt.toLocaleString("tr-TR")}₺</span>
+                </>}
+                {shippingFee > 0 && <>
+                  <span className="mx-2 text-gray-400">+</span>
+                  <span className="text-blue-600">Kargo: {shippingFee.toLocaleString("tr-TR")}₺</span>
+                </>}
+                <span className="mx-2 text-gray-400">=</span>
+                <span className="font-bold text-green-700">Net: {netTotal.toLocaleString("tr-TR")}₺</span>
+              </div>
             </div>
           )}
 
@@ -753,7 +813,7 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, categ
 // ---- Main Component ----
 
 export default function SiparislerClient({
-  orders, customers, products, categories, brands, debtByOrderId,
+  orders, customers, products, categories, brands, debtByOrderId, initialFilter,
 }: {
   orders: OrderRow[];
   customers: Customer[];
@@ -761,10 +821,11 @@ export default function SiparislerClient({
   categories: CatBrand[];
   brands: CatBrand[];
   debtByOrderId: Record<string, OrderDebt>;
+  initialFilter?: string;
 }) {
-  const [filter, setFilter] = useState("");
+  const [filter, setFilter] = useState(initialFilter ?? "");
   const [sourceFilter, setSourceFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("PENDING");
+  const [statusFilter, setStatusFilter] = useState(initialFilter ? "ALL" : "PENDING");
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [editOrder, setEditOrder] = useState<OrderRow | null>(null);
   const [summaryOrder, setSummaryOrder] = useState<OrderRow | null>(null);
@@ -778,7 +839,11 @@ export default function SiparislerClient({
       || (o.recipientName ?? "").toLowerCase().includes(q)
       || (o.recipientPhone ?? "").includes(q);
     const matchSource = !sourceFilter || o.source === sourceFilter;
-    const matchStatus = statusFilter === "ALL" || o.status === statusFilter;
+    const matchStatus = statusFilter === "ALL"
+      ? true
+      : statusFilter === "FREE"
+      ? o.paymentStatus === "FREE"
+      : o.status === statusFilter;
     return matchQ && matchSource && matchStatus;
   });
 
@@ -787,6 +852,7 @@ export default function SiparislerClient({
     SHIPPED:   orders.filter((o) => o.status === "SHIPPED").length,
     DELIVERED: orders.filter((o) => o.status === "DELIVERED").length,
     CANCELLED: orders.filter((o) => o.status === "CANCELLED").length,
+    FREE:      orders.filter((o) => o.paymentStatus === "FREE").length,
     ALL:       orders.length,
   };
 
@@ -833,6 +899,7 @@ export default function SiparislerClient({
           { key: "SHIPPED",   label: "Kargoya Verildi",  color: "text-indigo-700 border-indigo-500" },
           { key: "DELIVERED", label: "Teslim Edildi",    color: "text-green-700 border-green-500" },
           { key: "CANCELLED", label: "İptal Edildi",     color: "text-red-600 border-red-400" },
+          { key: "FREE",      label: "Ücretsiz",         color: "text-purple-700 border-purple-500" },
           { key: "ALL",       label: "Tüm Siparişler",   color: "text-gray-600 border-gray-500" },
         ] as const).map(({ key, label, color }) => (
           <button key={key} onClick={() => setStatusFilter(key)}
@@ -983,18 +1050,24 @@ export default function SiparislerClient({
         />
       )}
       {summaryOrder && (
-        <OrderSummaryModal order={summaryOrder} onClose={() => setSummaryOrder(null)} />
+        <OrderSummaryModal order={summaryOrder} debt={debtByOrderId[summaryOrder.id] ?? null} onClose={() => setSummaryOrder(null)} />
       )}
     </div>
   );
 }
 
 // ---- Order Summary Modal ----
-function OrderSummaryModal({ order, onClose }: { order: OrderRow; onClose: () => void }) {
+function OrderSummaryModal({ order, debt, onClose }: { order: OrderRow; debt: OrderDebt | null; onClose: () => void }) {
   const items = safeOrderItems(order.items);
   const originalTotal = items.reduce((s, i) => s + i.qty * i.price, 0);
   const indirimliTutar = order.source === "web" ? order.total - order.discount : order.total;
   const indirim = originalTotal - indirimliTutar;
+
+  const alinanPaid = debt
+    ? debt.paidAmount
+    : (order.paymentStatus === "PAID" || order.paymentStatus === "FREE" ? indirimliTutar : 0);
+  const kalan = Math.max(0, indirimliTutar - alinanPaid);
+  const showPaymentDetail = order.paymentStatus !== "FREE";
 
   const phone = order.recipientPhone || order.memberPhone || null;
   const cleanPhone = phone ? (() => { const d = phone.replace(/\D/g, ""); return d.startsWith("90") ? d : d.startsWith("0") ? "9" + d : "90" + d; })() : null;
@@ -1012,9 +1085,16 @@ function OrderSummaryModal({ order, onClose }: { order: OrderRow; onClose: () =>
     lines.push(`İndirim: -${indirim.toLocaleString("tr-TR")} ₺`);
   }
   lines.push(`Toplam: ${indirimliTutar.toLocaleString("tr-TR")} ₺`);
+  if (showPaymentDetail) {
+    lines.push(`Alınan: ${alinanPaid.toLocaleString("tr-TR")} ₺`);
+    lines.push(`Kalan: ${kalan.toLocaleString("tr-TR")} ₺`);
+  }
   lines.push(`Durum: ${STATUS_LABELS[order.status] ?? order.status}`);
   if (order.cargoCompany || order.trackingNo) {
     lines.push(`Kargo: ${[order.cargoCompany, order.trackingNo].filter(Boolean).join(" — ")}`);
+    if (order.trackingNo && order.cargoCompany && CARGO_TRACKING_URLS[order.cargoCompany]) {
+      lines.push(`Takip: ${CARGO_TRACKING_URLS[order.cargoCompany](order.trackingNo)}`);
+    }
   }
   lines.push(``, `İyi günler dileriz, Ormivo`);
 
@@ -1082,6 +1162,18 @@ function OrderSummaryModal({ order, onClose }: { order: OrderRow; onClose: () =>
                 <span>Toplam</span>
                 <span>{indirimliTutar.toLocaleString("tr-TR")} ₺</span>
               </div>
+              {showPaymentDetail && (
+                <>
+                  <div className="flex justify-between text-xs text-blue-600 pt-1">
+                    <span>Alınan</span>
+                    <span>+{alinanPaid.toLocaleString("tr-TR")} ₺</span>
+                  </div>
+                  <div className="flex justify-between text-xs font-semibold text-red-600">
+                    <span>Kalan</span>
+                    <span>{kalan.toLocaleString("tr-TR")} ₺</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -1116,7 +1208,17 @@ function OrderSummaryModal({ order, onClose }: { order: OrderRow; onClose: () =>
           {(order.cargoCompany || order.trackingNo) && (
             <div>
               <p className="text-[9px] tracking-widest uppercase text-gray-400 mb-1">Kargo</p>
-              <p className="text-sm text-gray-700">{[order.cargoCompany, order.trackingNo].filter(Boolean).join(" — ")}</p>
+              <p className="text-sm text-gray-700 mb-1">{[order.cargoCompany, order.trackingNo].filter(Boolean).join(" — ")}</p>
+              {order.trackingNo && order.cargoCompany && CARGO_TRACKING_URLS[order.cargoCompany] && (
+                <a
+                  href={CARGO_TRACKING_URLS[order.cargoCompany](order.trackingNo)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-indigo-600 hover:text-indigo-800 underline"
+                >
+                  Kargo Takibine Git →
+                </a>
+              )}
             </div>
           )}
 
@@ -1158,6 +1260,7 @@ function SendToDepoButton({ order }: { order: OrderRow }) {
   const [showModal, setShowModal] = useState(false);
   const [depoName, setDepoName] = useState("");
   const [depoPhone, setDepoPhone] = useState("");
+  const [sent, setSent] = useState(false);
   const router = useRouter();
 
   function handleSend() {
@@ -1171,6 +1274,7 @@ function SendToDepoButton({ order }: { order: OrderRow }) {
         }
         if (!res.success) { alert((res as { error?: string }).error ?? "Aktarım başarısız."); return; }
         alert(res.mode === "updated" ? "Mevcut açık depo siparişine eklendi." : "Depo siparişine eklendi.");
+        setSent(true);
         router.refresh();
       } catch (e) { alert("Hata: " + (e instanceof Error ? e.message : "Bilinmeyen hata")); }
     });
@@ -1190,10 +1294,10 @@ function SendToDepoButton({ order }: { order: OrderRow }) {
 
   return (
     <>
-      <button onClick={handleSend} disabled={pending || order.status === "SHIPPED" || order.status === "DELIVERED" || order.status === "CANCELLED"}
-        title={order.status !== "PENDING" ? "Sadece beklemedeki siparişler depoya eklenebilir" : undefined}
+      <button onClick={handleSend} disabled={pending || sent || order.status === "SHIPPED" || order.status === "DELIVERED" || order.status === "CANCELLED"}
+        title={sent ? "Bu sipariş zaten depoya eklendi" : order.status !== "PENDING" ? "Sadece beklemedeki siparişler depoya eklenebilir" : undefined}
         className="text-xs text-emerald-600 hover:text-emerald-800 mr-3 disabled:opacity-50 disabled:cursor-not-allowed">
-        Depoya Ekle
+        {sent ? "✓ Eklendi" : "Depoya Ekle"}
       </button>
       {showModal && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
@@ -1639,8 +1743,8 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
           {/* Kargo */}
           <div className="border border-[#e8ddd6] rounded-sm p-4 bg-[#faf8f6] space-y-3">
             <p className="text-[10px] tracking-widest uppercase text-[#8b6f5e]">Kargo Bilgisi</p>
-            {deliveryMethod === "PICKUP" ? (
-              <p className="text-xs text-[#b8a89e]">Dükkan teslim seçildiğinde kargo bilgisi girilmez.</p>
+            {(deliveryMethod === "PICKUP" || deliveryMethod === "STORE") ? (
+              <p className="text-xs text-[#b8a89e]">Mağaza teslim seçildiğinde kargo bilgisi girilmez.</p>
             ) : (
               <div className="grid grid-cols-2 gap-3">
                 <div>

@@ -260,6 +260,9 @@ export async function addManualOrderToDepo(orderId: string, source: "manuel" | "
     orderNo = order.orderNo;
     customerName = order.customer?.name ?? "Müşteri";
     rawItems = order.items;
+    if (!order.depoSent) {
+      await prisma.order.update({ where: { id: orderId }, data: { depoSent: true } });
+    }
   }
 
   const orderItems = normalizeOrderItems(rawItems).map<DepoSiparisItem>((item) => ({
@@ -342,6 +345,9 @@ export async function createDepoSiparisFromOrder(
     orderNo = order.orderNo;
     customerName = order.customer?.name ?? "Müşteri";
     rawItems = order.items;
+    if (!order.depoSent) {
+      await prisma.order.update({ where: { id: orderId }, data: { depoSent: true } });
+    }
   }
 
   const orderItems = normalizeOrderItems(rawItems).map<DepoSiparisItem>((item) => ({

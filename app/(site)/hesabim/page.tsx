@@ -8,6 +8,8 @@ import AddressActions        from "./AddressActions";
 import AdminAddressActions   from "./AdminAddressActions";
 import HesabimProfileCard    from "./HesabimProfileCard";
 import HesabimSiparisler     from "./HesabimSiparisler";
+import BankInfoCard          from "./BankInfoCard";
+import { getTransferInfo }   from "@/lib/actions/settings";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Hesabım — Ormivo" };
@@ -24,7 +26,10 @@ export default async function HesabimPage() {
   const [user, siteOrders, allSiteOrders, favoriteLists, favoriteCount] = await Promise.all([
     prisma.siteUser.findUnique({
       where:   { id: session.userId },
-      include: { addresses: { orderBy: { isDefault: "desc" } } },
+      include: {
+        addresses: { orderBy: { isDefault: "desc" } },
+        referredBy: { select: { bankInfo: true } },
+      },
     }),
     prisma.siteOrder.findMany({
       where:   { userId: session.userId, status: { not: "CANCELLED" } },
@@ -38,7 +43,7 @@ export default async function HesabimPage() {
     }),
     prisma.siteOrder.findMany({
       where:  { userId: session.userId, status: { not: "CANCELLED" } },
-      select: { items: true, total: true, discount: true },
+      select: { items: true, total: true, discount: true, paymentStatus: true, id: true },
     }),
     prisma.favoriteList.findMany({
       where:   { userId: session.userId },
@@ -83,13 +88,61 @@ export default async function HesabimPage() {
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   type OrderItem = { qty?: number; quantity?: number; price: number };
-  const totalOriginal = allSiteOrders.reduce((sum, o) => {
+
+  // PARTIAL siparişler için CustomerDebt'ten ödenen miktarları çek
+  const partialOrderIds = allSiteOrders.filter((o) => o.paymentStatus === "PARTIAL").map((o) => o.id);
+  const partialDebts = partialOrderIds.length
+    ? await prisma.customerDebt.findMany({
+        where: { siteOrderId: { in: partialOrderIds } },
+        select: { siteOrderId: true, paidAmount: true, totalAmount: true },
+      })
+    : [];
+  const partialDebtMap = new Map(partialDebts.map((d) => [d.siteOrderId, d]));
+
+  // Web siparişler: PAID olanlarda ödenen, PARTIAL/PENDING'de ödenmesi gereken
+  const webPaidAmount = allSiteOrders
+    .filter((o) => o.paymentStatus === "PAID" || o.paymentStatus === "FREE")
+    .reduce((sum, o) => sum + Number(o.total), 0);
+
+  const webPartialPaid = allSiteOrders
+    .filter((o) => o.paymentStatus === "PARTIAL")
+    .reduce((sum, o) => {
+      const debt = partialDebtMap.get(o.id);
+      return sum + (debt ? Number(debt.paidAmount) : 0);
+    }, 0);
+
+  const webOwedAmount = allSiteOrders
+    .filter((o) => o.paymentStatus === "PENDING" || o.paymentStatus === "PARTIAL")
+    .reduce((sum, o) => {
+      if (o.paymentStatus === "PARTIAL") {
+        const debt = partialDebtMap.get(o.id);
+        return sum + (debt ? Number(debt.totalAmount) - Number(debt.paidAmount) : Number(o.total));
+      }
+      return sum + Number(o.total);
+    }, 0);
+
+  const webOriginal = allSiteOrders.reduce((sum, o) => {
     const items = o.items as OrderItem[];
     return sum + items.reduce((s, i) => s + (i.qty ?? i.quantity ?? 1) * i.price, 0);
   }, 0);
-  const totalPaid     = allSiteOrders.reduce((sum, o) => sum + Number(o.total), 0);
-  const totalDiscount = Math.max(0, totalOriginal - totalPaid);
+
+  // Admin CRM siparişler (tümü ödenmiş sayılır)
+  const adminPaid = (customer?.orders ?? []).reduce((sum, o) => sum + Number(o.total), 0);
+  const adminOriginal = (customer?.orders ?? []).reduce((sum, o) => {
+    const items = o.items as OrderItem[];
+    return sum + items.reduce((s, i) => s + (i.qty ?? i.quantity ?? 1) * i.price, 0);
+  }, 0);
+
+  const totalOriginal  = webOriginal + adminOriginal;
+  const totalPaidAmt   = webPaidAmount + webPartialPaid + adminPaid;
+  const totalOwedAmt   = webOwedAmount;
+  const totalDiscount  = Math.max(0, totalOriginal - (webPaidAmount + webOwedAmount + adminOriginal));
+  const hasAnyOrders   = allSiteOrders.length > 0 || (customer?.orders ?? []).length > 0;
   const debts = customer?.debts ?? [];
+
+  // WA için banka bilgisi: referral'ın bankInfo'su varsa onu kullan, yoksa Ormivo'nun bilgisi
+  const ormivoTransfer = await getTransferInfo();
+  const waBankInfo = (user as { referredBy?: { bankInfo?: string | null } | null }).referredBy?.bankInfo?.trim() || ormivoTransfer;
 
   // Favori listelerindeki ürünlerin önizlemesi (her listeden ilk görsel)
   const allProductIds = [...new Set(favoriteLists.flatMap((l) => l.productIds.slice(0, 4)))];
@@ -126,8 +179,8 @@ export default async function HesabimPage() {
         />
 
         {/* ── Özet Kartlar ─────────────────────────────── */}
-        {allSiteOrders.length > 0 && (
-          <div className="grid grid-cols-3 gap-3">
+        {hasAnyOrders && (
+          <div className={`grid gap-3 ${totalOwedAmt > 0 ? "grid-cols-2 md:grid-cols-4" : "grid-cols-3"}`}>
             <div className="bg-white border border-[#E8E4DE] p-4 text-center">
               <p className="font-sans text-[8px] tracking-[0.3em] uppercase text-[#9A9A9A] mb-1.5">Toplam Alışveriş</p>
               <p className="font-serif text-lg text-[#1A1A1A]">{totalOriginal.toLocaleString("tr-TR")} ₺</p>
@@ -140,8 +193,14 @@ export default async function HesabimPage() {
             </div>
             <div className="bg-white border border-[#E8E4DE] p-4 text-center">
               <p className="font-sans text-[8px] tracking-[0.3em] uppercase text-[#9A9A9A] mb-1.5">Toplam Ödediğin</p>
-              <p className="font-serif text-lg text-[#1A1A1A] font-medium">{totalPaid.toLocaleString("tr-TR")} ₺</p>
+              <p className="font-serif text-lg text-[#1A1A1A] font-medium">{totalPaidAmt.toLocaleString("tr-TR")} ₺</p>
             </div>
+            {totalOwedAmt > 0 && (
+              <div className="bg-white border border-red-200 p-4 text-center">
+                <p className="font-sans text-[8px] tracking-[0.3em] uppercase text-red-400 mb-1.5">Ödenmesi Gereken</p>
+                <p className="font-serif text-lg text-red-600 font-medium">{totalOwedAmt.toLocaleString("tr-TR")} ₺</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -259,9 +318,14 @@ export default async function HesabimPage() {
 
           {/* Sağ: Siparişler */}
           <div id="siparisler" className="md:col-span-2">
-            <HesabimSiparisler orders={orders} userPhone={user.phone} />
+            <HesabimSiparisler orders={orders} userPhone={user.phone} userName={user.name ?? ""} bankInfo={waBankInfo} />
           </div>
         </div>
+
+        {/* ── Diamond / Bayi Banka Bilgileri ────────── */}
+        {(session.isB2BApproved || session.segment === "DIAMOND") && (
+          <BankInfoCard initialBankInfo={(user as { bankInfo?: string | null }).bankInfo ?? null} />
+        )}
 
         {/* ── Bayi Paneli ────────────────────────────── */}
         {session.isB2BApproved && (

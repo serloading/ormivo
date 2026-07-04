@@ -163,6 +163,22 @@ export async function createDebtFromB2BOrder(data: {
   return debt;
 }
 
+export async function updateCustomerDebt(id: string, data: {
+  description?: string;
+  totalAmount?: number;
+  dueDate?: string | null;
+}) {
+  await prisma.customerDebt.update({
+    where: { id },
+    data: {
+      description: data.description,
+      totalAmount: data.totalAmount,
+      dueDate: data.dueDate ? new Date(data.dueDate) : data.dueDate === null ? null : undefined,
+    },
+  });
+  revalidatePath("/admin/borc-alacak");
+}
+
 export async function deleteCustomerDebt(id: string) {
   await prisma.debtPayment.deleteMany({ where: { debtId: id } });
   await prisma.customerDebt.delete({ where: { id } });

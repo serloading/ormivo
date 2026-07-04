@@ -50,6 +50,21 @@ export async function updateDiamondMarkup(amount: number) {
   return { success: true };
 }
 
+export async function getTransferInfo(): Promise<string> {
+  const row = await prisma.setting.findUnique({ where: { key: "TRANSFER_INFO" } });
+  return row?.value ?? "";
+}
+
+export async function updateTransferInfo(info: string) {
+  await prisma.setting.upsert({
+    where:  { key: "TRANSFER_INFO" },
+    update: { value: info },
+    create: { key: "TRANSFER_INFO", value: info },
+  });
+  revalidatePath("/admin/ayarlar");
+  return { success: true };
+}
+
 export async function getUsdRate(): Promise<number> {
   const row = await prisma.setting.findUnique({ where: { key: "usd_rate" } });
   return row ? parseFloat(row.value) : 38;

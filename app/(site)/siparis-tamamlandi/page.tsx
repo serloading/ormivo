@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { normalizeOrderItems } from "@/lib/order-items";
+import { getTransferInfo } from "@/lib/actions/settings";
 
 export const metadata = { title: "Siparişiniz Alındı — Ormivo" };
 
@@ -31,19 +32,29 @@ export default async function SiparisTamamlandiPage({
 
   let paymentMethod: string | null = null;
 
+  let userName = "";
+  let bankInfo = "";
   if (orderNo) {
-    const order = await prisma.siteOrder.findUnique({
-      where: { orderNo },
-      select: {
-        items: true,
-        total: true,
-        discount: true,
-        paymentMethod: true,
-        user: { select: { phone: true } },
-      },
-    });
+    const [order, ormivoTransfer] = await Promise.all([
+      prisma.siteOrder.findUnique({
+        where: { orderNo },
+        select: {
+          items: true, total: true, discount: true, paymentMethod: true,
+          user: {
+            select: {
+              phone: true, name: true,
+              referredBy: { select: { bankInfo: true } },
+            },
+          },
+        },
+      }),
+      getTransferInfo(),
+    ]);
     paymentMethod = (order as { paymentMethod?: string } | null)?.paymentMethod ?? null;
     if (order) {
+      userName = order.user?.name ?? "";
+      // Eğer referral'ın bankInfo'su varsa onu kullan, yoksa Ormivo'nun bilgisini kullan
+      bankInfo = order.user?.referredBy?.bankInfo?.trim() || ormivoTransfer;
       orderDetails = {
         items: normalizeOrderItems(order.items),
         total: Number(order.total),
@@ -56,15 +67,18 @@ export default async function SiparisTamamlandiPage({
   // WhatsApp mesajı oluştur
   let waUrl: string | null = null;
   if (orderDetails && orderNo) {
+    const greeting = `Merhaba ${userName || "değerli müşterimiz"}, sipariş özetiniz aşağıdaki gibidir;\n\n`;
     const lines = [
-      `Merhaba, #${orderNo} numaralı siparişim hakkında bilgi almak istedim.`,
+      `Sipariş No: #${orderNo}`,
       ``,
       ...orderDetails.items.map((i) => `• ${i.name} ×${i.qty} = ${(i.price * i.qty).toLocaleString("tr-TR")} ₺`),
       ``,
       ...(orderDetails.discount > 0 ? [`İndirim: -${orderDetails.discount.toLocaleString("tr-TR")} ₺`] : []),
       `Toplam: ${orderDetails.total.toLocaleString("tr-TR")} ₺`,
+      `Ödeme: ${paymentMethod === "KART" ? "Kredi/Banka Kartı" : "Havale/EFT"}`,
+      ...(paymentMethod !== "KART" && bankInfo ? [``, `Havale Bilgileri:`, bankInfo] : []),
     ];
-    const text = encodeURIComponent(lines.join("\n"));
+    const text = encodeURIComponent(greeting + lines.join("\n"));
     waUrl = `https://wa.me/905465402113?text=${text}`;
   }
 
@@ -116,19 +130,6 @@ export default async function SiparisTamamlandiPage({
                   <span className="text-[#C4A882]">{orderDetails.total.toLocaleString("tr-TR")} ₺</span>
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* Havale/EFT için IBAN bilgisi */}
-          {!isPaid && paymentMethod !== "KART" && (
-            <div className="bg-amber-50 border border-amber-200 px-4 py-4 mb-6 text-left">
-              <p className="font-sans text-[10px] tracking-[0.2em] uppercase text-amber-700 mb-2">Havale / EFT Bilgileri</p>
-              <div className="space-y-1 font-sans text-xs text-[#4A4A4A]">
-                <p><span className="text-[#9A9A9A]">Banka:</span> {process.env.NEXT_PUBLIC_IBAN_BANK ?? "—"}</p>
-                <p><span className="text-[#9A9A9A]">Ad Soyad:</span> {process.env.NEXT_PUBLIC_IBAN_NAME ?? "—"}</p>
-                <p><span className="text-[#9A9A9A]">IBAN:</span> <span className="font-mono font-semibold">{process.env.NEXT_PUBLIC_IBAN ?? "—"}</span></p>
-              </div>
-              <p className="font-sans text-[10px] text-amber-600 mt-2">Açıklama kısmına sipariş numaranızı yazmayı unutmayın.</p>
             </div>
           )}
 

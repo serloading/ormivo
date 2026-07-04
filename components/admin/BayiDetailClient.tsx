@@ -19,7 +19,7 @@ type OrderItem = { productId?: string; name?: string; qty?: number; quantity?: n
 type Order = {
   id: string; orderNo: string; status: string; paymentStatus: string;
   total: number; createdAt: Date; recipientName: string | null; city: string | null;
-  items: OrderItem[];
+  items: OrderItem[]; referralName?: string | null;
 };
 type Debt = {
   id: string; description: string; totalAmount: number; paidAmount: number;
@@ -253,7 +253,10 @@ export default function BayiDetailClient({
                   const itemSummary = o.items?.slice(0, 2).map((it) => it.name ?? "—").join(", ") + (o.items?.length > 2 ? ` +${o.items.length - 2}` : "");
                   return (
                     <tr key={o.id} className={`border-b border-[#f0e8e0] ${i % 2 === 0 ? "bg-white" : "bg-[#fdfaf8]"}`}>
-                      <td className="px-4 py-3 font-mono text-xs text-[#5c4033]">{o.orderNo}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-[#5c4033]">
+                        {o.orderNo}
+                        {o.referralName && <span className="block text-[10px] text-cyan-600 font-sans font-normal">{o.referralName}</span>}
+                      </td>
                       <td className="px-4 py-3 text-xs text-[#8b6f5e] whitespace-nowrap">
                         {new Date(o.createdAt).toLocaleDateString("tr-TR")}
                       </td>

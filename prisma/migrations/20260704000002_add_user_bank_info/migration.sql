@@ -1,0 +1,1 @@
+ALTER TABLE "SiteUser" ADD COLUMN "bankInfo" TEXT;

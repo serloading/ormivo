@@ -3,6 +3,7 @@ import { getSession }  from "@/lib/session";
 import { prisma }      from "@/lib/prisma";
 import Link            from "next/link";
 import FavorilerimClient from "./FavorilerimClient";
+import { getSegmentSettings } from "@/lib/actions/settings";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Favorilerim — Ormivo" };
@@ -11,7 +12,11 @@ export default async function FavorilerimPage() {
   const session = await getSession();
   if (!session) redirect("/giris");
 
-  const [favorites, favoriteLists] = await Promise.all([
+  const isB2B       = session.isB2BApproved ?? false;
+  const b2bMarkup   = session.b2bMarkup ?? null;
+  const userSegment = session.segment ?? null;
+
+  const [favorites, favoriteLists, segmentSettings] = await Promise.all([
     prisma.favorite.findMany({
       where:   { userId: session.userId },
       include: { product: { include: { brand: true, category: true } } },
@@ -21,6 +26,7 @@ export default async function FavorilerimPage() {
       where:   { userId: session.userId },
       orderBy: { createdAt: "desc" },
     }),
+    getSegmentSettings(),
   ]);
 
   // Fetch products for existing lists
@@ -40,6 +46,7 @@ export default async function FavorilerimPage() {
     slug: f.product.slug,
     images: f.product.images,
     price: Number(f.product.price),
+    costPrice: f.product.costPrice != null ? Number(f.product.costPrice) : null,
     brandName: f.product.brand?.name ?? null,
     categoryName: f.product.category?.name ?? null,
   }));
@@ -78,7 +85,14 @@ export default async function FavorilerimPage() {
           </div>
         </div>
 
-        <FavorilerimClient favorites={serializedFavs} lists={serializedLists} />
+        <FavorilerimClient
+          favorites={serializedFavs}
+          lists={serializedLists}
+          isB2B={isB2B}
+          b2bMarkup={b2bMarkup}
+          userSegment={userSegment}
+          segmentSettings={segmentSettings}
+        />
       </div>
     </div>
   );

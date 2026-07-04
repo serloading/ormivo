@@ -23,22 +23,22 @@ export default async function SepetPage() {
   }
 
   const userSegment = session.segment ?? null;
+  const isB2B       = session.isB2BApproved ?? false;
+  const b2bMarkup   = session.b2bMarkup ?? null;
 
-  const [cart, addresses, segmentSettings] = await Promise.all([
+  const [cart, segmentSettings] = await Promise.all([
     getCart(),
-    prisma.address.findMany({
-      where:   { userId: session.userId },
-      orderBy: { isDefault: "desc" },
-    }),
     getSegmentSettings(),
   ]);
 
   const items = cart?.items ?? [];
 
-  // Cinsiyet tespiti: sepetteki ürünlerin kategorilerine bakarak
+  // Cinsiyet tespiti: cross-sell (customPrice'lı) ürünleri hariç tut
   type CartProduct = { id: string; name: string; price: unknown; brand?: { name: string; slug: string } | null; images: string[]; slug: string; categoryId?: string | null };
+  type CartItemFull = typeof items[number] & { customPrice?: unknown };
+  const originalItems = (items as CartItemFull[]).filter((i) => i.customPrice == null);
   const cartCategoryIds = [...new Set(
-    items.map((i) => (i.product as CartProduct).categoryId).filter(Boolean) as string[]
+    originalItems.map((i) => (i.product as CartProduct).categoryId).filter(Boolean) as string[]
   )];
   const cartCategories = cartCategoryIds.length
     ? await prisma.category.findMany({ where: { id: { in: cartCategoryIds } }, select: { id: true, name: true } })
@@ -79,9 +79,10 @@ export default async function SepetPage() {
         </p>
         <LoggedInCart
           items={items}
-          addresses={addresses}
           crossSellProducts={crossSellProducts}
           userSegment={userSegment}
+          isB2B={isB2B}
+          b2bMarkup={b2bMarkup}
           segmentSettings={segmentSettings}
         />
       </div>

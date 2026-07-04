@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/session";
 
 function seededShuffle<T>(arr: T[], seed: number): T[] {
   let s = seed;
@@ -21,6 +22,9 @@ function todaySeed(): number {
 }
 
 export async function GET(req: NextRequest) {
+  const session = await getSession();
+  const canSeeCostPrice = !!(session?.isB2BApproved || session?.segment === "DIAMOND");
+
   const sp       = req.nextUrl.searchParams;
   const kategori = sp.get("kategori") ?? "";
   const marka    = sp.get("marka")    ?? "";
@@ -64,16 +68,18 @@ export async function GET(req: NextRequest) {
   const page    = products.slice(offset, offset + limit);
   const hasMore = offset + limit < products.length;
 
-  type PageProduct = { id: string; slug: string; name: string; price: unknown; comparePrice: unknown; images: unknown; stock: number; brand: { name: string } | null };
+  type PageProduct = { id: string; slug: string; name: string; price: unknown; comparePrice: unknown; costPrice: unknown; images: unknown; stock: number; brand: { name: string; slug: string } | null; category: { name: string } | null };
   const items = (page as PageProduct[]).map((p) => ({
     id:           p.id,
     slug:         p.slug,
     name:         p.name,
     price:        Number(p.price),
     comparePrice: p.comparePrice ? Number(p.comparePrice) : null,
+    costPrice:    canSeeCostPrice && p.costPrice != null ? Number(p.costPrice) : null,
     images:       p.images,
     stock:        p.stock,
-    brand:        p.brand ? { name: p.brand.name } : null,
+    brand:        p.brand ? { name: p.brand.name, slug: p.brand.slug } : null,
+    categoryName: p.category?.name ?? null,
   }));
 
   return NextResponse.json({ items, hasMore, total: products.length });

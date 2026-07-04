@@ -19,7 +19,7 @@ export default async function DashboardPage() {
     todaySiteOrders,
     todayB2BOrders,
     monthSiteOrders,
-    monthB2BOrders,
+    monthDiamondOrders,
     monthTopCustomers,
     debtStats,
     pendingSiteOrders,
@@ -37,24 +37,23 @@ export default async function DashboardPage() {
       where: { createdAt: { gte: todayStart }, status: { not: "CANCELLED" } },
       select: { total: true },
     }),
+    // Web (non-Diamond) siparişler — ürün sıralaması için
     prisma.siteOrder.findMany({
-      where: { createdAt: { gte: monthStart }, status: { not: "CANCELLED" } },
+      where: { createdAt: { gte: monthStart }, status: { not: "CANCELLED" }, user: { segment: { not: "DIAMOND" } } },
       select: { items: true },
     }),
-    prisma.order.findMany({
-      where: { createdAt: { gte: monthStart }, status: { not: "CANCELLED" } },
-      select: { items: true },
+    // Diamond üye siparişleri — bayi sıralaması için
+    prisma.siteOrder.findMany({
+      where: { createdAt: { gte: monthStart }, status: { not: "CANCELLED" }, user: { segment: "DIAMOND" } },
+      select: { items: true, total: true, user: { select: { id: true, name: true, phone: true } } },
     }),
-    // Bu ayın sipariş verenlerini bul — userId ve customerId üzerinden
+    // Bu ayın sipariş verenlerini bul — sadece web (non-Diamond) kullanıcılar
     Promise.all([
       prisma.siteOrder.findMany({
         where: { createdAt: { gte: monthStart }, status: { not: "CANCELLED" } },
-        select: { user: { select: { name: true, phone: true } } },
+        select: { user: { select: { name: true, phone: true, isB2BApproved: true, segment: true } } },
       }),
-      prisma.order.findMany({
-        where: { createdAt: { gte: monthStart }, status: { not: "CANCELLED" }, customerId: { not: null } },
-        select: { customer: { select: { id: true, name: true, phone: true } } },
-      }),
+      [] as never[], // artık kullanılmıyor
     ]),
     getDebtStats(),
     prisma.siteOrder.findMany({
@@ -71,27 +70,35 @@ export default async function DashboardPage() {
     }),
   ]);
 
-  // Bu ayın en çok sipariş verenleri — siteOrders + orders birleştir
-  const [monthSiteForRanking, monthB2BForRanking] = monthTopCustomers as [
-    { user: { name: string; phone: string } | null }[],
-    { customer: { id: string; name: string; phone: string } | null }[],
+  // Bu ayın en çok sipariş verenleri — sadece web (non-B2B, non-Diamond) müşteriler
+  const [monthSiteForRanking] = monthTopCustomers as [
+    { user: { name: string; phone: string; isB2BApproved: boolean; segment: string | null } | null }[],
+    never[],
   ];
+
+  // Web müşteri sıralaması — Diamond ve B2B hariç
   const rankMap = new Map<string, { name: string; phone: string; id: string; count: number }>();
   for (const so of monthSiteForRanking) {
     if (!so.user) continue;
+    if (so.user.isB2BApproved || so.user.segment === "DIAMOND") continue;
     const key = so.user.phone;
     const existing = rankMap.get(key);
     if (existing) existing.count++;
     else rankMap.set(key, { name: so.user.name, phone: so.user.phone, id: key, count: 1 });
   }
-  for (const bo of monthB2BForRanking) {
-    if (!bo.customer) continue;
-    const key = bo.customer.id;
-    const existing = rankMap.get(key);
-    if (existing) existing.count++;
-    else rankMap.set(key, { name: bo.customer.name, phone: bo.customer.phone, id: bo.customer.id, count: 1 });
-  }
   const monthRankedCustomers = [...rankMap.values()].sort((a, b) => b.count - a.count).slice(0, 6);
+
+  // En çok satış yapan Diamond bayiler (SiteOrder'dan)
+  type DiamondOrder = { total: unknown; items: unknown; user: { id: string; name: string; phone: string } | null };
+  const dealerMap = new Map<string, { name: string; phone: string; id: string; total: number; count: number }>();
+  for (const bo of (monthDiamondOrders as DiamondOrder[])) {
+    if (!bo.user) continue;
+    const key = bo.user.id;
+    const existing = dealerMap.get(key);
+    if (existing) { existing.count++; existing.total += Number(bo.total); }
+    else dealerMap.set(key, { name: bo.user.name, phone: bo.user.phone, id: bo.user.id, total: Number(bo.total), count: 1 });
+  }
+  const topDealers = [...dealerMap.values()].sort((a, b) => b.total - a.total).slice(0, 6);
 
   const todayOrderCount = todaySiteOrders.length + todayB2BOrders.length;
   const todayRevenue =
@@ -106,16 +113,26 @@ export default async function DashboardPage() {
     Number(supplierDebtTotal._sum.totalAmount ?? 0) -
     Number(supplierDebtTotal._sum.paidAmount ?? 0);
 
-  // Bu ay ürün bazlı satış
+  // Bu ay ürün bazlı satış — Web siparişleri
   type Item = { name: string; qty: number };
-  const itemMap = new Map<string, number>();
-  for (const o of [...monthSiteOrders, ...monthB2BOrders]) {
+  const webItemMap = new Map<string, number>();
+  for (const o of monthSiteOrders) {
     for (const item of (o.items as Item[])) {
       if (!item?.name) continue;
-      itemMap.set(item.name, (itemMap.get(item.name) ?? 0) + (item.qty ?? 1));
+      webItemMap.set(item.name, (webItemMap.get(item.name) ?? 0) + (item.qty ?? 1));
     }
   }
-  const topProducts = [...itemMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const topProducts = [...webItemMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+
+  // Diamond bayilerin en çok satan ürünleri
+  const dealerItemMap = new Map<string, number>();
+  for (const o of (monthDiamondOrders as { items: unknown }[])) {
+    for (const item of (o.items as Item[])) {
+      if (!item?.name) continue;
+      dealerItemMap.set(item.name, (dealerItemMap.get(item.name) ?? 0) + (item.qty ?? 1));
+    }
+  }
+  const topDealerProducts = [...dealerItemMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
 
   const stats = [
     { label: "Aktif Ürün",      value: totalProducts,  sub: "yayında",         href: "/admin/urunler",    icon: "◇" },
@@ -189,17 +206,17 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Bu Ay En Çok Satan + Bu Ay En Çok Sipariş Verenler */}
+      {/* Web En Çok Satan + En Çok Sipariş Veren Web Müşterileri */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-        {/* Bu Ay En Çok Satan */}
+        {/* Bu Ay Web En Çok Satan */}
         <div className="bg-white border border-[#e8ddd6] rounded-sm">
           <div className="px-5 py-4 border-b border-[#f0ebe6]">
-            <h3 className="text-[10px] tracking-widest text-[#5c4033] uppercase">Bu Ay En Çok Satan</h3>
+            <h3 className="text-[10px] tracking-widest text-[#5c4033] uppercase">Bu Ay En Çok Satan (Web)</h3>
           </div>
           <div className="divide-y divide-[#f0ebe6]">
             {topProducts.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-[#b8a89e] text-center">Bu ay sipariş yok.</p>
+              <p className="px-5 py-6 text-sm text-[#b8a89e] text-center">Bu ay web siparişi yok.</p>
             ) : topProducts.map(([name, qty], i) => (
               <div key={name} className="flex items-center gap-3 px-5 py-2.5">
                 <span className="text-[11px] font-bold text-[#d4c5ba] w-4 shrink-0">{i + 1}</span>
@@ -210,7 +227,7 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Bu Ay En Çok Sipariş Verenler */}
+        {/* Bu Ay En Çok Sipariş Veren Web Müşterileri (Bayi hariç) */}
         <div className="bg-white border border-[#e8ddd6] rounded-sm">
           <div className="flex items-center justify-between px-5 py-4 border-b border-[#f0ebe6]">
             <h3 className="text-[10px] tracking-widest text-[#5c4033] uppercase">Bu Ay En Çok Sipariş Verenler</h3>
@@ -224,6 +241,48 @@ export default async function DashboardPage() {
                 <span className="text-[11px] font-bold text-[#d4c5ba] w-4 shrink-0">{i + 1}</span>
                 <p className="flex-1 text-sm text-[#2c1810] truncate">{c.name}</p>
                 <span className="text-[11px] font-semibold text-[#8b6f5e] shrink-0">{c.count} sipariş</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+      </div>
+
+      {/* Bayiler: En Çok Satan + En Çok Satış Yapan */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        {/* Bayilerin en çok satan ürünleri */}
+        <div className="bg-white border border-[#e8ddd6] rounded-sm">
+          <div className="px-5 py-4 border-b border-[#f0ebe6]">
+            <h3 className="text-[10px] tracking-widest text-[#5c4033] uppercase">Diamond Üyelerin En Çok Sattığı Ürünler</h3>
+          </div>
+          <div className="divide-y divide-[#f0ebe6]">
+            {topDealerProducts.length === 0 ? (
+              <p className="px-5 py-6 text-sm text-[#b8a89e] text-center">Bu ay bayi siparişi yok.</p>
+            ) : topDealerProducts.map(([name, qty], i) => (
+              <div key={name} className="flex items-center gap-3 px-5 py-2.5">
+                <span className="text-[11px] font-bold text-[#d4c5ba] w-4 shrink-0">{i + 1}</span>
+                <p className="flex-1 text-sm text-[#2c1810] truncate" title={name}>{name}</p>
+                <span className="text-[11px] font-semibold text-[#8b6f5e] shrink-0">{qty} adet</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* En çok satış yapan bayiler */}
+        <div className="bg-white border border-[#e8ddd6] rounded-sm">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#f0ebe6]">
+            <h3 className="text-[10px] tracking-widest text-[#5c4033] uppercase">En Çok Satış Yapan Diamond Üyeler</h3>
+            <Link href="/admin/bayiler" className="text-[11px] text-[#8b6f5e] hover:text-[#2c1810]">Tümü →</Link>
+          </div>
+          <div className="divide-y divide-[#f0ebe6]">
+            {topDealers.length === 0 ? (
+              <p className="px-5 py-6 text-sm text-[#b8a89e] text-center">Bu ay bayi siparişi yok.</p>
+            ) : topDealers.map((d, i) => (
+              <div key={d.id} className="flex items-center gap-3 px-5 py-2.5">
+                <span className="text-[11px] font-bold text-[#d4c5ba] w-4 shrink-0">{i + 1}</span>
+                <p className="flex-1 text-sm text-[#2c1810] truncate">{d.name}</p>
+                <span className="text-[11px] font-semibold text-[#8b6f5e] shrink-0">{d.total.toLocaleString("tr-TR")} ₺</span>
               </div>
             ))}
           </div>

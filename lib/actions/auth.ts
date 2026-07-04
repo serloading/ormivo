@@ -200,3 +200,15 @@ export async function updateSiteUserName(formData: FormData) {
   });
   return { success: true };
 }
+
+export async function updateBankInfo(bankInfo: string) {
+  const { getSession } = await import("@/lib/session");
+  const session = await getSession();
+  if (!session) return { error: "Oturum açık değil." };
+
+  await prisma.siteUser.update({
+    where: { id: session.userId },
+    data: { bankInfo: bankInfo.trim() || null },
+  });
+  return { success: true };
+}

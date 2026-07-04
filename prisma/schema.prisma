@@ -106,6 +106,7 @@ model Order {
   paymentStatus  String        @default("PENDING")
   deliveryMethod String        @default("PICKUP")
   note           String?
+  depoSent    Boolean       @default(false)
   cargo       CargoTracking?
   customerDebts CustomerDebt[]
   createdAt   DateTime      @default(now())
@@ -177,6 +178,7 @@ model SiteUser {
   referredById       String?
   referredBy         SiteUser?   @relation("Referrals", fields: [referredById], references: [id])
   referrals          SiteUser[]  @relation("Referrals")
+  bankInfo           String?
   createdAt          DateTime    @default(now())
   cart               Cart?
   addresses          Address[]

@@ -24,15 +24,17 @@ interface PlaceOrderInput {
   couponCode?:    string;
   couponDiscount?: number;
   paymentMethod?: "HAVALE" | "KART";
+  deliveryMethod?: "CARGO" | "STORE";
 }
 
 export async function placeOrder(input: PlaceOrderInput) {
-  const { recipientName, recipientPhone, addressLine, city, district, note, guestItems, saveAddress, couponCode, couponDiscount, paymentMethod } = input;
+  const { recipientName, recipientPhone, addressLine, city, district, note, guestItems, saveAddress, couponCode, couponDiscount, paymentMethod, deliveryMethod } = input;
 
-  if (!recipientName?.trim())  return { error: "Ad Soyad gerekli." };
-  if (!recipientPhone?.trim()) return { error: "Telefon gerekli." };
-  if (!addressLine?.trim())    return { error: "Adres gerekli." };
-  if (!city?.trim())           return { error: "Şehir gerekli." };
+  const isStore = deliveryMethod === "STORE";
+  if (!isStore && !recipientName?.trim())  return { error: "Ad Soyad gerekli." };
+  if (!isStore && !recipientPhone?.trim()) return { error: "Telefon gerekli." };
+  if (!isStore && !addressLine?.trim())    return { error: "Adres gerekli." };
+  if (!isStore && !city?.trim())           return { error: "Şehir gerekli." };
 
   const session = await getSession();
 
@@ -46,14 +48,15 @@ export async function placeOrder(input: PlaceOrderInput) {
     const dbItems = cart?.items ?? [];
     if (dbItems.length === 0) return { error: "Sepetiniz boş." };
 
-    type CartItem = { quantity: number; product: { id: string; name: string; price: unknown } };
+    type CartItem = { quantity: number; customPrice?: unknown; product: { id: string; name: string; price: unknown } };
     orderItems = (dbItems as CartItem[]).map((i) => {
       const originalPrice = Number(i.product.price);
       const segmentedPrice = getSegmentPrice(originalPrice, userSegment) ?? originalPrice;
+      const effectivePrice = i.customPrice != null ? Number(i.customPrice) : segmentedPrice;
       return {
         productId:     i.product.id,
         name:          i.product.name,
-        price:         segmentedPrice,
+        price:         effectivePrice,
         originalPrice: originalPrice,
         qty:           i.quantity,
       };
@@ -111,6 +114,7 @@ export async function placeOrder(input: PlaceOrderInput) {
       userId:         session?.userId ?? null,
       status:         "PENDING",
       paymentMethod:  paymentMethod ?? "HAVALE",
+      deliveryMethod: deliveryMethod ?? "CARGO",
     },
   });
 
@@ -147,8 +151,8 @@ export async function placeOrder(input: PlaceOrderInput) {
     });
   }
 
-  // Kargo gideri — web siparişi varsayılan olarak kargo ile gider
-  await prisma.finance.create({
+  // Kargo gideri — mağazadan teslimde kargo yok
+  if ((deliveryMethod ?? "CARGO") === "CARGO") await prisma.finance.create({
     data: {
       type:        "EXPENSE",
       amount:      CARGO_FEE,

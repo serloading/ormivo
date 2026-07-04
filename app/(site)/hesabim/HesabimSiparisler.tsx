@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { normalizeOrderItems } from "@/lib/order-items";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -11,19 +11,24 @@ const STATUS_LABELS: Record<string, string> = {
   CANCELLED: "İptal Edildi",
 };
 
-function buildWaUrl(phoneRaw: string, countryCode: string, lines: string[]): string {
+const CARGO_TRACKING_URLS: Record<string, string> = {
+  "Yurtiçi Kargo":  "https://www.yurticikargo.com/tr/online-islemler/gonderi-sorgula?code=",
+  "Aras Kargo":     "https://kargotakip.araskargo.com.tr/",
+  "MNG Kargo":      "https://www.mngkargo.com.tr/gonderi-sorgula?trackingNumber=",
+  "PTT Kargo":      "https://www.ptt.gov.tr/tr/anasayfa/kargotakip?barcode=",
+  "Sürat Kargo":    "https://www.suratkargo.com.tr/KargoSorgulama/?TrackingNumber=",
+  "UPS":            "https://www.ups.com/track?tracknum=",
+  "DHL":            "https://www.dhl.com/tr-tr/home/tracking.html?tracking-id=",
+};
+
+function buildWaUrl(phoneRaw: string, userName: string, lines: string[]): string {
   const digits = phoneRaw.replace(/\D/g, "");
   let waPhone = digits;
-  if (countryCode === "+90") {
-    if (digits.startsWith("90")) waPhone = digits;
-    else if (digits.startsWith("0")) waPhone = "9" + digits;
-    else waPhone = "90" + digits;
-  } else {
-    const cc = countryCode.replace("+", "");
-    if (!digits.startsWith(cc)) waPhone = cc + digits.replace(/^0+/, "");
-    else waPhone = digits;
-  }
-  return `https://wa.me/${waPhone}?text=${encodeURIComponent(lines.join("\n"))}`;
+  if (digits.startsWith("90")) waPhone = digits;
+  else if (digits.startsWith("0")) waPhone = "9" + digits;
+  else waPhone = "90" + digits;
+  const greeting = `Merhaba ${userName}, sipariş özetiniz aşağıdaki gibidir;\n\n`;
+  return `https://wa.me/${waPhone}?text=${encodeURIComponent(greeting + lines.join("\n"))}`;
 }
 
 interface OrderRow {
@@ -42,18 +47,12 @@ interface OrderRow {
 interface Props {
   orders: OrderRow[];
   userPhone: string;
+  userName: string;
+  bankInfo?: string;
 }
 
-export default function HesabimSiparisler({ orders, userPhone }: Props) {
+export default function HesabimSiparisler({ orders, userPhone, userName, bankInfo = "" }: Props) {
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
-  const [countryCode, setCountryCode] = useState("+90");
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("wa_country_code");
-      if (saved) setCountryCode(saved);
-    } catch { /* ignore */ }
-  }, []);
 
   function toggle(id: string) {
     setOpenIds((prev) => {
@@ -78,16 +77,16 @@ export default function HesabimSiparisler({ orders, userPhone }: Props) {
             const gross    = Math.max(0, net + discount);
 
             const waLines = [
-              `Sipariş Özetim — #${order.orderNo}`,
+              `Sipariş No: #${order.orderNo}`,
               ``,
               ...itemsArr.map((i) => `• ${i.name} ×${i.qty} = ${(i.price * i.qty).toLocaleString("tr-TR")} ₺`),
               ``,
-              `Ana tutar: ${gross.toLocaleString("tr-TR")} ₺`,
               ...(discount > 0 ? [`İndirim: -${discount.toLocaleString("tr-TR")} ₺`] : []),
               `Toplam: ${net.toLocaleString("tr-TR")} ₺`,
               `Durum: ${STATUS_LABELS[order.status] ?? order.status}`,
+              ...(bankInfo ? [``, `Havale Bilgileri:`, bankInfo] : []),
             ];
-            const waUrl = buildWaUrl(userPhone, countryCode, waLines);
+            const waUrl = buildWaUrl(userPhone, userName, waLines);
 
             return (
               <div key={order.id} className="border border-[#E8E4DE]">
@@ -149,10 +148,22 @@ export default function HesabimSiparisler({ orders, userPhone }: Props) {
                     </div>
 
                     {order.trackingNo && (
-                      <div className="font-sans text-[10px] mb-3">
-                        <p className="text-[#9A9A9A] tracking-wide">Kargo Takip</p>
-                        <p className="text-[#1A1A1A] font-semibold tracking-widest">{order.trackingNo}</p>
-                        {order.cargoCompany && <p className="text-[#9A9A9A]">{order.cargoCompany}</p>}
+                      <div className="font-sans text-[10px] mb-3 bg-[#F7F4F0] border border-[#E8E4DE] px-3 py-2">
+                        <p className="text-[#9A9A9A] tracking-wide mb-1">Kargo Takip</p>
+                        {order.cargoCompany && <p className="text-[#6B6B6B] mb-1">{order.cargoCompany}</p>}
+                        <p className="font-mono font-semibold text-[#1A1A1A] tracking-widest mb-1">{order.trackingNo}</p>
+                        {order.cargoCompany && CARGO_TRACKING_URLS[order.cargoCompany] ? (
+                          <a
+                            href={`${CARGO_TRACKING_URLS[order.cargoCompany]}${order.trackingNo}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[#C4A882] hover:text-[#8B6F4E] underline transition-colors"
+                          >
+                            Kargo Takibine Git →
+                          </a>
+                        ) : (
+                          <span className="text-[#9A9A9A]">Takip No: {order.trackingNo}</span>
+                        )}
                       </div>
                     )}
 

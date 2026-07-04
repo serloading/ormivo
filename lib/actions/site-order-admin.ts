@@ -4,6 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { logActivity } from "@/lib/actions/activity-log";
 import { normalizeOrderItems } from "@/lib/order-items";
+import { auth } from "@/lib/auth";
+
+async function requireAdmin() {
+  const session = await auth();
+  if (!session) throw new Error("Unauthorized");
+}
 
 const CARGO_FEE = 200;
 
@@ -127,33 +133,47 @@ async function syncCargoExpense(orderId: string, orderNo: string, deliveryMethod
 // ── Web order actions ─────────────────────────────────────────────────────────
 
 export async function updateTrackingNo(orderId: string, trackingNo: string, cargoCompany: string) {
-  await prisma.siteOrder.update({
-    where: { id: orderId },
-    data: {
-      trackingNo:   trackingNo.trim()   || null,
-      cargoCompany: cargoCompany.trim() || null,
-    },
-  });
+  await requireAdmin();
+  const trimmed = trackingNo.trim();
+  const updateData: Record<string, unknown> = {
+    trackingNo:   trimmed || null,
+    cargoCompany: cargoCompany.trim() || null,
+  };
+  if (trimmed) {
+    const existing = await prisma.siteOrder.findUnique({ where: { id: orderId }, select: { status: true } });
+    const finalStatuses = ["SHIPPED", "DELIVERED", "CANCELLED"];
+    if (existing && !finalStatuses.includes(existing.status as string)) {
+      updateData.status = "SHIPPED";
+    }
+  }
+  await prisma.siteOrder.update({ where: { id: orderId }, data: updateData as never });
   revalidatePath("/admin/siparisler");
   return { success: true };
 }
 
 export async function updateManuelOrderTracking(orderId: string, trackingNo: string, cargoCompany: string) {
-  // Kargo bilgisini note olarak değil, CargoTracking üzerinden saklayabiliriz
-  // Şimdilik Order.note alanına eklemek yerine CargoTracking upsert edelim
-  const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId }, select: { customerId: true } });
+  await requireAdmin();
+  const trimmed = trackingNo.trim();
+  const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId }, select: { customerId: true, status: true } });
   if (order.customerId) {
     await prisma.cargoTracking.upsert({
       where:  { orderId },
-      create: { orderId, customerId: order.customerId, company: cargoCompany.trim() || null, trackingNo: trackingNo.trim() || null },
-      update: { company: cargoCompany.trim() || null, trackingNo: trackingNo.trim() || null },
+      create: { orderId, customerId: order.customerId, company: cargoCompany.trim() || null, trackingNo: trimmed || null },
+      update: { company: cargoCompany.trim() || null, trackingNo: trimmed || null },
     });
+  }
+  if (trimmed) {
+    const finalStatuses = ["SHIPPED", "DELIVERED", "CANCELLED"];
+    if (!finalStatuses.includes(order.status as string)) {
+      await prisma.order.update({ where: { id: orderId }, data: { status: "SHIPPED" as never } });
+    }
   }
   revalidatePath("/admin/siparisler");
   return { success: true };
 }
 
 export async function updateSiteOrderStatus(orderId: string, status: string) {
+  await requireAdmin();
   if (status === "CANCELLED") {
     const order = await prisma.siteOrder.findUniqueOrThrow({
       where:  { id: orderId },
@@ -209,6 +229,7 @@ export async function updateDeliveryMethod(orderId: string, deliveryMethod: stri
 }
 
 export async function updateSiteOrderDiscount(orderId: string, discount: number) {
+  await requireAdmin();
   const order = await prisma.siteOrder.update({ where: { id: orderId }, data: { discount } });
 
   if (order.paymentStatus === "PAID") {
@@ -225,6 +246,7 @@ export async function updateSiteOrderDiscount(orderId: string, discount: number)
 }
 
 export async function updatePaymentStatus(orderId: string, paymentStatus: string) {
+  await requireAdmin();
   const prev = await prisma.siteOrder.findUnique({ where: { id: orderId }, select: { paymentStatus: true, orderNo: true } });
   const order = await prisma.siteOrder.update({ where: { id: orderId }, data: { paymentStatus } });
   await logActivity({
@@ -368,6 +390,7 @@ export async function updateManuelOrderStatus(orderId: string, status: string) {
 }
 
 export async function updateManuelOrderPaymentStatus(orderId: string, paymentStatus: string) {
+  await requireAdmin();
   await prisma.order.update({ where: { id: orderId }, data: { paymentStatus: paymentStatus as never } });
   revalidatePath("/admin/siparisler");
   return { success: true };
@@ -493,6 +516,7 @@ export async function updateOrderItems(
 }
 
 export async function deleteOrderById(orderId: string, source: "web" | "manuel") {
+  await requireAdmin();
   if (source === "web") {
     const order = await prisma.siteOrder.findUniqueOrThrow({
       where: { id: orderId },

@@ -26,9 +26,10 @@ const navGroups: NavGroup[] = [
   {
     group: "CRM",
     items: [
-      { href: "/admin/musteriler", label: "Müşteriler",      icon: "◑" },
-      { href: "/admin/bayiler",    label: "Bayi Yönetimi",   icon: "◈" },
-      { href: "/admin/kuponlar",   label: "Kupon & Ayarlar", icon: "%" },
+      { href: "/admin/musteriler", label: "Müşteriler",    icon: "◑" },
+      { href: "/admin/bayiler",    label: "Bayi Yönetimi", icon: "◈" },
+      { href: "/admin/kuponlar",   label: "Kuponlar",      icon: "%" },
+      { href: "/admin/ayarlar",    label: "Ayarlar",       icon: "⚙" },
     ],
   },
   {
@@ -102,15 +103,16 @@ export default function AdminSidebar() {
       {/* Desktop sidebar */}
       <aside className="hidden md:flex w-60 min-h-screen bg-[#2c1810] text-[#f5f0eb] flex-col flex-shrink-0">
         <div className="px-8 py-8 border-b border-[#3d2418]">
-          <h1 className="text-xl font-light tracking-[0.3em] uppercase">Ormivo</h1>
-          <p className="text-xs tracking-widest text-[#8b6f5e] mt-1 uppercase">Yönetim</p>
+          <a href="/" target="_blank" rel="noopener noreferrer" className="block hover:opacity-80 transition-opacity">
+            <h1 className="text-xl font-light tracking-[0.3em] uppercase">Ormivo</h1>
+          </a>
         </div>
         {navContent}
       </aside>
 
       {/* Mobile top bar */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-[#2c1810] text-[#f5f0eb] flex items-center justify-between px-5 py-4">
-        <span className="text-lg font-light tracking-[0.3em] uppercase">Ormivo</span>
+        <a href="/" target="_blank" rel="noopener noreferrer" className="text-lg font-light tracking-[0.3em] uppercase hover:opacity-80 transition-opacity">Ormivo</a>
         <button onClick={() => setMobileOpen((v) => !v)} className="flex flex-col gap-1.5 p-1" aria-label="Menü">
           <span className={`block w-5 h-px bg-[#f5f0eb] transition-all ${mobileOpen ? "rotate-45 translate-y-2" : ""}`} />
           <span className={`block w-5 h-px bg-[#f5f0eb] transition-all ${mobileOpen ? "opacity-0" : ""}`} />

@@ -41,7 +41,7 @@ export default function GirisPage() {
                 name="phone"
                 type="tel"
                 required
-                placeholder="05XX XXX XX XX veya +44..."
+                placeholder="05XX XXX XX XX"
                 autoComplete="tel"
                 className="w-full border border-[#E8E4DE] px-3 py-2.5 font-sans text-sm outline-none focus:border-[#C4A882] transition-colors"
               />

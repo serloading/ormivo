@@ -29,8 +29,7 @@ export default function AdresEkleForm({ defaultName, defaultPhone, isFirst }: Pr
       if (result?.error) {
         setError(result.error);
       } else {
-        router.push("/hesabim");
-        router.refresh();
+        window.location.href = "/hesabim";
       }
     });
   }

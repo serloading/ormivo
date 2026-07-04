@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateCustomer, updateCustomerSegment, updateCustomerTags, addCustomerNote, deleteCustomerNote } from "@/lib/actions/customer";
+import { updateCustomer, updateCustomerSegment, addCustomerNote, deleteCustomerNote } from "@/lib/actions/customer";
 import { adminAddAddress, adminDeleteAddress } from "@/lib/actions/address";
 import { SEGMENTS, SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/customer-constants";
 import { TURKEY_CITIES, CITY_NAMES } from "@/lib/data/turkey-cities";
@@ -20,7 +20,6 @@ const PAYMENT_LABELS: Record<string, string> = {
   FREE:    "Bedava",
 };
 
-const PREDEFINED_TAGS = ["B2B", "Toptan", "Sadık", "Kurumsal", "Sorunlu"];
 
 const COUNTRY_CODES = [
   { code: "+90",  label: "🇹🇷 +90" },
@@ -121,8 +120,6 @@ export default function MusteriProfilClient({
   }
 
   const [segment, setSegment] = useState(customer.segment ?? "");
-  const [tags, setTags]       = useState<string[]>(customer.tags);
-  const [newTag, setNewTag]   = useState("");
   const [noteText, setNoteText] = useState("");
 
   function handleSegmentChange(val: string) {
@@ -131,21 +128,6 @@ export default function MusteriProfilClient({
       await updateCustomerSegment(customer.id, val || null);
       router.refresh();
     });
-  }
-
-  function addTag(tag: string) {
-    const t = tag.trim();
-    if (!t || tags.includes(t)) return;
-    const next = [...tags, t];
-    setTags(next);
-    setNewTag("");
-    startTransition(async () => { await updateCustomerTags(customer.id, next); router.refresh(); });
-  }
-
-  function removeTag(tag: string) {
-    const next = tags.filter((t) => t !== tag);
-    setTags(next);
-    startTransition(async () => { await updateCustomerTags(customer.id, next); router.refresh(); });
   }
 
   function handleAddNote(e: React.FormEvent) {
@@ -325,35 +307,6 @@ export default function MusteriProfilClient({
           )}
         </div>
 
-        {/* Etiketler */}
-        <div className="bg-white border border-[#e8ddd6] rounded-sm p-5">
-          <h3 className="text-xs tracking-widest text-[#5c4033] uppercase mb-3">Etiketler</h3>
-          <div className="flex flex-wrap gap-1.5 mb-3">
-            {tags.map((t) => (
-              <span key={t} className="flex items-center gap-1 text-xs bg-[#f0ebe6] text-[#5c4033] px-2 py-0.5 rounded">
-                {t}
-                <button onClick={() => removeTag(t)} className="text-[#8b6f5e] hover:text-red-500 leading-none">×</button>
-              </span>
-            ))}
-            {tags.length === 0 && <p className="text-xs text-[#b8a89e]">Etiket yok.</p>}
-          </div>
-          <div className="flex gap-1.5 flex-wrap mb-2">
-            {PREDEFINED_TAGS.filter((t) => !tags.includes(t)).map((t) => (
-              <button key={t} onClick={() => addTag(t)}
-                className="text-[10px] border border-dashed border-[#d4c5ba] text-[#8b6f5e] px-2 py-0.5 rounded hover:border-[#8b6f5e] hover:text-[#2c1810] transition-colors">
-                + {t}
-              </button>
-            ))}
-          </div>
-          <div className="flex gap-2 mt-2">
-            <input value={newTag} onChange={(e) => setNewTag(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTag(newTag))}
-              placeholder="Özel etiket..." className="flex-1 border border-[#d4c5ba] rounded-sm px-3 py-1.5 text-sm bg-[#faf8f6] focus:outline-none focus:border-[#8b6f5e]" />
-            <button onClick={() => addTag(newTag)}
-              className="bg-[#2c1810] text-[#f5f0eb] text-xs px-3 py-1.5 rounded-sm hover:bg-[#3d2418]">Ekle</button>
-          </div>
-        </div>
-
         {/* Adresler */}
         <AddressSection siteUserId={customer.siteUserId ?? null} addresses={customer.addresses ?? []} />
       </div>
@@ -449,7 +402,7 @@ function AddressSection({ siteUserId, addresses }: { siteUserId: string | null; 
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!siteUserId) return alert("Bu müşterinin site hesabı yok, önce site hesabı oluşturun.");
+    if (!siteUserId) return alert("Bu müşterinin site hesabı henüz oluşturulmamış. Önce site hesabı oluşturun.");
     if (!form.recipientName || !form.phone || !form.addressLine || !city) return;
     await adminAddAddress(siteUserId, { ...form, city, district: form.district || null });
     setShowForm(false);
@@ -464,18 +417,12 @@ function AddressSection({ siteUserId, addresses }: { siteUserId: string | null; 
     <div className="bg-white border border-[#e8ddd6] rounded-sm p-5">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-xs tracking-widest text-[#5c4033] uppercase">Adresler</h3>
-        {siteUserId && (
-          <button onClick={() => setShowForm((p) => !p)} className="text-xs text-[#8b6f5e] hover:text-[#2c1810] underline">
-            {showForm ? "İptal" : "+ Adres Ekle"}
-          </button>
-        )}
+        <button onClick={() => setShowForm((p) => !p)} className="text-xs text-[#8b6f5e] hover:text-[#2c1810] underline">
+          {showForm ? "İptal" : "+ Adres Ekle"}
+        </button>
       </div>
 
-      {!siteUserId && (
-        <p className="text-xs text-[#b8a89e]">Site hesabı olmayan müşteriye adres eklenemez.</p>
-      )}
-
-      {addresses.length === 0 && siteUserId && !showForm && (
+      {addresses.length === 0 && !showForm && (
         <p className="text-xs text-[#b8a89e]">Kayıtlı adres yok.</p>
       )}
 
@@ -495,7 +442,7 @@ function AddressSection({ siteUserId, addresses }: { siteUserId: string | null; 
         ))}
       </div>
 
-      {showForm && siteUserId && (
+      {showForm && (
         <form onSubmit={handleSubmit} className="space-y-2 border-t border-[#f0ebe6] pt-3">
           {[
             { label: "Alıcı Adı *", key: "recipientName", type: "text" },

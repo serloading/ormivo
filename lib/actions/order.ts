@@ -2,6 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+
+async function requireAdmin() {
+  const session = await auth();
+  if (!session) throw new Error("Unauthorized");
+}
 
 const CARGO_FEE = 200;
 
@@ -32,6 +38,7 @@ export async function getOrders() {
 }
 
 export async function createOrder(data: OrderFormData) {
+  await requireAdmin();
   const orderNo = `ORV-${Date.now()}`;
   const order = await prisma.order.create({
     data: {
@@ -42,6 +49,7 @@ export async function createOrder(data: OrderFormData) {
       shippingFee: data.shippingFee ?? null,
       note: data.note,
       status: (data.status ?? "PENDING") as never,
+      paymentStatus: (data.total === 0 ? "FREE" : "PENDING") as never,
       deliveryMethod: data.deliveryMethod ?? "PICKUP",
       ...(data.orderDate ? { createdAt: new Date(data.orderDate) } : {}),
     },

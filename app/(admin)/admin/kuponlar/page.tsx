@@ -1,12 +1,11 @@
 import { getCoupons } from "@/lib/actions/coupon";
-import { getSegmentSettings } from "@/lib/actions/settings";
 import KuponlarClient from "./KuponlarClient";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Kuponlar & Ayarlar — Admin" };
+export const metadata = { title: "Kuponlar — Admin" };
 
 export default async function KuponlarPage() {
-  const [coupons, segmentRates] = await Promise.all([getCoupons(), getSegmentSettings()]);
+  const coupons = await getCoupons();
   return (
     <KuponlarClient
       coupons={coupons.map((c) => ({
@@ -16,7 +15,6 @@ export default async function KuponlarPage() {
         expiresAt:      c.expiresAt ? c.expiresAt.toISOString() : null,
         createdAt:      c.createdAt.toISOString(),
       }))}
-      segmentRates={segmentRates}
     />
   );
 }

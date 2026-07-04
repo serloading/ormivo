@@ -34,7 +34,7 @@ export async function getCartCount(): Promise<number> {
   return cart?.items.reduce((sum: number, i: { quantity: number }) => sum + i.quantity, 0) ?? 0;
 }
 
-export async function addToCart(productId: string, quantity = 1) {
+export async function addToCart(productId: string, quantity = 1, customPrice?: number) {
   const session = await getSession();
   if (!session) return { error: "Giriş yapmanız gerekiyor." };
 
@@ -45,11 +45,11 @@ export async function addToCart(productId: string, quantity = 1) {
   if (existing) {
     await prisma.cartItem.update({
       where: { id: existing.id },
-      data:  { quantity: existing.quantity + qty },
+      data:  { quantity: existing.quantity + qty, ...(customPrice !== undefined ? { customPrice } : {}) },
     });
   } else {
     await prisma.cartItem.create({
-      data: { cartId: cart.id, productId, quantity: qty },
+      data: { cartId: cart.id, productId, quantity: qty, ...(customPrice !== undefined ? { customPrice } : {}) },
     });
   }
 
