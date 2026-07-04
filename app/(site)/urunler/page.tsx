@@ -273,7 +273,7 @@ export default async function UrunlerPage({
                         <AddToCartButton productId={product.id} loggedIn={loggedIn} />
                       </div>
 
-                      <div className="p-3 md:p-4 flex flex-col flex-1">
+                      <div className="p-3 md:p-4 flex flex-col flex-1 border-t border-[#E8E4DE]">
                         {product.brand?.name && (
                           <Link href={`/urunler?marka=${product.brand.slug}`}
                             className="font-sans text-[8px] md:text-[9px] tracking-[0.22em] text-[#C4A882] hover:text-[#8B6F4E] mb-1 block transition-colors">

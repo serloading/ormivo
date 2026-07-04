@@ -140,7 +140,7 @@ export default function ProductGrid({ initialProducts, total, loggedIn, favorite
                 <AddToCartButton productId={product.id} loggedIn={loggedIn} />
               </div>
 
-              <div className="p-2 md:p-2.5 flex flex-col flex-1">
+              <div className="p-2 md:p-2.5 flex flex-col flex-1 border-t border-[#E8E4DE]">
                 <div className="flex items-center justify-between mb-0.5">
                   {product.brand ? (
                     <Link href={`/urunler?marka=${product.brand.slug}`} onClick={(e) => e.stopPropagation()}
