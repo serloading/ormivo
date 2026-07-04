@@ -252,7 +252,7 @@ export default async function UrunlerPage({
                   return (
                     <article key={product.id}
                       className="group bg-white border border-[#E8E4DE] hover:border-[#C4A882] hover:shadow-lg transition-all duration-300 flex flex-col">
-                      <div className="relative overflow-hidden bg-[#F5F0EA]" style={{ aspectRatio: "4/5" }}>
+                      <div className="relative overflow-hidden bg-white" style={{ aspectRatio: "4/5" }}>
                         <Link href={`/urunler/${product.slug}`} className="absolute inset-0" aria-label={product.name} />
                         {img ? (
                           <Image src={img} alt={product.name} fill

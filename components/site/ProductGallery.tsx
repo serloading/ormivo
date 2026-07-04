@@ -8,7 +8,7 @@ export default function ProductGallery({ images, name, showDiscountBadge, isBest
 
   if (!images.length) {
     return (
-      <div className="bg-[#F5F0EA] border border-[#E8E4DE] flex items-center justify-center" style={{ aspectRatio: "4/5" }}>
+      <div className="bg-white border border-[#E8E4DE] flex items-center justify-center" style={{ aspectRatio: "4/5" }}>
         <span className="font-serif text-8xl text-[#C4A882] opacity-20">◈</span>
       </div>
     );
@@ -18,7 +18,7 @@ export default function ProductGallery({ images, name, showDiscountBadge, isBest
     <div className="space-y-3">
       {/* Ana görsel */}
       <div
-        className="relative bg-[#F5F0EA] border border-[#E8E4DE] overflow-hidden"
+        className="relative bg-white border border-[#E8E4DE] overflow-hidden"
         style={{ aspectRatio: "4/5" }}
       >
         <Image
@@ -53,7 +53,7 @@ export default function ProductGallery({ images, name, showDiscountBadge, isBest
             <button
               key={i}
               onClick={() => setActive(i)}
-              className={`relative shrink-0 bg-[#F5F0EA] border transition-colors duration-200 overflow-hidden ${
+              className={`relative shrink-0 bg-white border transition-colors duration-200 overflow-hidden ${
                 active === i ? "border-[#C4A882]" : "border-[#E8E4DE] hover:border-[#C4A882]/50"
               }`}
               style={{ width: 72, height: 72 }}

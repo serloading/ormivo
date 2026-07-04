@@ -114,7 +114,7 @@ export default function ProductGrid({ initialProducts, total, loggedIn, favorite
               key={product.id}
               className="group bg-white border border-[#E8E4DE] hover:border-[#C4A882] hover:shadow-sm transition-all duration-200 flex flex-col"
             >
-              <div className="relative overflow-hidden bg-[#F7F4F0]" style={{ aspectRatio: "3/4" }}>
+              <div className="relative overflow-hidden bg-white" style={{ aspectRatio: "3/4" }}>
                 <Link href={`/urunler/${product.slug}`} className="absolute inset-0" aria-label={product.name} />
                 {img ? (
                   <Image
