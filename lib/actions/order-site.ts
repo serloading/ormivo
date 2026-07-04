@@ -192,6 +192,42 @@ export async function placeOrder(input: PlaceOrderInput) {
     }
   }
 
+  // Segment otomatik yükseltme (Diamond referral'ı hariç)
+  if (session) {
+    await autoUpdateSegment(session.userId);
+  }
+
   revalidatePath("/hesabim");
   return { success: true, orderNo: order.orderNo };
+}
+
+export async function autoUpdateSegment(userId: string) {
+  const user = await prisma.siteUser.findUnique({
+    where: { id: userId },
+    select: { segment: true, isB2BApproved: true, referredById: true, referredBy: { select: { segment: true } } },
+  });
+  if (!user) return;
+
+  // Diamond, B2B veya Diamond üye tarafından davet edilmişse otomatik yükseltme yapma
+  if (user.segment === "DIAMOND" || user.isB2BApproved) return;
+  if (user.referredBy?.segment === "DIAMOND") return;
+
+  // Toplam harcamayı hesapla (iptal edilmemiş siparişler)
+  const agg = await prisma.siteOrder.aggregate({
+    where: { userId, status: { not: "CANCELLED" } },
+    _sum: { total: true },
+  });
+  const totalSpend = Number(agg._sum.total ?? 0);
+
+  const newSegment =
+    totalSpend >= 40000 ? "GOLD" :
+    totalSpend >= 20000 ? "SILVER" :
+    totalSpend > 0      ? "BRONZE" : null;
+
+  if (newSegment !== user.segment) {
+    await prisma.siteUser.update({
+      where: { id: userId },
+      data: { segment: newSegment },
+    });
+  }
 }

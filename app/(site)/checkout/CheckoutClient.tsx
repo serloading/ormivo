@@ -324,7 +324,7 @@ export default function CheckoutClient({
             )}
             {segmentDiscount > 0 && (
               <div className="flex justify-between font-sans text-xs text-[#C4A882] font-medium">
-                <span>{isB2B ? "Bayi Fiyatı" : (SEGMENT_LABELS[userSegment!] + " İndirimi")}</span>
+                <span>{isB2B ? "Bayi Fiyatı" : (userSegment && SEGMENT_LABELS[userSegment] ? SEGMENT_LABELS[userSegment] + " İndirimi" : "Özel İndirim")}</span>
                 <span>−{segmentDiscount.toLocaleString("tr-TR")} ₺</span>
               </div>
             )}
