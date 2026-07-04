@@ -9,6 +9,7 @@ import AdminAddressActions   from "./AdminAddressActions";
 import HesabimProfileCard    from "./HesabimProfileCard";
 import HesabimSiparisler     from "./HesabimSiparisler";
 import BankInfoCard          from "./BankInfoCard";
+import HesabimReferral       from "./HesabimReferral";
 import { getTransferInfo }   from "@/lib/actions/settings";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +54,19 @@ export default async function HesabimPage() {
   ]);
 
   if (!user) redirect("/giris");
+
+  // Referral sistemi (Diamond + B2B için zaten /hesabim/bayim var, ama referral kartı herkese açık)
+  const referrals = await prisma.siteUser.findMany({
+    where:   { referredById: session.userId },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true, name: true, phone: true, createdAt: true,
+      _count: { select: { siteOrders: { where: { status: { not: "CANCELLED" } } } } },
+    },
+  });
+  const totalRefOrders  = referrals.reduce((s, r) => s + r._count.siteOrders, 0);
+  const earnedRewards   = Math.floor(totalRefOrders / 10);
+  const progressToNext  = totalRefOrders % 10;           // 0-9 içindeki mevcut ilerleme
 
   const customer = await prisma.customer.findFirst({
     where: { phone: { in: phoneLookupVariants(user.phone) } },
@@ -141,26 +155,6 @@ export default async function HesabimPage() {
   const hasAnyOrders   = allSiteOrders.length > 0 || (customer?.orders ?? []).length > 0;
   const debts = customer?.debts ?? [];
 
-  // Segment progress bar (Diamond referral ve B2B hariç)
-  const isReferredByDiamond = (user as { referredBy?: { segment?: string | null } | null }).referredBy?.segment === "DIAMOND";
-  const showSegmentProgress = !session.isB2BApproved && session.segment !== "DIAMOND" && !isReferredByDiamond;
-  const spendForProgress = allSiteOrders
-    .filter((o) => o.paymentStatus !== "CANCELLED")
-    .reduce((s, o) => s + Number(o.total), 0);
-  const segmentThresholds = [
-    { segment: "BRONZE", label: "Bronz", min: 0,     max: 20000, color: "bg-amber-600",  textColor: "text-amber-700",  bgLight: "bg-amber-50"  },
-    { segment: "SILVER", label: "Gümüş", min: 20000, max: 40000, color: "bg-slate-400",  textColor: "text-slate-600",  bgLight: "bg-slate-50"  },
-    { segment: "GOLD",   label: "Altın", min: 40000, max: 40000, color: "bg-yellow-500", textColor: "text-yellow-700", bgLight: "bg-yellow-50" },
-  ];
-  const currentThreshold = segmentThresholds.find((t) => session.segment === t.segment) ?? null;
-  const nextThreshold =
-    !session.segment        ? segmentThresholds[0] :
-    session.segment === "BRONZE" ? segmentThresholds[1] :
-    session.segment === "SILVER" ? segmentThresholds[2] : null;
-  const progressPct = nextThreshold
-    ? Math.min(100, Math.round(((spendForProgress - (nextThreshold.min === 0 ? 0 : currentThreshold?.min ?? 0)) / (nextThreshold.max - (nextThreshold.min === 0 ? 0 : currentThreshold?.min ?? 0))) * 100))
-    : 100;
-
   // WA için banka bilgisi: referral'ın bankInfo'su varsa onu kullan, yoksa Ormivo'nun bilgisi
   const ormivoTransfer = await getTransferInfo();
   const waBankInfo = (user as { referredBy?: { bankInfo?: string | null } | null }).referredBy?.bankInfo?.trim() || ormivoTransfer;
@@ -222,59 +216,6 @@ export default async function HesabimPage() {
                 <p className="font-serif text-lg text-red-600 font-medium">{totalOwedAmt.toLocaleString("tr-TR")} ₺</p>
               </div>
             )}
-          </div>
-        )}
-
-        {/* ── Segment Progress Bar ─────────────────────── */}
-        {showSegmentProgress && spendForProgress > 0 && (
-          <div className="bg-white border border-[#E8E4DE] p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-sans text-[10px] tracking-[0.3em] uppercase text-[#C4A882]">Üyelik Seviyesi</h2>
-              {currentThreshold && (
-                <span className={`font-sans text-[9px] px-2 py-0.5 rounded font-semibold ${currentThreshold.color} text-white`}>
-                  {currentThreshold.label} Üye
-                </span>
-              )}
-            </div>
-
-            {nextThreshold ? (
-              <>
-                <div className="flex justify-between font-sans text-[10px] text-[#9A9A9A] mb-1.5">
-                  <span>{spendForProgress.toLocaleString("tr-TR")} ₺</span>
-                  <span className={`font-medium ${nextThreshold.textColor}`}>{nextThreshold.label} için {nextThreshold.max.toLocaleString("tr-TR")} ₺</span>
-                </div>
-                <div className="h-2 bg-[#F0EBE5] rounded-full overflow-hidden">
-                  <div
-                    className={`h-2 rounded-full transition-all duration-700 ${nextThreshold.color}`}
-                    style={{ width: `${progressPct}%` }}
-                  />
-                </div>
-                <p className="font-sans text-[10px] text-[#9A9A9A] mt-2">
-                  {nextThreshold.max.toLocaleString("tr-TR")} ₺ alışverişe {(nextThreshold.max - spendForProgress).toLocaleString("tr-TR")} ₺ kaldı → <span className={`font-semibold ${nextThreshold.textColor}`}>{nextThreshold.label} Üye</span>
-                </p>
-              </>
-            ) : (
-              <>
-                <div className="h-2 bg-yellow-100 rounded-full overflow-hidden">
-                  <div className="h-2 rounded-full bg-yellow-500 w-full" />
-                </div>
-                <p className="font-sans text-[10px] text-yellow-700 mt-2 font-medium">En yüksek seviyeye ulaştınız — Altın Üye 🏅</p>
-              </>
-            )}
-
-            {/* Seviye göstergeleri */}
-            <div className="flex items-center gap-0 mt-4">
-              {segmentThresholds.map((t, i) => {
-                const reached = spendForProgress >= (i === 0 ? 1 : t.min);
-                return (
-                  <div key={t.segment} className="flex-1 text-center">
-                    <div className={`h-1 ${reached ? t.color : "bg-[#E8E4DE]"} ${i === 0 ? "rounded-l-full" : i === 2 ? "rounded-r-full" : ""}`} />
-                    <p className={`font-sans text-[8px] mt-1 tracking-wide ${reached ? t.textColor : "text-[#9A9A9A]"}`}>{t.label}</p>
-                    <p className="font-sans text-[7px] text-[#C4A882]">{i < 2 ? `${t.max.toLocaleString("tr-TR")} ₺` : "40k+ ₺"}</p>
-                  </div>
-                );
-              })}
-            </div>
           </div>
         )}
 
@@ -395,6 +336,23 @@ export default async function HesabimPage() {
             <HesabimSiparisler orders={orders} userPhone={user.phone} userName={user.name ?? ""} bankInfo={waBankInfo} />
           </div>
         </div>
+
+        {/* ── Referral Kartı (tüm üyeler) ────────────── */}
+        {user.referralCode && (
+          <HesabimReferral
+            referralCode={user.referralCode}
+            referrals={referrals.map((r) => ({
+              id: r.id,
+              name: r.name,
+              phone: r.phone,
+              createdAt: r.createdAt.toISOString(),
+              orderCount: r._count.siteOrders,
+            }))}
+            totalRefOrders={totalRefOrders}
+            earnedRewards={earnedRewards}
+            progressToNext={progressToNext}
+          />
+        )}
 
         {/* ── Diamond / Bayi Banka Bilgileri ────────── */}
         {(session.isB2BApproved || session.segment === "DIAMOND") && (

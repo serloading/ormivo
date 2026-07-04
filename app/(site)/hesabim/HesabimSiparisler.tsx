@@ -105,7 +105,7 @@ export default function HesabimSiparisler({ orders, userPhone, userName, bankInf
                   onClick={() => toggle(order.id)}
                   className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#FAFAF7] transition-colors text-left"
                 >
-                  <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                     <span className={`font-sans text-[9px] tracking-[0.15em] uppercase px-2 py-1 shrink-0 ${
                       order.status === "DELIVERED" ? "bg-green-50 text-green-700" :
                       order.status === "SHIPPED"   ? "bg-blue-50 text-blue-700"   :
