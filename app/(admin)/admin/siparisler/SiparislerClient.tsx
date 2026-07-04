@@ -52,7 +52,7 @@ const PAYMENT_COLORS: Record<string, string> = {
   PAID:    "bg-green-50 text-green-700 border-green-200",
   FREE:    "bg-purple-50 text-purple-700 border-purple-200",
 };
-const DELIVERY_LABELS: Record<string, string> = { CARGO: "Kargo", PICKUP: "Mağaza Teslim", STORE: "Mağaza Teslim" };
+const DELIVERY_LABELS: Record<string, string> = { CARGO: "Kargo", PICKUP: "Mağaza Teslim" };
 const DELIVERY_COLORS: Record<string, string> = {
   CARGO:  "bg-blue-50 text-blue-700 border-blue-200",
   PICKUP: "bg-teal-50 text-teal-700 border-teal-200",
