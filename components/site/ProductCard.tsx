@@ -28,7 +28,7 @@ export default function ProductCard({ product, isLoggedIn, isB2B }: {
   return (
     <article className="group flex flex-col bg-white border border-[#E8E4DE] hover:border-[#C4A882] hover:shadow-lg transition-all duration-500">
       {/* Görsel */}
-      <Link href={`/urunler/${product.slug}`} className="relative bg-[#F5F0EA] overflow-hidden block" style={{ aspectRatio: "3/4" }}>
+      <Link href={`/urunler/${product.slug}`} className="relative bg-white overflow-hidden block" style={{ aspectRatio: "3/4" }}>
         {image ? (
           <Image
             src={image}
