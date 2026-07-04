@@ -84,6 +84,9 @@ export async function updateBayiProfile(
         return { error: "Bu referral kodu zaten kullanımda." };
       }
     }
+    // Segment DIAMOND'dan başka bir şeye çekiliyorsa B2B bayraklarını da kaldır
+    const isDemotingFromB2B =
+      data.segment !== undefined && data.segment !== "DIAMOND";
     await prisma.siteUser.update({
       where: { id: userId },
       data: {
@@ -93,6 +96,7 @@ export async function updateBayiProfile(
         ...(data.b2bNote !== undefined ? { b2bNote: data.b2bNote } : {}),
         ...(data.segment !== undefined ? { segment: data.segment } : {}),
         ...(data.referralCode !== undefined ? { referralCode: data.referralCode || null } : {}),
+        ...(isDemotingFromB2B ? { isB2BApproved: false, isB2B: false } : {}),
       },
     });
     revalidatePath("/admin/bayiler");

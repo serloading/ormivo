@@ -62,7 +62,7 @@ export default async function BayiDetailPage({ params }: { params: Promise<{ id:
     ? await prisma.siteOrder.findMany({
         where: {
           recipientPhone: { in: phoneLookupVariants(user.phone) },
-          userId: { not: user.id },
+          OR: [{ userId: null }, { userId: { not: user.id } }],
         },
         orderBy: { createdAt: "desc" },
         select: { id: true, orderNo: true, status: true, paymentStatus: true, total: true, createdAt: true, recipientName: true, city: true, items: true },
