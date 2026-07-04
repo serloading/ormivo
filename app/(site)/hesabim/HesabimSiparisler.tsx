@@ -31,11 +31,19 @@ function buildWaUrl(phoneRaw: string, userName: string, lines: string[]): string
   return `https://wa.me/${waPhone}?text=${encodeURIComponent(greeting + lines.join("\n"))}`;
 }
 
+const PAYMENT_LABELS: Record<string, string> = {
+  PENDING:  "Ödeme Bekleniyor",
+  PAID:     "Ödendi",
+  PARTIAL:  "Kısmi Ödeme",
+  FREE:     "Ücretsiz",
+};
+
 interface OrderRow {
   id: string;
   orderNo: string;
   createdAt: Date | string;
   status: string;
+  paymentStatus?: string | null;
   items: unknown;
   total: unknown;
   discount: unknown;
@@ -96,7 +104,7 @@ export default function HesabimSiparisler({ orders, userPhone, userName, bankInf
                   onClick={() => toggle(order.id)}
                   className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#FAFAF7] transition-colors text-left"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-2 min-w-0">
                     <span className={`font-sans text-[9px] tracking-[0.15em] uppercase px-2 py-1 shrink-0 ${
                       order.status === "DELIVERED" ? "bg-green-50 text-green-700" :
                       order.status === "SHIPPED"   ? "bg-blue-50 text-blue-700"   :
@@ -105,6 +113,16 @@ export default function HesabimSiparisler({ orders, userPhone, userName, bankInf
                     }`}>
                       {STATUS_LABELS[order.status] ?? order.status}
                     </span>
+                    {order.paymentStatus && (
+                      <span className={`font-sans text-[9px] tracking-[0.1em] uppercase px-2 py-1 shrink-0 ${
+                        order.paymentStatus === "PAID"    ? "bg-green-50 text-green-700"  :
+                        order.paymentStatus === "PARTIAL" ? "bg-orange-50 text-orange-600" :
+                        order.paymentStatus === "FREE"    ? "bg-slate-50 text-slate-500"   :
+                                                            "bg-red-50 text-red-500"
+                      }`}>
+                        {PAYMENT_LABELS[order.paymentStatus] ?? order.paymentStatus}
+                      </span>
+                    )}
                     <div className="min-w-0">
                       <p className="font-sans text-[10px] tracking-widest text-[#6B6B6B]">#{order.orderNo}</p>
                       <p className="font-sans text-[10px] text-[#9A9A9A]">

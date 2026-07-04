@@ -37,7 +37,7 @@ export default async function HesabimPage() {
       take:    20,
       select: {
         id: true, orderNo: true, createdAt: true, status: true,
-        items: true, total: true, discount: true,
+        items: true, total: true, discount: true, paymentStatus: true,
         trackingNo: true, cargoCompany: true,
       },
     }),
@@ -78,6 +78,7 @@ export default async function HesabimPage() {
     discount:     null,
     trackingNo:   null as string | null,
     cargoCompany: null as string | null,
+    paymentStatus: "PAID" as string,
     source:       "admin" as const,
   }));
 
