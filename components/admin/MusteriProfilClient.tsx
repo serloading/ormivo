@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateCustomer, updateCustomerSegment, addCustomerNote, deleteCustomerNote } from "@/lib/actions/customer";
+import { fmtOrderNo } from "@/lib/order-no";
 import { adminAddAddress, adminDeleteAddress } from "@/lib/actions/address";
 import { SEGMENTS, SEGMENT_LABELS, SEGMENT_COLORS } from "@/lib/customer-constants";
 import { TURKEY_CITIES, CITY_NAMES } from "@/lib/data/turkey-cities";
@@ -363,7 +364,7 @@ export default function MusteriProfilClient({
                         rel="noreferrer"
                         className="font-mono text-xs font-semibold text-[#2c1810] hover:text-indigo-600 hover:underline"
                       >
-                        #{o.orderNo}
+                        #{fmtOrderNo(o.orderNo)}
                       </a>
                     </td>
                     <td className="py-2.5">

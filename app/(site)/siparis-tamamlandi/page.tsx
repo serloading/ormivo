@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { normalizeOrderItems } from "@/lib/order-items";
 import { getTransferInfo } from "@/lib/actions/settings";
+import { fmtOrderNo }      from "@/lib/order-no";
 
 export const metadata = { title: "Siparişiniz Alındı — Ormivo" };
 
@@ -69,7 +70,7 @@ export default async function SiparisTamamlandiPage({
   if (orderDetails && orderNo) {
     const greeting = `Merhaba ${userName || "değerli müşterimiz"}, sipariş özetiniz aşağıdaki gibidir;\n\n`;
     const lines = [
-      `Sipariş No: #${orderNo}`,
+      `Sipariş No: #${fmtOrderNo(orderNo)}`,
       ``,
       ...orderDetails.items.map((i) => `• ${i.name} ×${i.qty} = ${(i.price * i.qty).toLocaleString("tr-TR")} ₺`),
       ``,
@@ -104,7 +105,7 @@ export default async function SiparisTamamlandiPage({
           {orderNo && (
             <div className="bg-[#FAFAF7] border border-[#E8E4DE] px-4 py-3 mb-6">
               <p className="font-sans text-[10px] tracking-[0.2em] uppercase text-[#9A9A9A] mb-1">Sipariş Numaranız</p>
-              <p className="font-serif text-lg text-[#1A1A1A] tracking-wider">{orderNo}</p>
+              <p className="font-serif text-lg text-[#1A1A1A] tracking-wider">#{fmtOrderNo(orderNo)}</p>
             </div>
           )}
 

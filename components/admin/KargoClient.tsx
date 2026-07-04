@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Modal from "./Modal";
 import { Field, SelectField, TextareaField, SubmitRow } from "./FormField";
 import { updateCargo, deleteCargo } from "@/lib/actions/cargo";
+import { fmtOrderNo } from "@/lib/order-no";
 
 type Order = { id: string; orderNo: string; customerId: string };
 type Customer = { id: string; name: string };
@@ -88,7 +89,7 @@ export default function KargoClient({ cargos }: { cargos: Cargo[] }) {
                 const s = STATUS[c.status as keyof typeof STATUS] ?? STATUS.PREPARING;
                 return (
                   <tr key={c.id} className={`border-b border-[#f0ebe6] hover:bg-[#faf8f6] ${i === cargos.length - 1 ? "border-b-0" : ""}`}>
-                    <td className="px-6 py-4 font-medium text-[#2c1810]">{c.order.orderNo}</td>
+                    <td className="px-6 py-4 font-medium text-[#2c1810]">#{fmtOrderNo(c.order.orderNo)}</td>
                     <td className="px-6 py-4 text-[#5c4033]">{c.customer.name}</td>
                     <td className="px-6 py-4 text-[#5c4033]">{c.company || "—"}</td>
                     <td className="px-6 py-4"><code className="text-xs bg-[#f5f0eb] px-2 py-1 rounded">{c.trackingNo || "—"}</code></td>
@@ -111,7 +112,7 @@ export default function KargoClient({ cargos }: { cargos: Cargo[] }) {
         </div>
       )}
 
-      <Modal open={!!editing} onClose={() => setEditing(null)} title={`Kargo Güncelle — ${editing?.order.orderNo}`}>
+      <Modal open={!!editing} onClose={() => setEditing(null)} title={`Kargo Güncelle — #${editing ? fmtOrderNo(editing.order.orderNo) : ""}`}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <SelectField label="Kargo Firması" value={form.company} onChange={(e) => setForm((p) => ({ ...p, company: e.target.value }))}>
             <option value="">Firma seçin</option>

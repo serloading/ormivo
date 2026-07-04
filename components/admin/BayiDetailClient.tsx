@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateBayiProfile, revokeB2B, updateB2BMarkup } from "@/lib/actions/b2b";
+import { fmtOrderNo } from "@/lib/order-no";
 
 // ── Types ─────────────────────────────────────────────────────
 type User = {
@@ -254,7 +255,7 @@ export default function BayiDetailClient({
                   return (
                     <tr key={o.id} className={`border-b border-[#f0e8e0] ${i % 2 === 0 ? "bg-white" : "bg-[#fdfaf8]"}`}>
                       <td className="px-4 py-3 font-mono text-xs text-[#5c4033]">
-                        {o.orderNo}
+                        #{fmtOrderNo(o.orderNo)}
                         {o.referralName && <span className="block text-[10px] text-cyan-600 font-sans font-normal">{o.referralName}</span>}
                       </td>
                       <td className="px-4 py-3 text-xs text-[#8b6f5e] whitespace-nowrap">
@@ -303,7 +304,7 @@ export default function BayiDetailClient({
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <div>
                     <p className="text-sm font-medium text-[#2c1810]">{d.description}</p>
-                    {d.orderNo && <p className="text-xs text-[#8b6f5e]">Sipariş: {d.orderNo}</p>}
+                    {d.orderNo && <p className="text-xs text-[#8b6f5e]">Sipariş: #{fmtOrderNo(d.orderNo)}</p>}
                     <p className="text-xs text-[#b8a89e]">{new Date(d.createdAt).toLocaleDateString("tr-TR")}</p>
                   </div>
                   <div className="text-right shrink-0">

@@ -7,6 +7,7 @@ import { Field, TextareaField, SubmitRow } from "./FormField";
 import { createOrder, updateOrderStatus, deleteOrder } from "@/lib/actions/order";
 import { createCustomerDebt } from "@/lib/actions/debt";
 import { addManualOrderToDepo } from "@/lib/actions/depo-siparis";
+import { fmtOrderNo } from "@/lib/order-no";
 
 type OrderItem = { productName: string; price: number; quantity: number };
 type Customer = { id: string; name: string; phone: string | null };
@@ -174,7 +175,7 @@ export default function SiparislerClient({
               const s = STATUS[o.status] ?? STATUS.PENDING;
               return (
                 <tr key={o.id} className={`border-b border-[#f0ebe6] hover:bg-[#faf8f6] ${i === orders.length - 1 ? "border-b-0" : ""}`}>
-                  <td className="px-5 py-4 font-medium text-[#2c1810]">{o.orderNo}</td>
+                  <td className="px-5 py-4 font-medium text-[#2c1810]">#{fmtOrderNo(o.orderNo)}</td>
                   <td className="px-5 py-4">
                     <p className="text-[#2c1810]">{o.customer.name}</p>
                     {o.customer.phone && (
@@ -343,7 +344,7 @@ export default function SiparislerClient({
       </Modal>
 
       {/* Detay Modal */}
-      <Modal open={!!detail} onClose={() => setDetail(null)} title={`Sipariş: ${detail?.orderNo}`}>
+      <Modal open={!!detail} onClose={() => setDetail(null)} title={`Sipariş: #${detail ? fmtOrderNo(detail.orderNo) : ""}`}>
         {detail && (
           <div className="space-y-4">
             <div className="space-y-2.5">

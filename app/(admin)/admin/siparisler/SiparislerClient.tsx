@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createPortal } from "react-dom";
 import { normalizeOrderItems } from "@/lib/order-items";
+import { fmtOrderNo }          from "@/lib/order-no";
 import {
   updateSiteOrderStatus, updateManuelOrderStatus, updateTrackingNo, updatePaymentStatus,
   updateDeliveryMethod, updateSiteOrderDiscount,
@@ -961,7 +962,7 @@ export default function SiparislerClient({
                   <input type="checkbox" checked={selected.has(order.id)} onChange={() => toggleSelect(order.id)} className="rounded" />
                 </td>
                 <td className="px-3 py-3 whitespace-nowrap">
-                  <button onClick={() => setSummaryOrder(order)} className="font-mono text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline text-left">#{order.orderNo}</button>
+                  <button onClick={() => setSummaryOrder(order)} className="font-mono text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline text-left">#{fmtOrderNo(order.orderNo)}</button>
                   <div className="text-[10px] text-gray-400 mt-0.5">
                     {new Date(order.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "2-digit" })}
                   </div>
@@ -1075,7 +1076,7 @@ function OrderSummaryModal({ order, debt, onClose }: { order: OrderRow; debt: Or
   const lines: string[] = [
     `Sayın ${order.recipientName ?? "Müşteri"},`,
     ``,
-    `#${order.orderNo} numaralı siparişinizin özeti:`,
+    `#${fmtOrderNo(order.orderNo)} numaralı siparişinizin özeti:`,
     ``,
     ...items.map((i) => `• ${i.name} ×${i.qty} = ${(i.price * i.qty).toLocaleString("tr-TR")} ₺`),
     ``,
@@ -1109,7 +1110,7 @@ function OrderSummaryModal({ order, debt, onClose }: { order: OrderRow; debt: Or
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>
             <p className="text-[10px] tracking-[0.3em] uppercase text-[#C4A882]">Sipariş Özeti</p>
-            <h2 className="font-mono text-lg font-bold text-gray-800">#{order.orderNo}</h2>
+            <h2 className="font-mono text-lg font-bold text-gray-800">#{fmtOrderNo(order.orderNo)}</h2>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
         </div>
@@ -1264,7 +1265,7 @@ function SendToDepoButton({ order }: { order: OrderRow }) {
   const router = useRouter();
 
   function handleSend() {
-    if (!confirm(`#${order.orderNo} siparişindeki ürünler depo siparişine eklensin mi?`)) return;
+    if (!confirm(`#${fmtOrderNo(order.orderNo)} siparişindeki ürünler depo siparişine eklensin mi?`)) return;
     startTransition(async () => {
       try {
         const res = await addManualOrderToDepo(order.id, order.source);
@@ -1329,7 +1330,7 @@ function DeleteButton({ order }: { order: OrderRow }) {
   const [, startTransition] = useTransition();
   const router = useRouter();
   function handleDelete() {
-    if (!confirm(`#${order.orderNo} siparişi silinsin mi? Finans kayıtları ve stok da geri alınır.`)) return;
+    if (!confirm(`#${fmtOrderNo(order.orderNo)} siparişi silinsin mi? Finans kayıtları ve stok da geri alınır.`)) return;
     startTransition(async () => {
       try { await deleteOrderById(order.id, order.source); router.refresh(); }
       catch (e) { alert("Silme hatası: " + (e instanceof Error ? e.message : "Bilinmeyen hata")); }
@@ -1503,7 +1504,7 @@ function EditOrderModal({ order, customers: initCustomers, products: initProduct
         <div className="flex items-center justify-between px-6 py-5 border-b border-[#e8ddd6] sticky top-0 bg-white z-10">
           <div>
             <p className="text-[10px] tracking-[0.3em] uppercase text-[#8b6f5e]">Sipariş Düzenle</p>
-            <h2 className="text-lg font-light text-[#2c1810] tracking-wide mt-0.5">#{order.orderNo}</h2>
+            <h2 className="text-lg font-light text-[#2c1810] tracking-wide mt-0.5">#{fmtOrderNo(order.orderNo)}</h2>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-[#8b6f5e] hover:text-[#2c1810] hover:bg-[#f5f0eb] rounded-sm transition-colors text-xl">×</button>
         </div>

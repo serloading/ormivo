@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { normalizeOrderItems } from "@/lib/order-items";
+import { fmtOrderNo }          from "@/lib/order-no";
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING:   "Hazırlanıyor",
@@ -85,7 +86,7 @@ export default function HesabimSiparisler({ orders, userPhone, userName, bankInf
             const gross    = Math.max(0, net + discount);
 
             const waLines = [
-              `Sipariş No: #${order.orderNo}`,
+              `Sipariş No: #${fmtOrderNo(order.orderNo)}`,
               ``,
               ...itemsArr.map((i) => `• ${i.name} ×${i.qty} = ${(i.price * i.qty).toLocaleString("tr-TR")} ₺`),
               ``,
@@ -124,7 +125,7 @@ export default function HesabimSiparisler({ orders, userPhone, userName, bankInf
                       </span>
                     )}
                     <div className="min-w-0">
-                      <p className="font-sans text-[10px] tracking-widest text-[#6B6B6B]">#{order.orderNo}</p>
+                      <p className="font-sans text-[10px] tracking-widest text-[#6B6B6B]">#{fmtOrderNo(order.orderNo)}</p>
                       <p className="font-sans text-[10px] text-[#9A9A9A]">
                         {new Date(order.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" })}
                       </p>

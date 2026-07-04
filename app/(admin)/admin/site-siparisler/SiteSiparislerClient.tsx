@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { updateTrackingNo }        from "@/lib/actions/site-order-admin";
+import { fmtOrderNo }              from "@/lib/order-no";
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING:   "Hazırlanıyor",
@@ -130,7 +131,7 @@ export default function SiteSiparislerClient({ orders }: { orders: Order[] }) {
                 {/* Sol: Sipariş bilgisi */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-1 flex-wrap">
-                    <span className="font-mono text-sm font-semibold text-gray-700">#{order.orderNo}</span>
+                    <span className="font-mono text-sm font-semibold text-gray-700">#{fmtOrderNo(order.orderNo)}</span>
                     <span className={`text-[10px] tracking-wide uppercase px-2 py-0.5 rounded font-medium ${STATUS_COLORS[order.status] ?? "bg-gray-100 text-gray-600"}`}>
                       {STATUS_LABELS[order.status] ?? order.status}
                     </span>

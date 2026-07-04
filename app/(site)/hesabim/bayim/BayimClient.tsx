@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { fmtOrderNo } from "@/lib/order-no";
 
 type Referral = {
   id: string;
@@ -140,7 +141,7 @@ export default function BayimClient({
               {referralOrders.map((o) => (
                 <div key={o.id} className="flex items-center gap-4 py-3">
                   <div className="flex-1 min-w-0">
-                    <p className="font-sans text-xs font-medium text-[#1A1A1A]">#{o.orderNo.slice(-8)}</p>
+                    <p className="font-sans text-xs font-medium text-[#1A1A1A]">#{fmtOrderNo(o.orderNo)}</p>
                     <p className="font-sans text-[11px] text-[#9A9A9A]">{o.userName ?? "—"}</p>
                   </div>
                   <div className="text-right shrink-0">

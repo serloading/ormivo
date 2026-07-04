@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { fmtOrderNo } from "@/lib/order-no";
 import {
   createCustomerDebt,
   updateCustomerDebt,
@@ -370,7 +371,7 @@ export default function BorcAlacakClient({
                         <tr key={`site-${o.id}`} className="hover:bg-gray-50">
                           <td className="px-4 py-3 font-mono text-xs font-semibold">
                             <Link href={`/admin/siparisler?q=${o.orderNo}`} className="text-indigo-600 hover:text-indigo-800 hover:underline">
-                              #{o.orderNo}
+                              #{fmtOrderNo(o.orderNo)}
                             </Link>
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">
@@ -404,7 +405,7 @@ export default function BorcAlacakClient({
                         <tr key={`b2b-${o.id}`} className="hover:bg-gray-50">
                           <td className="px-4 py-3 font-mono text-xs font-semibold">
                             <Link href={`/admin/siparisler?q=${o.orderNo}`} className="text-indigo-600 hover:text-indigo-800 hover:underline">
-                              #{o.orderNo}
+                              #{fmtOrderNo(o.orderNo)}
                             </Link>
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">
@@ -443,7 +444,7 @@ export default function BorcAlacakClient({
                         <td className="px-4 py-3 font-mono text-xs font-semibold">
                           {d.order ? (
                             <Link href={`/admin/siparisler?q=${d.order.orderNo}`} className="text-indigo-600 hover:text-indigo-800 hover:underline">
-                              #{d.order.orderNo}
+                              #{fmtOrderNo(d.order.orderNo)}
                             </Link>
                           ) : <span className="text-gray-400">—</span>}
                         </td>
@@ -595,7 +596,7 @@ export default function BorcAlacakClient({
             <Field label="Sipariş (opsiyonel)">
               <select value={cdForm.orderId} onChange={(e) => setCdForm((f) => ({ ...f, orderId: e.target.value }))} className={inputCls}>
                 <option value="">Sipariş seçme</option>
-                {orders.map((o) => <option key={o.id} value={o.id}>#{o.orderNo}</option>)}
+                {orders.map((o) => <option key={o.id} value={o.id}>#{fmtOrderNo(o.orderNo)}</option>)}
               </select>
             </Field>
             <Field label="Açıklama *">
@@ -776,11 +777,11 @@ export default function BorcAlacakClient({
 
       {/* B2B Manuel Sipariş Ödeme Al */}
       {modal?.type === "pay-b2b-order" && (
-        <Modal title={`Ödeme Al — #${modal.order.orderNo}`} onClose={() => setModal(null)}>
+        <Modal title={`Ödeme Al — #${fmtOrderNo(modal.order.orderNo)}`} onClose={() => setModal(null)}>
           <div className="space-y-4">
             <div className="bg-amber-50 border border-amber-200 p-4 rounded text-sm space-y-1">
               <p className="font-medium text-[#2c1810]">{modal.order.customer?.name ?? "—"}</p>
-              <p className="text-gray-500">Manuel Sipariş #{modal.order.orderNo}</p>
+              <p className="text-gray-500">Manuel Sipariş #{fmtOrderNo(modal.order.orderNo)}</p>
               <p>Toplam: <span className="font-semibold text-amber-700">{Number(modal.order.total).toLocaleString("tr-TR")} ₺</span></p>
             </div>
             <Field label="Müşteri *">
@@ -827,11 +828,11 @@ export default function BorcAlacakClient({
 
       {/* Web Sipariş Ödeme Al */}
       {modal?.type === "pay-site-order" && (
-        <Modal title={`Ödeme Al — #${modal.order.orderNo}`} onClose={() => setModal(null)}>
+        <Modal title={`Ödeme Al — #${fmtOrderNo(modal.order.orderNo)}`} onClose={() => setModal(null)}>
           <div className="space-y-4">
             <div className="bg-gray-50 border border-gray-200 p-4 rounded text-sm space-y-1">
               <p className="font-medium text-[#2c1810]">{modal.order.recipientName ?? modal.order.user?.name}</p>
-              <p className="text-gray-500">Web Sipariş #{modal.order.orderNo}</p>
+              <p className="text-gray-500">Web Sipariş #{fmtOrderNo(modal.order.orderNo)}</p>
               <p>Toplam: <span className="font-semibold text-orange-600">{Number(modal.order.total).toLocaleString("tr-TR")} ₺</span></p>
             </div>
             <Field label="Müşteri *">
