@@ -84,7 +84,7 @@ export async function login(formData: FormData) {
   const user = await prisma.siteUser.findFirst({
     where: { phone: { in: phoneLookupVariants(phoneRaw) } },
   });
-  if (!user) return { error: "Telefon numarası veya şifre hatalı." };
+  if (!user || !user.isActive) return { error: "Telefon numarası veya şifre hatalı." };
 
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return { error: "Telefon numarası veya şifre hatalı." };

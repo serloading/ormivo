@@ -52,9 +52,9 @@ export async function getSession(): Promise<SessionPayload | null> {
     const { prisma } = await import("@/lib/prisma");
     let user = await prisma.siteUser.findUnique({
       where:  { id: jwt.userId },
-      select: { id: true, phone: true, name: true, segment: true, isB2BApproved: true, b2bMarkup: true },
+      select: { id: true, phone: true, name: true, segment: true, isB2BApproved: true, b2bMarkup: true, isActive: true },
     });
-    if (!user) return null;
+    if (!user || !user.isActive) return null;
 
     if (!user.name || !user.segment) {
       const synced = await syncSiteUserFromCustomerPhone(user.phone);

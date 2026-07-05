@@ -169,6 +169,7 @@ model SiteUser {
   email              String?
   passwordHash       String
   mustChangePassword Boolean     @default(false)
+  isActive           Boolean     @default(true)
   segment            String?     // BRONZE | SILVER | GOLD | null
   isB2B              Boolean     @default(false)
   isB2BApproved      Boolean     @default(false)

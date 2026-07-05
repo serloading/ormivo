@@ -51,12 +51,12 @@ export default async function BorcAlacakPage() {
       const recipientPhone = normPhone(o.recipientPhone);
       return !activeDebtPhones.has(userPhone) && !activeDebtPhones.has(recipientPhone);
     })),
-    // B2B manuel siparişler — depoSent:true olanlar ve CustomerDebt'e bağlı olmayanlar
+    // B2B manuel siparişler — ödenmemiş ve CustomerDebt'e bağlı olmayanlar
+    // (depoSent tedarikçi/depo sürecine ait bir bayrak; müşteri ödeme takibiyle ilgisi yok)
     prisma.order.findMany({
       where: {
         paymentStatus: "PENDING",
         status: { not: "CANCELLED" },
-        depoSent: true,
         ...(debtOrderIds.size > 0 ? { id: { notIn: Array.from(debtOrderIds) } } : {}),
       },
       orderBy: { createdAt: "desc" },

@@ -154,12 +154,13 @@ export async function updateCustomer(id: string, data: Partial<CustomerFormData>
 export async function deleteCustomer(id: string) {
   const customer = await prisma.customer.findUnique({ where: { id }, select: { phone: true } });
   await prisma.customer.delete({ where: { id } });
-  // Aynı telefonla eşleşen SiteUser'ın bayi/segment bayraklarını temizle
+  // Aynı telefonla eşleşen SiteUser hesabını devre dışı bırak — açık oturumu geçersiz
+  // kılar ve tekrar giriş yapmasını engeller (hesap DB'de duruyor, sadece pasif).
   if (customer?.phone) {
     const { phoneLookupVariants } = await import("@/lib/phone");
     await prisma.siteUser.updateMany({
       where: { phone: { in: phoneLookupVariants(customer.phone) } },
-      data: { isB2BApproved: false, isB2B: false, segment: null },
+      data: { isB2BApproved: false, isB2B: false, segment: null, isActive: false },
     });
   }
   revalidatePath("/admin/musteriler");
