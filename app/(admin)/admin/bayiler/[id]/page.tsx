@@ -131,7 +131,7 @@ export default async function BayiDetailPage({ params }: { params: Promise<{ id:
           referralCode: user.referralCode,
           createdAt: user.createdAt,
         }}
-        stats={{ totalSpend, pendingPayment, totalDebt, orderCount: user.siteOrders.length, referralCount: user.referrals.length }}
+        stats={{ totalSpend, pendingPayment, totalDebt, orderCount: allOrders.length, referralCount: user.referrals.length }}
         orders={[
           ...user.siteOrders.map((o) => ({
             id: o.id, orderNo: o.orderNo, status: o.status, paymentStatus: o.paymentStatus,

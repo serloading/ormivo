@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { BayiEkleButton, RemoveBayiButton } from "@/components/admin/BayilerClient";
+import { phoneLookupVariants } from "@/lib/phone";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Bayi Yönetimi — Ormivo Admin" };
@@ -44,31 +45,84 @@ export default async function BayilerPage() {
   });
   const dealerIds = siteUsers.map((u) => u.id);
 
-  // ── Tüm zamanlar toplam ───────────────────────────────────
-  const allTimeTotals = await prisma.siteOrder.groupBy({
-    by: ["userId"],
-    where: { userId: { in: dealerIds } },
-    _sum: { total: true },
-  });
-  const allTimeMap = new Map(allTimeTotals.map((r) => [r.userId, Number(r._sum.total ?? 0)]));
+  // ── Bayi telefonu → eşleşen Customer.id eşleştirmesi ──────
+  // Bayilerin bir kısmının siparişleri admin panelinden manuel girilen
+  // Order kayıtları (Customer üzerinden), SiteOrder değil. İkisini de
+  // dahil etmek için telefon üzerinden Customer'ı buluyoruz.
+  const allPhoneVariants = [...new Set(siteUsers.flatMap((u) => phoneLookupVariants(u.phone)))];
+  const matchingCustomers = allPhoneVariants.length
+    ? await prisma.customer.findMany({
+        where: { phone: { in: allPhoneVariants } },
+        select: { id: true, phone: true },
+      })
+    : [];
+  // customerId → dealer siteUserId
+  const customerIdToDealerId = new Map<string, string>();
+  for (const u of siteUsers) {
+    const variants = new Set(phoneLookupVariants(u.phone));
+    for (const c of matchingCustomers) {
+      if (c.phone && variants.has(c.phone)) customerIdToDealerId.set(c.id, u.id);
+    }
+  }
+  const customerIds = [...customerIdToDealerId.keys()];
 
-  // ── Bu ay ─────────────────────────────────────────────────
-  const thisMonthRows = await prisma.siteOrder.groupBy({
-    by: ["userId"],
-    where: { userId: { in: dealerIds }, createdAt: { gte: thisMonthStart } },
-    _sum: { total: true },
-    _count: true,
-  });
-  const thisMonthMap = new Map(thisMonthRows.map((r) => [r.userId, { rev: Number(r._sum.total ?? 0), cnt: r._count }]));
+  // ── Tüm zamanlar toplam (SiteOrder + manuel Order) ────────
+  const [siteAllTime, manualAllTime] = await Promise.all([
+    prisma.siteOrder.groupBy({ by: ["userId"], where: { userId: { in: dealerIds } }, _sum: { total: true } }),
+    customerIds.length
+      ? prisma.order.groupBy({ by: ["customerId"], where: { customerId: { in: customerIds }, status: { not: "CANCELLED" } }, _sum: { total: true } })
+      : Promise.resolve([]),
+  ]);
+  const allTimeMap = new Map<string, number>();
+  for (const r of siteAllTime) allTimeMap.set(r.userId!, Number(r._sum.total ?? 0));
+  for (const r of manualAllTime) {
+    const dealerId = customerIdToDealerId.get(r.customerId!);
+    if (!dealerId) continue;
+    allTimeMap.set(dealerId, (allTimeMap.get(dealerId) ?? 0) + Number(r._sum.total ?? 0));
+  }
 
-  // ── Geçen ay ──────────────────────────────────────────────
-  const lastMonthRows = await prisma.siteOrder.groupBy({
-    by: ["userId"],
-    where: { userId: { in: dealerIds }, createdAt: { gte: lastMonthStart, lt: lastMonthEnd } },
-    _sum: { total: true },
-    _count: true,
-  });
-  const lastMonthMap = new Map(lastMonthRows.map((r) => [r.userId, { rev: Number(r._sum.total ?? 0), cnt: r._count }]));
+  // ── Bu ay (SiteOrder + manuel Order) ──────────────────────
+  const [siteThisMonth, manualThisMonth] = await Promise.all([
+    prisma.siteOrder.groupBy({ by: ["userId"], where: { userId: { in: dealerIds }, createdAt: { gte: thisMonthStart } }, _sum: { total: true }, _count: true }),
+    customerIds.length
+      ? prisma.order.groupBy({ by: ["customerId"], where: { customerId: { in: customerIds }, status: { not: "CANCELLED" }, createdAt: { gte: thisMonthStart } }, _sum: { total: true }, _count: true })
+      : Promise.resolve([]),
+  ]);
+  const thisMonthMap = new Map<string, { rev: number; cnt: number }>();
+  for (const r of siteThisMonth) thisMonthMap.set(r.userId!, { rev: Number(r._sum.total ?? 0), cnt: r._count });
+  for (const r of manualThisMonth) {
+    const dealerId = customerIdToDealerId.get(r.customerId!);
+    if (!dealerId) continue;
+    const prev = thisMonthMap.get(dealerId) ?? { rev: 0, cnt: 0 };
+    thisMonthMap.set(dealerId, { rev: prev.rev + Number(r._sum.total ?? 0), cnt: prev.cnt + r._count });
+  }
+
+  // ── Geçen ay (SiteOrder + manuel Order) ───────────────────
+  const [siteLastMonth, manualLastMonth] = await Promise.all([
+    prisma.siteOrder.groupBy({ by: ["userId"], where: { userId: { in: dealerIds }, createdAt: { gte: lastMonthStart, lt: lastMonthEnd } }, _sum: { total: true }, _count: true }),
+    customerIds.length
+      ? prisma.order.groupBy({ by: ["customerId"], where: { customerId: { in: customerIds }, status: { not: "CANCELLED" }, createdAt: { gte: lastMonthStart, lt: lastMonthEnd } }, _sum: { total: true }, _count: true })
+      : Promise.resolve([]),
+  ]);
+  const lastMonthMap = new Map<string, { rev: number; cnt: number }>();
+  for (const r of siteLastMonth) lastMonthMap.set(r.userId!, { rev: Number(r._sum.total ?? 0), cnt: r._count });
+  for (const r of manualLastMonth) {
+    const dealerId = customerIdToDealerId.get(r.customerId!);
+    if (!dealerId) continue;
+    const prev = lastMonthMap.get(dealerId) ?? { rev: 0, cnt: 0 };
+    lastMonthMap.set(dealerId, { rev: prev.rev + Number(r._sum.total ?? 0), cnt: prev.cnt + r._count });
+  }
+
+  // ── Tüm zamanlar sipariş sayısı (kart üzerindeki "Sipariş" alanı) ──
+  const manualOrderCounts = customerIds.length
+    ? await prisma.order.groupBy({ by: ["customerId"], where: { customerId: { in: customerIds }, status: { not: "CANCELLED" } }, _count: true })
+    : [];
+  const manualOrderCountMap = new Map<string, number>();
+  for (const r of manualOrderCounts) {
+    const dealerId = customerIdToDealerId.get(r.customerId!);
+    if (!dealerId) continue;
+    manualOrderCountMap.set(dealerId, (manualOrderCountMap.get(dealerId) ?? 0) + r._count);
+  }
 
   // ── Referral sayısı (bu bayi kodu ile kaydolan) ───────────
   const refRows = await prisma.siteUser.groupBy({
@@ -83,6 +137,7 @@ export default async function BayilerPage() {
     ...u,
     b2bMarkup:   u.b2bMarkup != null ? Number(u.b2bMarkup) : null,
     totalSpend:  allTimeMap.get(u.id) ?? 0,
+    orderCount:  u._count.siteOrders + (manualOrderCountMap.get(u.id) ?? 0),
     thisRev:     thisMonthMap.get(u.id)?.rev ?? 0,
     thisCnt:     thisMonthMap.get(u.id)?.cnt ?? 0,
     lastRev:     lastMonthMap.get(u.id)?.rev ?? 0,
@@ -242,7 +297,7 @@ function DealerCard({ user }: {
   user: {
     id: string; name: string | null; phone: string; email: string | null;
     isB2BApproved: boolean; b2bMarkup: number | null; segment: string | null;
-    referralCode: string | null; totalSpend: number; createdAt: Date;
+    referralCode: string | null; totalSpend: number; orderCount: number; createdAt: Date;
     _count: { siteOrders: number; referrals: number };
   };
 }) {
@@ -271,7 +326,7 @@ function DealerCard({ user }: {
       <div className="grid grid-cols-3 gap-2 text-center border-t border-[#f0e8e0] pt-3">
         <div>
           <p className="text-[10px] text-[#b8a89e] uppercase tracking-wide">Sipariş</p>
-          <p className="text-sm font-semibold text-[#2c1810]">{user._count.siteOrders}</p>
+          <p className="text-sm font-semibold text-[#2c1810]">{user.orderCount}</p>
         </div>
         <div>
           <p className="text-[10px] text-[#b8a89e] uppercase tracking-wide">Toplam</p>
