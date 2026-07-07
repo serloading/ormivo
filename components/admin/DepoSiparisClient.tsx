@@ -272,7 +272,7 @@ function ItemRow({
   );
 }
 
-export default function DepoSiparisClient({ siparisler, usdRate, suppliers: initSuppliers }: { siparisler: DepoSiparis[]; usdRate: number; suppliers: { name: string; phone: string }[] }) {
+export default function DepoSiparisClient({ siparisler, usdRate, suppliers: initSuppliers, supplierBalances = {} }: { siparisler: DepoSiparis[]; usdRate: number; suppliers: { name: string; phone: string }[]; supplierBalances?: Record<string, number> }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [modalOpen, setModalOpen] = useState(false);
@@ -300,7 +300,10 @@ export default function DepoSiparisClient({ siparisler, usdRate, suppliers: init
   const paid = Number(form.paidAmount) || 0;
   const itemsTotal = items.reduce((sum, item) => sum + (Number(item.qty) || 0) * (Number(item.unitPrice) || 0), 0);
   const grandTotal = itemsTotal + shippingFee;
-  const remaining = Math.max(0, grandTotal - paid);
+  // Geçmişten kalan bakiye — sadece yeni sipariş oluştururken gösterilir
+  // (düzenlemede mevcut kaydın kendisi zaten bu toplama dahil, tekrar sayılmasın)
+  const pastBalance = !editingId ? (supplierBalances[form.depoName.trim()] ?? 0) : 0;
+  const remaining = Math.max(0, grandTotal - paid) + pastBalance;
 
   function updateItem(idx: number, field: keyof DepoSiparisItem | "unitPriceStr", value: string) {
     setItems((prev) =>
@@ -751,8 +754,14 @@ export default function DepoSiparisClient({ siparisler, usdRate, suppliers: init
                   <div className="text-[11px] text-[#b8a89e]">{grandTotal.toLocaleString("tr-TR")} ₺</div>
                 </div>
               </div>
+              {pastBalance > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[#8b6f5e]">Geçmiş Bakiye <span className="text-[10px] text-[#b8a89e]">({form.depoName.trim()})</span></span>
+                  <span className="text-sm font-semibold text-amber-600">{pastBalance.toLocaleString("tr-TR")} ₺</span>
+                </div>
+              )}
               <div className="flex items-center justify-between">
-                <span className="text-sm text-[#8b6f5e]">Kalan Borç</span>
+                <span className="text-sm text-[#8b6f5e]">{pastBalance > 0 ? "Toplam Kalan Borç" : "Kalan Borç"}</span>
                 <span className="text-sm font-semibold text-red-600">{remaining.toLocaleString("tr-TR")} ₺</span>
               </div>
             </div>

@@ -1,0 +1,1 @@
+ALTER TABLE "SiteOrder" ADD COLUMN "depoSent" BOOLEAN NOT NULL DEFAULT false;

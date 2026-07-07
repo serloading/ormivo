@@ -143,6 +143,29 @@ async function syncDerivedRecords(params: {
   ]);
 }
 
+// Sipariş kalemlerini depo siparişi kalemlerine çevirir; birim fiyat olarak
+// ürünün güncel alış fiyatını (costPriceUsd × güncel USD kuru) kullanır.
+// Ürün eşleşmesi yoksa (productId yok/silinmiş ürün) satış fiyatına düşer.
+async function buildDepoItemsFromOrder(rawItems: unknown): Promise<DepoSiparisItem[]> {
+  const normalized = normalizeOrderItems(rawItems);
+  const productIds = normalized.map((i) => i.productId).filter(Boolean) as string[];
+
+  const [products, usdRateRow] = await Promise.all([
+    productIds.length
+      ? prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, costPriceUsd: true } })
+      : Promise.resolve([]),
+    prisma.setting.findUnique({ where: { key: "usd_rate" } }),
+  ]);
+  const usdRate = usdRateRow ? parseFloat(usdRateRow.value) : 38;
+  const costById = new Map(products.map((p) => [p.id, p.costPriceUsd != null ? Number(p.costPriceUsd) : null]));
+
+  return normalized.map((item) => {
+    const costUsd = item.productId ? costById.get(item.productId) : null;
+    const unitPrice = costUsd != null ? Math.round(costUsd * usdRate * 100) / 100 : item.price;
+    return { productId: item.productId, name: item.name, qty: item.qty, unitPrice };
+  });
+}
+
 export async function getDepoSiparisler() {
   return prisma.depoSiparis.findMany({ orderBy: { createdAt: "desc" } });
 }
@@ -249,6 +272,9 @@ export async function addManualOrderToDepo(orderId: string, source: "manuel" | "
 
   if (source === "web") {
     const siteOrder = await prisma.siteOrder.findUniqueOrThrow({ where: { id: orderId } });
+    if (siteOrder.depoSent) {
+      return { success: false as const, error: "Bu sipariş zaten depoya eklendi." };
+    }
     orderNo = siteOrder.orderNo;
     customerName = siteOrder.recipientName ?? "Müşteri";
     rawItems = siteOrder.items;
@@ -257,20 +283,15 @@ export async function addManualOrderToDepo(orderId: string, source: "manuel" | "
       where: { id: orderId },
       include: { customer: true },
     });
+    if (order.depoSent) {
+      return { success: false as const, error: "Bu sipariş zaten depoya eklendi." };
+    }
     orderNo = order.orderNo;
     customerName = order.customer?.name ?? "Müşteri";
     rawItems = order.items;
-    if (!order.depoSent) {
-      await prisma.order.update({ where: { id: orderId }, data: { depoSent: true } });
-    }
   }
 
-  const orderItems = normalizeOrderItems(rawItems).map<DepoSiparisItem>((item) => ({
-    productId: undefined,
-    name: item.name,
-    qty: item.qty,
-    unitPrice: item.price,
-  }));
+  const orderItems = await buildDepoItemsFromOrder(rawItems);
 
   if (orderItems.length === 0) {
     return { success: false as const, error: "Sipariş içinde aktarılacak ürün bulunamadı." };
@@ -307,13 +328,21 @@ export async function addManualOrderToDepo(orderId: string, source: "manuel" | "
       notes: existingNotes ? `${existingNotes}\n${sourceNote}` : sourceNote,
       status: latestPending.status,
     });
+    // Kaynak sipariş artık bu depo siparişine eklendi — tekrar eklenemesin
+    if (source === "web") {
+      await prisma.siteOrder.update({ where: { id: orderId }, data: { depoSent: true } });
+    } else {
+      await prisma.order.update({ where: { id: orderId }, data: { depoSent: true } });
+    }
     revalidatePath("/admin/depo-siparisler");
     revalidatePath("/admin/borc-alacak");
     revalidatePath("/admin/finans");
+    revalidatePath("/admin/siparisler");
     return { success: true as const, mode: "updated" as const, depoSiparisId: latestPending.id };
   }
 
-  // No open HAZIRLANIYOR order — caller should prompt user to create one
+  // No open HAZIRLANIYOR order — caller should prompt user to create one.
+  // depoSent burada set edilmez: henüz hiçbir depo siparişine eklenmedi.
   return {
     success: false as const,
     needsNewOrder: true as const,
@@ -334,6 +363,9 @@ export async function createDepoSiparisFromOrder(
 
   if (source === "web") {
     const siteOrder = await prisma.siteOrder.findUniqueOrThrow({ where: { id: orderId } });
+    if (siteOrder.depoSent) {
+      return { success: false as const, error: "Bu sipariş zaten depoya eklendi." };
+    }
     orderNo = siteOrder.orderNo;
     customerName = siteOrder.recipientName ?? "Müşteri";
     rawItems = siteOrder.items;
@@ -342,20 +374,15 @@ export async function createDepoSiparisFromOrder(
       where: { id: orderId },
       include: { customer: true },
     });
+    if (order.depoSent) {
+      return { success: false as const, error: "Bu sipariş zaten depoya eklendi." };
+    }
     orderNo = order.orderNo;
     customerName = order.customer?.name ?? "Müşteri";
     rawItems = order.items;
-    if (!order.depoSent) {
-      await prisma.order.update({ where: { id: orderId }, data: { depoSent: true } });
-    }
   }
 
-  const orderItems = normalizeOrderItems(rawItems).map<DepoSiparisItem>((item) => ({
-    productId: undefined,
-    name: item.name,
-    qty: item.qty,
-    unitPrice: item.price,
-  }));
+  const orderItems = await buildDepoItemsFromOrder(rawItems);
 
   const sourceNote = `Kaynak sipariş: #${orderNo} - ${customerName}`;
 
@@ -371,9 +398,17 @@ export async function createDepoSiparisFromOrder(
     notes: sourceNote,
   });
 
+  // Kaynak sipariş artık depoya eklendi — tekrar eklenemesin
+  if (source === "web") {
+    await prisma.siteOrder.update({ where: { id: orderId }, data: { depoSent: true } });
+  } else {
+    await prisma.order.update({ where: { id: orderId }, data: { depoSent: true } });
+  }
+
   revalidatePath("/admin/depo-siparisler");
   revalidatePath("/admin/borc-alacak");
   revalidatePath("/admin/finans");
+  revalidatePath("/admin/siparisler");
   return { success: true as const, mode: "created" as const, depoSiparisId: created.id };
 }
 

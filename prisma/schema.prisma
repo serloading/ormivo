@@ -227,6 +227,7 @@ model SiteOrder {
   deliveryMethod String      @default("CARGO")
   discount       Decimal     @default(0) @db.Decimal(10, 2)
   couponCode     String?
+  depoSent       Boolean     @default(false)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 }

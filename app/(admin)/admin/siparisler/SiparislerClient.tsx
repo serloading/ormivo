@@ -89,6 +89,7 @@ interface OrderRow {
   total: number; discount: number; note: string | null;
   trackingNo: string | null; cargoCompany: string | null;
   memberName: string | null; memberPhone: string | null;
+  depoSent: boolean;
 }
 interface Customer { id: string; name: string; phone: string | null; segment?: string | null }
 interface ProductOption { id: string; name: string; price: number; stock: number; costPrice?: number | null }
@@ -814,7 +815,7 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, categ
 // ---- Main Component ----
 
 export default function SiparislerClient({
-  orders, customers, products, categories, brands, debtByOrderId, initialFilter,
+  orders, customers, products, categories, brands, debtByOrderId, initialFilter, depoSuppliers,
 }: {
   orders: OrderRow[];
   customers: Customer[];
@@ -823,6 +824,7 @@ export default function SiparislerClient({
   brands: CatBrand[];
   debtByOrderId: Record<string, OrderDebt>;
   initialFilter?: string;
+  depoSuppliers: { name: string; phone: string }[];
 }) {
   const [filter, setFilter] = useState(initialFilter ?? "");
   const [sourceFilter, setSourceFilter] = useState("");
@@ -1027,7 +1029,7 @@ export default function SiparislerClient({
                 <td className="px-4 py-3 whitespace-nowrap">
                   <button onClick={() => setEditOrder(order)}
                     className="text-xs text-indigo-500 hover:text-indigo-700 mr-3">Düzenle</button>
-                  <SendToDepoButton order={order} />
+                  <SendToDepoButton order={order} suppliers={depoSuppliers} />
                   <DeleteButton order={order} />
                 </td>
               </tr>
@@ -1256,12 +1258,12 @@ function OrderSummaryModal({ order, debt, onClose }: { order: OrderRow; debt: Or
 }
 
 // ---- Send to Depo Button ----
-function SendToDepoButton({ order }: { order: OrderRow }) {
+function SendToDepoButton({ order, suppliers }: { order: OrderRow; suppliers: { name: string; phone: string }[] }) {
   const [pending, startTransition] = useTransition();
   const [showModal, setShowModal] = useState(false);
   const [depoName, setDepoName] = useState("");
   const [depoPhone, setDepoPhone] = useState("");
-  const [sent, setSent] = useState(false);
+  const [sent, setSent] = useState(order.depoSent);
   const router = useRouter();
 
   function handleSend() {
@@ -1285,8 +1287,10 @@ function SendToDepoButton({ order }: { order: OrderRow }) {
     if (!depoName.trim()) { alert("Depo adı gerekli."); return; }
     startTransition(async () => {
       try {
-        await createDepoSiparisFromOrder(order.id, order.source, depoName, depoPhone);
+        const res = await createDepoSiparisFromOrder(order.id, order.source, depoName, depoPhone);
+        if (res && "success" in res && !res.success) { alert((res as { error?: string }).error ?? "Aktarım başarısız."); return; }
         setShowModal(false);
+        setSent(true);
         alert("Yeni depo siparişi oluşturuldu.");
         router.refresh();
       } catch (e) { alert("Hata: " + (e instanceof Error ? e.message : "Bilinmeyen hata")); }
@@ -1304,7 +1308,20 @@ function SendToDepoButton({ order }: { order: OrderRow }) {
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded shadow-xl max-w-sm w-full p-6 space-y-4">
             <h3 className="text-sm font-semibold text-[#2c1810]">Yeni Depo Siparişi Oluştur</h3>
-            <p className="text-xs text-[#8b6f5e]">Açık bir depo siparişi bulunamadı. Yeni oluşturmak için depo bilgilerini girin.</p>
+            <p className="text-xs text-[#8b6f5e]">Açık bir depo siparişi bulunamadı. Kayıtlı bir tedarikçi seçin veya yeni depo bilgisi girin.</p>
+            {suppliers.length > 0 && (
+              <div>
+                <label className="text-xs text-[#5c4033] block mb-1.5">Kayıtlı Tedarikçi</label>
+                <div className="flex flex-wrap gap-2">
+                  {suppliers.map((s) => (
+                    <button key={s.name} type="button" onClick={() => { setDepoName(s.name); setDepoPhone(s.phone); }}
+                      className={`text-xs px-3 py-1.5 border transition-colors ${depoName === s.name ? "bg-[#2c1810] text-white border-[#2c1810]" : "border-[#d4c5ba] text-[#5c4033] hover:bg-[#f5f0eb]"}`}>
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="space-y-3">
               <div>
                 <label className="text-xs text-[#5c4033] block mb-1">Depo / Tedarikçi Adı *</label>

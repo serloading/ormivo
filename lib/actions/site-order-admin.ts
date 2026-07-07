@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { logActivity } from "@/lib/actions/activity-log";
 import { normalizeOrderItems } from "@/lib/order-items";
 import { auth } from "@/lib/auth";
+import { calcDebtStatus, debtStatusToPaymentStatus } from "@/lib/debt-status";
+import { phoneLookupVariants } from "@/lib/phone";
 
 async function requireAdmin() {
   const session = await auth();
@@ -128,6 +130,83 @@ async function syncCargoExpense(orderId: string, orderNo: string, deliveryMethod
       await prisma.finance.delete({ where: { id: existing.id } });
     }
   }
+}
+
+// Sipariş kalemleri (dolayısıyla toplamı) değiştiğinde borç/alacak kaydını senkronize eder.
+// - CustomerDebt zaten varsa (kısmi ödeme): totalAmount yeni toplama, status yeniden hesaplanır.
+// - Yoksa ve sipariş daha önce PAID işaretlenmişse ve yeni toplam artmışsa: aradaki fark için
+//   yeni bir CustomerDebt kaydı açılır (paidAmount = eski toplam, yani zaten ödenen kısım).
+// - Diğer durumlarda (PENDING/FREE, ya da toplam azaldıysa) dokunulmaz.
+async function syncDebtOnItemsUpdate(params: {
+  orderId: string;
+  source: "web" | "manuel";
+  orderNo: string;
+  newTotal: number;
+  oldTotal: number;
+  oldPaymentStatus: string;
+  customerId?: string | null;
+  recipientPhone?: string | null;
+}) {
+  const { orderId, source, orderNo, newTotal, oldTotal, oldPaymentStatus } = params;
+
+  const debt = await prisma.customerDebt.findFirst({
+    where: source === "web" ? { siteOrderId: orderId } : { orderId },
+  });
+
+  if (debt) {
+    const newStatus = calcDebtStatus(debt.paidAmount, newTotal);
+    await prisma.customerDebt.update({
+      where: { id: debt.id },
+      data: { totalAmount: newTotal, status: newStatus },
+    });
+    const newPaymentStatus = debtStatusToPaymentStatus(newStatus);
+    if (source === "web") {
+      await prisma.siteOrder.update({ where: { id: orderId }, data: { paymentStatus: newPaymentStatus } });
+    } else {
+      await prisma.order.update({ where: { id: orderId }, data: { paymentStatus: newPaymentStatus } });
+    }
+    revalidatePath("/admin/borc-alacak");
+    return;
+  }
+
+  // Borç kaydı yok. Sadece "daha önce tamamen ödenmişti, şimdi toplam arttı" senaryosunda yeni borç açılır.
+  if (oldPaymentStatus !== "PAID" || newTotal <= oldTotal) return;
+
+  let customerId = params.customerId ?? null;
+  if (!customerId && params.recipientPhone) {
+    const variants = phoneLookupVariants(params.recipientPhone);
+    const customer = await prisma.customer.findFirst({ where: { phone: { in: variants } } });
+    customerId = customer?.id ?? null;
+  }
+  if (!customerId) return; // müşteri eşleşmesi yoksa borç kaydı açılamaz
+
+  const paidAmount = oldTotal;
+  const status = calcDebtStatus(paidAmount, newTotal);
+  const description = source === "web" ? `Web Sipariş #${orderNo}` : `Manuel Sipariş #${orderNo}`;
+
+  const newDebt = await prisma.customerDebt.create({
+    data: {
+      customerId,
+      orderId: source === "manuel" ? orderId : undefined,
+      siteOrderId: source === "web" ? orderId : undefined,
+      description,
+      totalAmount: newTotal,
+      paidAmount,
+      status,
+    },
+  });
+  if (paidAmount > 0) {
+    await prisma.debtPayment.create({
+      data: { debtId: newDebt.id, amount: paidAmount, note: "Önceki ödeme (ürün güncellemesi öncesi)" },
+    });
+  }
+  const newPaymentStatus = debtStatusToPaymentStatus(status);
+  if (source === "web") {
+    await prisma.siteOrder.update({ where: { id: orderId }, data: { paymentStatus: newPaymentStatus } });
+  } else {
+    await prisma.order.update({ where: { id: orderId }, data: { paymentStatus: newPaymentStatus } });
+  }
+  revalidatePath("/admin/borc-alacak");
 }
 
 // ── Web order actions ─────────────────────────────────────────────────────────
@@ -423,10 +502,11 @@ export async function updateOrderItems(
     // Stok farkı: eski items ile yeni items arasındaki farkı hesapla
     const prevOrder = await prisma.siteOrder.findUniqueOrThrow({
       where: { id: orderId },
-      select: { items: true },
+      select: { items: true, total: true, discount: true, paymentStatus: true, recipientPhone: true },
     });
     const prevItems = prevOrder.items;
     await applyStockDiff(prevItems, items);
+    const oldNetIncome = Math.max(0, Number(prevOrder.total) - Number(prevOrder.discount));
 
     const order = await prisma.siteOrder.update({
       where: { id: orderId },
@@ -471,11 +551,22 @@ export async function updateOrderItems(
     } else {
       await prisma.finance.deleteMany({ where: { siteOrderId: orderId, category: "Kargo Gideri" } });
     }
+
+    // Borç/alacak: eklenen/çıkartılan ürünlere göre mali düzenleme
+    await syncDebtOnItemsUpdate({
+      orderId,
+      source: "web",
+      orderNo: order.orderNo,
+      newTotal: netIncome,
+      oldTotal: oldNetIncome,
+      oldPaymentStatus: prevOrder.paymentStatus,
+      recipientPhone: prevOrder.recipientPhone,
+    });
   } else {
     // Stok farkı: eski items ile yeni items arasındaki farkı hesapla
     const prevOrder = await prisma.order.findUniqueOrThrow({
       where: { id: orderId },
-      select: { items: true },
+      select: { items: true, total: true, paymentStatus: true, customerId: true },
     });
     const prevItems = prevOrder.items;
     await applyStockDiff(prevItems, items);
@@ -509,6 +600,17 @@ export async function updateOrderItems(
       await prisma.finance.deleteMany({ where: { description: { contains: `#${order.orderNo}` }, category: "Ürün Maliyeti" } });
       await ensureCostExpenses({ id: orderId, orderNo: order.orderNo, items }, "manuel");
     }
+
+    // Borç/alacak: eklenen/çıkartılan ürünlere göre mali düzenleme
+    await syncDebtOnItemsUpdate({
+      orderId,
+      source: "manuel",
+      orderNo: order.orderNo,
+      newTotal: total,
+      oldTotal: Number(prevOrder.total),
+      oldPaymentStatus: prevOrder.paymentStatus,
+      customerId: extra?.customerId ?? prevOrder.customerId,
+    });
   }
 
   revalidateAll();

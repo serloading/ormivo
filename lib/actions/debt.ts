@@ -2,15 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-
-// ─────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────
-function calcStatus(paid: number, total: number): string {
-  if (paid <= 0) return "BEKLIYOR";
-  if (paid >= total) return "ODENDI";
-  return "KISMI";
-}
+import { calcDebtStatus as calcStatus } from "@/lib/debt-status";
 
 // ─────────────────────────────────────────
 // CUSTOMER DEBTS

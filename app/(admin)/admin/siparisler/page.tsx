@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import SiparislerClient from "./SiparislerClient";
 import { normalizeOrderItems } from "@/lib/order-items";
+import { getDepoSuppliers } from "@/lib/actions/depo-siparis";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Siparişler — Admin" };
@@ -22,7 +23,7 @@ export default async function SiparislerPage({
       ? ({ status: statusFilter } as never)
       : ({ status: { notIn: ["DELIVERED", "CANCELLED"] } } as never);
 
-  const [siteOrders, b2bOrders, customers, products, categories, brands, orderDebts] = await Promise.all([
+  const [siteOrders, b2bOrders, customers, products, categories, brands, orderDebts, depoSuppliers] = await Promise.all([
     prisma.siteOrder.findMany({
       where: activeFilter,
       orderBy: { createdAt: "desc" },
@@ -45,6 +46,7 @@ export default async function SiparislerPage({
       where: { orderId: { not: null }, status: { not: "ODENDI" } },
       select: { id: true, orderId: true, totalAmount: true, paidAmount: true, description: true },
     }),
+    getDepoSuppliers(),
   ]);
 
   // Build phone→customerId map for siteOrders
@@ -80,6 +82,7 @@ export default async function SiparislerPage({
       deliveryMethod: o.deliveryMethod ?? "CARGO",
       memberName:    o.user?.name ?? null,
       memberPhone:   o.user?.phone ?? null,
+      depoSent:      o.depoSent ?? false,
     })),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...(b2bOrders as any[]).map((o) => ({
@@ -105,6 +108,7 @@ export default async function SiparislerPage({
       deliveryMethod: o.deliveryMethod ?? "PICKUP",
       memberName:    null,
       memberPhone:   null,
+      depoSent:      o.depoSent ?? false,
     })),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
@@ -112,5 +116,5 @@ export default async function SiparislerPage({
     orderDebts.map((d) => [d.orderId!, { id: d.id, totalAmount: Number(d.totalAmount), paidAmount: Number(d.paidAmount), description: d.description }])
   );
 
-  return <SiparislerClient orders={unified} customers={customers} products={products.map(p => ({ ...p, price: Number(p.price), costPrice: p.costPrice != null ? Number(p.costPrice) : null }))} categories={categories} brands={brands} debtByOrderId={debtByOrderId} initialFilter={initialFilter} />;
+  return <SiparislerClient orders={unified} customers={customers} products={products.map(p => ({ ...p, price: Number(p.price), costPrice: p.costPrice != null ? Number(p.costPrice) : null }))} categories={categories} brands={brands} debtByOrderId={debtByOrderId} initialFilter={initialFilter} depoSuppliers={depoSuppliers} />;
 }
