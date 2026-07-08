@@ -46,7 +46,7 @@ const SEGMENT_ORDER: Record<string, number> = { DIAMOND: 0, GOLD: 1, SILVER: 2, 
 
 export default function MusterilerClient({ customers }: { customers: Customer[] }) {
   const router = useRouter();
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
   const [search, setSearch]       = useState("");
   const [segFilter, setSegFilter] = useState("");
   const [modal, setModal]         = useState(false);
@@ -341,7 +341,7 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
             </div>
           )}
 
-          <SubmitRow onCancel={() => setModal(false)} label={editing ? "Güncelle" : "Kaydet"} />
+          <SubmitRow onCancel={() => setModal(false)} label={editing ? "Güncelle" : "Kaydet"} loading={isPending} />
         </form>
       </Modal>
     </>

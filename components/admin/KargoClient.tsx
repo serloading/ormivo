@@ -27,7 +27,7 @@ const COMPANIES = ["Yurtiçi Kargo", "MNG Kargo", "Aras Kargo", "PTT Kargo", "S�
 
 export default function KargoClient({ cargos }: { cargos: Cargo[] }) {
   const router = useRouter();
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
   const [editing, setEditing] = useState<Cargo | null>(null);
   const [form, setForm] = useState({ company: "", trackingNo: "", status: "PREPARING", notes: "" });
 
@@ -123,7 +123,7 @@ export default function KargoClient({ cargos }: { cargos: Cargo[] }) {
             {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </SelectField>
           <TextareaField label="Not" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Müşteriye bilgi verildi..." />
-          <SubmitRow onCancel={() => setEditing(null)} label="Güncelle" />
+          <SubmitRow onCancel={() => setEditing(null)} label="Güncelle" loading={isPending} />
         </form>
       </Modal>
     </div>

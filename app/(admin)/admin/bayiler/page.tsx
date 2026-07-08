@@ -15,6 +15,15 @@ const SEGMENT_BADGE: Record<string, string> = {
 const SEGMENT_LABEL: Record<string, string> = {
   DIAMOND: "Diamond", GOLD: "Gold", SILVER: "Silver", BRONZE: "Bronze",
 };
+const ORDER_STATUS_LABEL: Record<string, string> = {
+  PENDING: "Beklemede", CONFIRMED: "Onaylandı", SHIPPED: "Kargoya Verildi",
+  DELIVERED: "Teslim Edildi", CANCELLED: "İptal Edildi",
+};
+const ORDER_STATUS_COLOR: Record<string, string> = {
+  PENDING: "bg-yellow-100 text-yellow-700", CONFIRMED: "bg-indigo-100 text-indigo-700",
+  SHIPPED: "bg-blue-100 text-blue-700", DELIVERED: "bg-green-100 text-green-700",
+  CANCELLED: "bg-red-100 text-red-600",
+};
 
 const fmt = (n: number) => n.toLocaleString("tr-TR", { maximumFractionDigits: 0 });
 const pct = (curr: number, prev: number) => {
@@ -132,6 +141,22 @@ export default async function BayilerPage() {
   });
   const refMap = new Map(refRows.map((r) => [r.referredById as string, r._count]));
 
+  // ── Ödenmemiş borç toplamı (CustomerDebt, telefon eşleşmesi üzerinden) ──
+  const debtRows = customerIds.length
+    ? await prisma.customerDebt.groupBy({
+        by: ["customerId"],
+        where: { customerId: { in: customerIds }, status: { not: "ODENDI" } },
+        _sum: { totalAmount: true, paidAmount: true },
+      })
+    : [];
+  const debtMap = new Map<string, number>();
+  for (const r of debtRows) {
+    const dealerId = customerIdToDealerId.get(r.customerId);
+    if (!dealerId) continue;
+    const remaining = Number(r._sum.totalAmount ?? 0) - Number(r._sum.paidAmount ?? 0);
+    debtMap.set(dealerId, (debtMap.get(dealerId) ?? 0) + remaining);
+  }
+
   // ── Birleştir ─────────────────────────────────────────────
   const dealers = siteUsers.map((u) => ({
     ...u,
@@ -143,7 +168,42 @@ export default async function BayilerPage() {
     lastRev:     lastMonthMap.get(u.id)?.rev ?? 0,
     lastCnt:     lastMonthMap.get(u.id)?.cnt ?? 0,
     refCount:    refMap.get(u.id) ?? 0,
+    debtAmount:  Math.max(0, debtMap.get(u.id) ?? 0),
   }));
+
+  // ── Son siparişler (SiteOrder + manuel Order karışık, tarihe göre) ──
+  const [siteRecentOrders, manualRecentOrders] = await Promise.all([
+    prisma.siteOrder.findMany({
+      where: { userId: { in: dealerIds } },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: { id: true, orderNo: true, total: true, createdAt: true, status: true, userId: true },
+    }),
+    customerIds.length
+      ? prisma.order.findMany({
+          where: { customerId: { in: customerIds } },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+          select: { id: true, orderNo: true, total: true, createdAt: true, status: true, customerId: true },
+        })
+      : Promise.resolve([]),
+  ]);
+  const dealerNameById = new Map(siteUsers.map((u) => [u.id, u.name ?? u.phone]));
+  const recentOrders = [
+    ...siteRecentOrders.map((o) => ({
+      id: o.id, orderNo: o.orderNo, total: Number(o.total), createdAt: o.createdAt, status: o.status,
+      dealerId: o.userId as string, dealerName: dealerNameById.get(o.userId as string) ?? "—",
+    })),
+    ...manualRecentOrders
+      .map((o) => {
+        const dealerId = customerIdToDealerId.get(o.customerId as string);
+        if (!dealerId) return null;
+        return { id: o.id, orderNo: o.orderNo, total: Number(o.total), createdAt: o.createdAt, status: o.status, dealerId, dealerName: dealerNameById.get(dealerId) ?? "—" };
+      })
+      .filter((o): o is NonNullable<typeof o> => o !== null),
+  ]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 15);
 
   // ── Özet istatistikler ────────────────────────────────────
   const totalThisRev  = dealers.reduce((s, d) => s + d.thisRev, 0);
@@ -274,6 +334,47 @@ export default async function BayilerPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Son siparişler */}
+        <div className="bg-white border border-[#e8ddd6] rounded-sm overflow-hidden">
+          <div className="px-5 py-3 border-b border-[#f0e8e0] flex items-center justify-between">
+            <h3 className="text-[11px] uppercase tracking-widest text-[#5c4033]">Bayilerin Son Siparişleri</h3>
+            <span className="text-[10px] text-[#b8a89e]">tüm bayiler</span>
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[#f0ebe6] bg-[#faf7f4] text-left">
+                {["Bayi", "Sipariş No", "Tarih", "Tutar", "Durum"].map((h) => (
+                  <th key={h} className="px-4 py-2.5 text-[10px] uppercase tracking-wide text-[#b8a89e] font-medium whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#f7f2ef]">
+              {recentOrders.map((o) => (
+                <tr key={o.id} className="hover:bg-[#fdf9f7]">
+                  <td className="px-4 py-3">
+                    <Link href={`/admin/bayiler/${o.dealerId}`} className="font-medium text-[#2c1810] text-sm hover:text-[#8b6f5e] transition-colors">
+                      {o.dealerName}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3 text-[#5c4033] whitespace-nowrap">#{o.orderNo}</td>
+                  <td className="px-4 py-3 text-[#8b6f5e] whitespace-nowrap">
+                    {new Date(o.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" })}
+                  </td>
+                  <td className="px-4 py-3 font-semibold text-[#2c1810] whitespace-nowrap">{fmt(o.total)} ₺</td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${ORDER_STATUS_COLOR[o.status] ?? "bg-[#f0e8e0] text-[#8b6f5e]"}`}>
+                      {ORDER_STATUS_LABEL[o.status] ?? o.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {recentOrders.length === 0 && (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-[#b8a89e]">Henüz sipariş yok.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* ── Bayi kartları ── */}
@@ -297,7 +398,7 @@ function DealerCard({ user }: {
   user: {
     id: string; name: string | null; phone: string; email: string | null;
     isB2BApproved: boolean; b2bMarkup: number | null; segment: string | null;
-    referralCode: string | null; totalSpend: number; orderCount: number; createdAt: Date;
+    referralCode: string | null; totalSpend: number; orderCount: number; debtAmount: number; createdAt: Date;
     _count: { siteOrders: number; referrals: number };
   };
 }) {
@@ -339,6 +440,12 @@ function DealerCard({ user }: {
           </p>
         </div>
       </div>
+      {user.debtAmount > 0 && (
+        <div className="mt-2 pt-2 border-t border-[#f0e8e0] flex items-center justify-between">
+          <span className="text-[10px] text-red-600 uppercase tracking-wide font-medium">Ödenmemiş Borç</span>
+          <span className="text-sm font-semibold text-red-600">{user.debtAmount.toLocaleString("tr-TR")} ₺</span>
+        </div>
+      )}
       {user.referralCode && (
         <div className="mt-2 pt-2 border-t border-[#f0e8e0] flex items-center justify-between">
           <span className="text-[10px] text-[#b8a89e]">Ref: <span className="font-mono font-bold text-[#8b6f5e]">{user.referralCode}</span></span>

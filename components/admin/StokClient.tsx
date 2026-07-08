@@ -10,7 +10,7 @@ type StokItem = { id: string; name: string; category?: { name: string } | null; 
 
 export default function StokClient({ products }: { products: StokItem[] }) {
   const router = useRouter();
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
   const [editing, setEditing] = useState<StokItem | null>(null);
   const [newStock, setNewStock] = useState("");
 
@@ -75,7 +75,7 @@ export default function StokClient({ products }: { products: StokItem[] }) {
         <form onSubmit={handleUpdate} className="space-y-4">
           <div className="text-sm text-[#5c4033] bg-[#faf8f6] p-3 rounded-sm">Mevcut stok: <strong>{editing?.stock} adet</strong></div>
           <Field label="Yeni Stok Adedi" required type="number" min="0" value={newStock} onChange={(e) => setNewStock(e.target.value)} placeholder="0" />
-          <SubmitRow onCancel={() => setEditing(null)} label="Güncelle" />
+          <SubmitRow onCancel={() => setEditing(null)} label="Güncelle" loading={isPending} />
         </form>
       </Modal>
     </div>

@@ -13,7 +13,7 @@ const EMPTY = { type: "INCOME" as "INCOME" | "EXPENSE", description: "", categor
 
 export default function FinansClient({ records }: { records: Rec[] }) {
   const router = useRouter();
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [filterType, setFilterType] = useState("");
@@ -131,7 +131,7 @@ export default function FinansClient({ records }: { records: Rec[] }) {
             <Field label="Tutar (₺)" required type="number" min="0" step="0.01" value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))} placeholder="890" />
             <Field label="Tarih" required type="date" value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} />
           </div>
-          <SubmitRow onCancel={() => setModal(false)} label="Kaydet" />
+          <SubmitRow onCancel={() => setModal(false)} label="Kaydet" loading={isPending} />
         </form>
       </Modal>
     </div>

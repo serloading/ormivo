@@ -17,7 +17,7 @@ const EMPTY = { name: "", slug: "", description: "" };
 
 export default function KategorilerClient({ categories }: { categories: Category[] }) {
   const router = useRouter();
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Category | null>(null);
   const [form, setForm] = useState(EMPTY);
@@ -92,7 +92,7 @@ export default function KategorilerClient({ categories }: { categories: Category
             <p className="text-xs text-[#b8a89e] mt-1">/urunler?kategori={form.slug || "slug"}</p>
           </div>
           <TextareaField label="Açıklama" value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} placeholder="Kadın parfümleri..." />
-          <SubmitRow onCancel={() => setModal(false)} label={editing ? "Güncelle" : "Kaydet"} />
+          <SubmitRow onCancel={() => setModal(false)} label={editing ? "Güncelle" : "Kaydet"} loading={isPending} />
         </form>
       </Modal>
     </div>
