@@ -111,9 +111,17 @@ export default function AdminSidebar() {
       </aside>
 
       {/* Mobile top bar */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-[#2c1810] text-[#f5f0eb] flex items-center justify-between px-5 py-4">
-        <a href="/" target="_blank" rel="noopener noreferrer" className="text-lg font-light tracking-[0.3em] uppercase hover:opacity-80 transition-opacity">Ormivo</a>
-        <button onClick={() => setMobileOpen((v) => !v)} className="flex flex-col gap-1.5 p-1" aria-label="Menü">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-[#2c1810] text-[#f5f0eb] flex items-center justify-between px-3 py-3">
+        <a
+          href="/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 text-[11px] tracking-[0.15em] uppercase px-3 py-2 border border-[#5c4033] rounded-sm hover:bg-[#3d2418] transition-colors shrink-0"
+        >
+          <span aria-hidden>↗</span>
+          Siteyi Görüntüle
+        </a>
+        <button onClick={() => setMobileOpen((v) => !v)} className="flex flex-col gap-1.5 p-2 shrink-0" aria-label="Menü">
           <span className={`block w-5 h-px bg-[#f5f0eb] transition-all ${mobileOpen ? "rotate-45 translate-y-2" : ""}`} />
           <span className={`block w-5 h-px bg-[#f5f0eb] transition-all ${mobileOpen ? "opacity-0" : ""}`} />
           <span className={`block w-5 h-px bg-[#f5f0eb] transition-all ${mobileOpen ? "-rotate-45 -translate-y-2" : ""}`} />

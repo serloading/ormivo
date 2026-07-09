@@ -76,7 +76,8 @@ export default function KargoClient({ cargos }: { cargos: Cargo[] }) {
 
       {cargos.length > 0 && (
         <div className="bg-white border border-[#e8ddd6] rounded-sm overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[700px]">
             <thead>
               <tr className="border-b border-[#e8ddd6] bg-[#faf8f6]">
                 {["Sipariş", "Müşteri", "Firma", "Takip No", "Durum", "Güncelleme", ""].map((h) => (
@@ -109,6 +110,7 @@ export default function KargoClient({ cargos }: { cargos: Cargo[] }) {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

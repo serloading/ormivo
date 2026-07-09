@@ -213,7 +213,8 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
       <p className="text-xs text-[#b8a89e] mb-4">{filtered.length} müşteri</p>
 
       <div className="bg-white border border-[#e8ddd6] rounded-sm overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[800px]">
           <thead>
             <tr className="border-b border-[#e8ddd6] bg-[#faf8f6]">
               <th className="px-4 py-4 w-8">
@@ -274,6 +275,7 @@ export default function MusterilerClient({ customers }: { customers: Customer[] 
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       <Modal open={modal} onClose={() => setModal(false)} title={editing ? "Müşteri Düzenle" : "Yeni Müşteri"}>

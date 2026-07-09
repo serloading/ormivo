@@ -369,6 +369,7 @@ model DepoSiparis {
   depoPhone    String?
   status       String   @default("HAZIRLANIYOR") // HAZIRLANIYOR | ILETILDI
   notes        String?
+  sourceOrders Json?    // [{ orderId, source, orderNo, items }] — "depoya ekle" ile gelen kaynak siparişler; kaynak silinirse geri alınabilsin diye
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }

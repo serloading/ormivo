@@ -14,14 +14,16 @@ import {
   createDebtFromSiteOrder,
   createDebtFromB2BOrder,
 } from "@/lib/actions/debt";
+import { addOrderCharge } from "@/lib/actions/site-order-admin";
 
 // ── Types ────────────────────────────────────────────────────
 interface Customer { id: string; name: string; phone: string | null; }
 interface Order    { id: string; orderNo: string; }
 interface Payment  { id: string; amount: number; note: string | null; paidAt: Date; }
+type ProductSuggestion = { id: string; name: string; price: number; costPrice: number | null; stock: number };
 
 interface CDebt {
-  id: string; customerId: string; orderId: string | null;
+  id: string; customerId: string; orderId: string | null; siteOrderId: string | null;
   description: string; totalAmount: number; paidAmount: number;
   dueDate: Date | null; status: string; createdAt: Date;
   customer: Customer;
@@ -217,6 +219,52 @@ export default function BorcAlacakClient({
         dueDate: editForm.dueDate || null,
       });
       setModal(null);
+    });
+  }
+
+  // ── Ekstra ürün/kargo ekleme (sipariş üzerinden) ───────────
+  const [chargeKind, setChargeKind] = useState<"product" | "shipping">("product");
+  const [chargeForm, setChargeForm] = useState({ productQuery: "", productId: "", productName: "", qty: "1", price: "", amount: "" });
+  const [chargeSuggestions, setChargeSuggestions] = useState<ProductSuggestion[]>([]);
+  const [chargeError, setChargeError] = useState("");
+
+  function resetChargeForm() {
+    setChargeKind("product");
+    setChargeForm({ productQuery: "", productId: "", productName: "", qty: "1", price: "", amount: "" });
+    setChargeSuggestions([]);
+    setChargeError("");
+  }
+
+  async function searchChargeProducts(q: string) {
+    setChargeForm((f) => ({ ...f, productQuery: q, productId: "", productName: q }));
+    if (q.trim().length < 1) { setChargeSuggestions([]); return; }
+    const res = await fetch(`/api/products/search?q=${encodeURIComponent(q)}`);
+    setChargeSuggestions(await res.json());
+  }
+
+  function selectChargeProduct(p: ProductSuggestion) {
+    setChargeForm((f) => ({ ...f, productQuery: p.name, productId: p.id, productName: p.name, price: String(p.price) }));
+    setChargeSuggestions([]);
+  }
+
+  function submitChargeForm(debt: CDebt) {
+    setChargeError("");
+    const source: "web" | "manuel" | null = debt.orderId ? "manuel" : debt.siteOrderId ? "web" : null;
+    const orderId = debt.orderId ?? debt.siteOrderId;
+    if (!source || !orderId) { setChargeError("Bu borç bir siparişe bağlı değil."); return; }
+
+    startT(async () => {
+      const res = chargeKind === "product"
+        ? await addOrderCharge(orderId, source, "product", {
+            productId: chargeForm.productId || undefined,
+            name: chargeForm.productName,
+            qty: Number(chargeForm.qty) || 1,
+            price: Number(chargeForm.price) || 0,
+          })
+        : await addOrderCharge(orderId, source, "shipping", { amount: Number(chargeForm.amount) || 0 });
+      if ("error" in res) { setChargeError(res.error); return; }
+      setModal(null);
+      resetChargeForm();
     });
   }
 
@@ -477,7 +525,7 @@ export default function BorcAlacakClient({
                                 Ödeme Al
                               </button>
                             )}
-                            <button onClick={() => { setEditForm({ description: d.description, totalAmount: String(d.totalAmount), dueDate: d.dueDate ? new Date(d.dueDate).toISOString().slice(0, 10) : "" }); setModal({ type: "edit-debt", debt: d }); }}
+                            <button onClick={() => { setEditForm({ description: d.description, totalAmount: String(d.totalAmount), dueDate: d.dueDate ? new Date(d.dueDate).toISOString().slice(0, 10) : "" }); resetChargeForm(); setModal({ type: "edit-debt", debt: d }); }}
                               className="text-[11px] border border-gray-200 px-2.5 py-1 hover:bg-gray-100 transition-colors">
                               Düzenle
                             </button>
@@ -677,6 +725,71 @@ export default function BorcAlacakClient({
                 {isPending ? "Kaydediliyor..." : "Kaydet"}
               </button>
             </div>
+
+            {(modal.debt.orderId || modal.debt.siteOrderId) && (
+              <div className="border-t border-gray-200 pt-4 mt-2 space-y-3">
+                <p className="text-xs uppercase tracking-widest text-gray-500 font-medium">Siparişe Ekstra Ekle</p>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setChargeKind("product")}
+                    className={`flex-1 text-xs py-2 border transition-colors ${chargeKind === "product" ? "bg-[#2c1810] text-white border-[#2c1810]" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+                    Ürün
+                  </button>
+                  <button type="button" onClick={() => setChargeKind("shipping")}
+                    className={`flex-1 text-xs py-2 border transition-colors ${chargeKind === "shipping" ? "bg-[#2c1810] text-white border-[#2c1810]" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+                    Kargo
+                  </button>
+                </div>
+
+                {chargeKind === "product" ? (
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <input
+                        value={chargeForm.productQuery}
+                        onChange={(e) => searchChargeProducts(e.target.value)}
+                        placeholder="Ürün adı ara veya yaz…"
+                        className={inputCls + " w-full"}
+                      />
+                      {chargeSuggestions.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 z-10 bg-white border border-gray-200 shadow-lg max-h-40 overflow-y-auto">
+                          {chargeSuggestions.map((s) => (
+                            <button key={s.id} type="button" onMouseDown={() => selectChargeProduct(s)}
+                              className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b border-gray-100 last:border-0">
+                              {s.name} <span className="text-[11px] text-gray-400">— {s.price.toLocaleString("tr-TR")}₺ · stok {s.stock}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Field label="Adet">
+                        <input type="number" min="1" value={chargeForm.qty} onChange={(e) => setChargeForm((f) => ({ ...f, qty: e.target.value }))} className={inputCls} />
+                      </Field>
+                      <Field label="Birim Fiyat (₺)">
+                        <input type="number" min="0" value={chargeForm.price} onChange={(e) => setChargeForm((f) => ({ ...f, price: e.target.value }))} className={inputCls} />
+                      </Field>
+                    </div>
+                    {!chargeForm.productId && chargeForm.productQuery && (
+                      <p className="text-[11px] text-amber-600">Listeden seçilmedi — serbest metin ürün olarak eklenecek (stoktan düşülmez).</p>
+                    )}
+                  </div>
+                ) : (
+                  <Field label="Kargo Ücreti (₺)">
+                    <input type="number" min="0" value={chargeForm.amount} onChange={(e) => setChargeForm((f) => ({ ...f, amount: e.target.value }))} className={inputCls} />
+                  </Field>
+                )}
+
+                {chargeError && <p className="text-xs text-red-500">{chargeError}</p>}
+
+                <button
+                  type="button"
+                  onClick={() => submitChargeForm(modal.debt)}
+                  disabled={isPending || (chargeKind === "product" ? (!chargeForm.productName.trim() || !chargeForm.price) : !chargeForm.amount)}
+                  className="w-full bg-emerald-600 text-white text-sm py-2 hover:bg-emerald-700 disabled:opacity-40 transition-colors"
+                >
+                  {isPending ? "Ekleniyor..." : chargeKind === "product" ? "Ürünü Siparişe Ekle" : "Kargo Ücretini Ekle"}
+                </button>
+              </div>
+            )}
           </div>
         </Modal>
       )}

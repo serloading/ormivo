@@ -150,7 +150,8 @@ export default async function SiparisDetayPage({
         {/* Ürünler */}
         <div className="bg-white border border-[#e8ddd6] rounded-sm p-5 md:col-span-2">
           <h3 className="text-xs tracking-widest text-[#5c4033] uppercase mb-4">Ürünler</h3>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[480px]">
             <thead>
               <tr className="border-b border-[#f0ebe6] text-xs text-[#8b6f5e] uppercase tracking-wide">
                 <th className="text-left pb-2">Ürün</th>
@@ -186,6 +187,7 @@ export default async function SiparisDetayPage({
               </tr>
             </tfoot>
           </table>
+          </div>
         </div>
       </div>
     </div>

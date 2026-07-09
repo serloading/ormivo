@@ -281,7 +281,8 @@ export default async function BayilerPage() {
             <h3 className="text-[11px] uppercase tracking-widest text-[#5c4033]">{thisMonthLabel} — Bayi Sıralaması</h3>
             <span className="text-[10px] text-[#b8a89e]">ciro bazlı</span>
           </div>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[720px]">
             <thead>
               <tr className="border-b border-[#f0ebe6] bg-[#faf7f4] text-left">
                 {["#", "Bayi", "Bu Ay Ciro", "Sipariş", "Ort. Sepet", "Geçen Ay", "Değişim", "Referral"].map((h) => (
@@ -333,6 +334,7 @@ export default async function BayilerPage() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
 
         {/* Son siparişler */}
@@ -341,7 +343,8 @@ export default async function BayilerPage() {
             <h3 className="text-[11px] uppercase tracking-widest text-[#5c4033]">Bayilerin Son Siparişleri</h3>
             <span className="text-[10px] text-[#b8a89e]">tüm bayiler</span>
           </div>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[560px]">
             <thead>
               <tr className="border-b border-[#f0ebe6] bg-[#faf7f4] text-left">
                 {["Bayi", "Sipariş No", "Tarih", "Tutar", "Durum"].map((h) => (
@@ -374,6 +377,7 @@ export default async function BayilerPage() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 

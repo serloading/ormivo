@@ -81,7 +81,8 @@ export default function FinansClient({ records }: { records: Rec[] }) {
       </div>
 
       <div className="bg-white border border-[#e8ddd6] rounded-sm overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[700px]">
           <thead>
             <tr className="border-b border-[#e8ddd6] bg-[#faf8f6]">
               {["Tür", "Açıklama", "Kategori", "Tutar", "Tarih", ""].map((h) => (
@@ -114,6 +115,7 @@ export default function FinansClient({ records }: { records: Rec[] }) {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       <Modal open={modal} onClose={() => setModal(false)} title="Finans Kaydı Ekle">

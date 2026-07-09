@@ -190,7 +190,8 @@ export default function RaporClient({ soldItems, categories, brands, topCustomer
           </div>
         ) : (
           <div className="bg-white border border-[#e8ddd6] rounded-sm overflow-hidden">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[560px]">
               <thead>
                 <tr className="border-b border-[#e8ddd6] bg-[#faf8f6] text-left text-xs text-[#8b6f5e] uppercase tracking-widest">
                   <th className="px-4 py-3 w-8">#</th>
@@ -212,6 +213,7 @@ export default function RaporClient({ soldItems, categories, brands, topCustomer
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
         {productTotals.length > 10 && (
@@ -244,7 +246,8 @@ export default function RaporClient({ soldItems, categories, brands, topCustomer
           <div className="py-16 text-center text-[#b8a89e] text-sm bg-white border border-[#e8ddd6] rounded-sm">Henüz müşteri verisi yok.</div>
         ) : (
           <div className="bg-white border border-[#e8ddd6] rounded-sm overflow-hidden">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[560px]">
               <thead>
                 <tr className="border-b border-[#e8ddd6] bg-[#faf8f6] text-left text-xs text-[#8b6f5e] uppercase tracking-widest">
                   <th className="px-4 py-3 w-8">#</th>
@@ -264,6 +267,7 @@ export default function RaporClient({ soldItems, categories, brands, topCustomer
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
         {sortedCustomers.length > 10 && (

@@ -7,6 +7,7 @@ import { normalizeOrderItems } from "@/lib/order-items";
 import { auth } from "@/lib/auth";
 import { calcDebtStatus, debtStatusToPaymentStatus } from "@/lib/debt-status";
 import { phoneLookupVariants } from "@/lib/phone";
+import { removeOrderFromDepo } from "@/lib/actions/depo-siparis";
 
 async function requireAdmin() {
   const session = await auth();
@@ -617,6 +618,83 @@ export async function updateOrderItems(
   return { success: true };
 }
 
+// Borç/alacak sayfasından, mevcut bir siparişe sonradan ekstra ürün ya da
+// kargo ücreti eklemek için. Ürün eklenirse sipariş kalemlerine eklenip
+// stoktan düşülür (updateOrderItems üzerinden — stok farkı, maliyet ve borç
+// senkronizasyonu zaten orada var). Kargo eklenirse sipariş toplamına ve
+// "Kargo Gideri" finans kaydına yansır, borç da buna göre güncellenir.
+export async function addOrderCharge(
+  orderId: string,
+  source: "web" | "manuel",
+  kind: "product" | "shipping",
+  data: { productId?: string; name?: string; qty?: number; price?: number; amount?: number },
+): Promise<{ success: true } | { error: string }> {
+  await requireAdmin();
+
+  if (kind === "product") {
+    const name = data.name?.trim();
+    const qty = Math.max(1, Number(data.qty) || 1);
+    const price = Math.max(0, Number(data.price) || 0);
+    if (!name || price <= 0) return { error: "Ürün adı ve fiyat gerekli." };
+
+    if (source === "web") {
+      const order = await prisma.siteOrder.findUniqueOrThrow({ where: { id: orderId }, select: { items: true, total: true, discount: true, note: true } });
+      const currentItems = normalizeOrderItems(order.items).map((i) => ({ productId: i.productId, name: i.name, qty: i.qty, price: i.price }));
+      const newItems = [...currentItems, { productId: data.productId, name, qty, price }];
+      const newGrossTotal = Number(order.total) + qty * price;
+      await updateOrderItems(orderId, "web", newItems, newGrossTotal, order.note, { discount: Number(order.discount) });
+    } else {
+      const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId }, select: { items: true, total: true, note: true } });
+      const currentItems = normalizeOrderItems(order.items).map((i) => ({ productId: i.productId, name: i.name, qty: i.qty, price: i.price }));
+      const newItems = [...currentItems, { productId: data.productId, name, qty, price }];
+      const newTotal = Number(order.total) + qty * price;
+      await updateOrderItems(orderId, "manuel", newItems, newTotal, order.note, {});
+    }
+    revalidatePath("/admin/borc-alacak");
+    return { success: true };
+  }
+
+  // kind === "shipping"
+  const amount = Math.max(0, Number(data.amount) || 0);
+  if (amount <= 0) return { error: "Tutar gerekli." };
+
+  if (source === "web") {
+    const order = await prisma.siteOrder.findUniqueOrThrow({ where: { id: orderId } });
+    const oldNetTotal = Math.max(0, Number(order.total) - Number(order.discount));
+    const newGrossTotal = Number(order.total) + amount;
+    const newNetTotal = Math.max(0, newGrossTotal - Number(order.discount));
+    await prisma.siteOrder.update({ where: { id: orderId }, data: { total: newGrossTotal } });
+    await prisma.finance.create({
+      data: { type: "EXPENSE", amount, description: `Ek kargo — Sipariş #${order.orderNo}`, category: "Kargo Gideri", siteOrderId: orderId },
+    });
+    await syncDebtOnItemsUpdate({
+      orderId, source: "web", orderNo: order.orderNo,
+      newTotal: newNetTotal, oldTotal: oldNetTotal,
+      oldPaymentStatus: order.paymentStatus, recipientPhone: order.recipientPhone,
+    });
+  } else {
+    const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId } });
+    const oldTotal = Number(order.total);
+    const newTotal = oldTotal + amount;
+    await prisma.order.update({ where: { id: orderId }, data: { total: newTotal } });
+    await prisma.finance.create({
+      data: { type: "EXPENSE", amount, description: `Ek kargo — Sipariş #${order.orderNo}`, category: "Kargo Gideri" },
+    });
+    await syncDebtOnItemsUpdate({
+      orderId, source: "manuel", orderNo: order.orderNo,
+      newTotal, oldTotal,
+      oldPaymentStatus: order.paymentStatus, customerId: order.customerId,
+    });
+  }
+
+  revalidatePath("/admin/siparisler");
+  revalidatePath("/admin/finans");
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/borc-alacak");
+  revalidatePath("/admin/rapor");
+  return { success: true };
+}
+
 export async function deleteOrderById(orderId: string, source: "web" | "manuel") {
   await requireAdmin();
   if (source === "web") {
@@ -647,6 +725,8 @@ export async function deleteOrderById(orderId: string, source: "web" | "manuel")
     await restoreStock(order.items);
     await prisma.order.delete({ where: { id: orderId } });
   }
+  // Bu siparişten "depoya ekle" ile aktarılmış, henüz iletilmemiş ürünleri de geri çıkar
+  await removeOrderFromDepo(orderId, source);
   revalidatePath("/admin/siparisler");
   revalidatePath("/admin/finans");
   revalidatePath("/admin/urunler");

@@ -11,12 +11,12 @@ export async function GET(req: NextRequest) {
       isActive: true,
       name: { contains: q, mode: "insensitive" },
     },
-    select: { id: true, name: true, costPrice: true },
+    select: { id: true, name: true, costPrice: true, price: true, stock: true },
     orderBy: { name: "asc" },
     take: 20,
   });
 
   return NextResponse.json(
-    products.map((p) => ({ id: p.id, name: p.name, costPrice: p.costPrice ? Number(p.costPrice) : null }))
+    products.map((p) => ({ id: p.id, name: p.name, costPrice: p.costPrice ? Number(p.costPrice) : null, price: Number(p.price), stock: p.stock }))
   );
 }

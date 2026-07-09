@@ -131,7 +131,8 @@ export default function MarkalarClient({ brands }: { brands: Brand[] }) {
         {brands.length === 0 ? (
           <div className="py-16 text-center text-sm text-[#b8a89e]">Henuz marka eklenmemis.</div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
             <thead>
               <tr className="border-b border-[#e8ddd6] bg-[#faf8f6]">
                 {["Logo", "Marka", "Slug", "Urun Sayisi", ""].map((h) => (
@@ -166,6 +167,7 @@ export default function MarkalarClient({ brands }: { brands: Brand[] }) {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </>

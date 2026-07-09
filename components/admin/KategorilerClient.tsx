@@ -55,7 +55,8 @@ export default function KategorilerClient({ categories }: { categories: Category
       </div>
 
       <div className="bg-white border border-[#e8ddd6] rounded-sm overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[640px]">
           <thead>
             <tr className="border-b border-[#e8ddd6] bg-[#faf8f6]">
               {["Kategori", "Slug", "Açıklama", "Ürün", ""].map((h) => (
@@ -82,6 +83,7 @@ export default function KategorilerClient({ categories }: { categories: Category
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       <Modal open={modal} onClose={() => setModal(false)} title={editing ? "Kategori Düzenle" : "Yeni Kategori"}>

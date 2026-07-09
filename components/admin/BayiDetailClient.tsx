@@ -239,7 +239,8 @@ export default function BayiDetailClient({
           {orders.length === 0 ? (
             <div className="py-12 text-center text-sm text-[#b8a89e]">Henüz sipariş yok.</div>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[720px]">
               <thead className="bg-[#f9f5f2] border-b border-[#e8ddd6]">
                 <tr>
                   {["Sipariş No", "Tarih", "Ürünler", "Tutar", "Durum", "Ödeme"].map((h) => (
@@ -285,6 +286,7 @@ export default function BayiDetailClient({
                 </tr>
               </tfoot>
             </table>
+            </div>
           )}
         </div>
       )}
@@ -342,7 +344,8 @@ export default function BayiDetailClient({
               Bu bayinin referral kodu ile henüz kimse kayıt olmamış.
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[560px]">
               <thead className="bg-[#f9f5f2] border-b border-[#e8ddd6]">
                 <tr>
                   {["Ad Soyad", "Telefon", "Segment", "Kayıt", "Sipariş"].map((h) => (
@@ -366,6 +369,7 @@ export default function BayiDetailClient({
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       )}
@@ -376,7 +380,8 @@ export default function BayiDetailClient({
           {topProducts.length === 0 ? (
             <div className="py-12 text-center text-sm text-[#b8a89e]">Henüz sipariş ürün verisi yok.</div>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[480px]">
               <thead className="bg-[#f9f5f2] border-b border-[#e8ddd6]">
                 <tr>
                   {["#", "Ürün", "Toplam Adet", "Toplam Tutar"].map((h) => (
@@ -400,6 +405,7 @@ export default function BayiDetailClient({
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       )}

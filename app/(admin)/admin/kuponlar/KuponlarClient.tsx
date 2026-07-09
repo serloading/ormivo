@@ -121,7 +121,8 @@ export default function KuponlarClient({ coupons }: { coupons: Coupon[] }) {
           {coupons.length === 0 ? (
             <div className="py-16 text-center text-[#b8a89e] text-sm">Henüz kupon eklenmemiş.</div>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[600px]">
               <thead>
                 <tr className="border-b border-[#e8ddd6] bg-[#faf8f6] text-xs text-[#8b6f5e] uppercase tracking-widest text-left">
                   <th className="px-4 py-3">Kod</th>
@@ -163,6 +164,7 @@ export default function KuponlarClient({ coupons }: { coupons: Coupon[] }) {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>

@@ -205,7 +205,7 @@ function ItemRow({
       </div>
 
       {/* Satır 2: adet / fiyat / toplam / sil */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 overflow-x-auto pb-1">
         <div className="flex items-center gap-1 shrink-0">
           <span className="text-[10px] uppercase tracking-wide text-[#8b6f5e] w-8">Adet</span>
           <input
@@ -593,7 +593,8 @@ export default function DepoSiparisClient({ siparisler, usdRate, suppliers: init
                       <span className="ml-2">· Kur: {usdRate.toLocaleString("tr-TR")} ₺/$</span>
                       {order.depoPhone && <span className="ml-3">· {order.depoPhone}</span>}
                     </p>
-                    <table className="w-full text-sm">
+                    <div className="overflow-x-auto">
+                    <table className="w-full text-sm min-w-[480px]">
                       <thead>
                         <tr className="text-left border-b border-[#f0ebe6]">
                           <th className="pb-2 text-[11px] uppercase tracking-wide text-[#8b6f5e] font-medium">Ürün Adı</th>
@@ -624,6 +625,7 @@ export default function DepoSiparisClient({ siparisler, usdRate, suppliers: init
                         })}
                       </tbody>
                     </table>
+                    </div>
                     {/* Ödeme özeti */}
                     <div className="mt-3 pt-3 border-t border-[#f0ebe6] space-y-1.5">
                       <div className="flex justify-between text-sm">
@@ -713,10 +715,7 @@ export default function DepoSiparisClient({ siparisler, usdRate, suppliers: init
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs uppercase tracking-widest text-[#8b6f5e] font-medium">Ürünler</label>
-              <button type="button" onClick={addItem} className="text-xs text-[#2c1810] hover:underline">+ Satır Ekle</button>
-            </div>
+            <label className="text-xs uppercase tracking-widest text-[#8b6f5e] font-medium block mb-2">Ürünler</label>
             <div className="space-y-2">
               {items.map((item, idx) => (
                 <ItemRow
@@ -730,6 +729,9 @@ export default function DepoSiparisClient({ siparisler, usdRate, suppliers: init
                 />
               ))}
             </div>
+            <button type="button" onClick={addItem} className="mt-2 w-full text-xs text-[#2c1810] border border-dashed border-[#d4c5ba] rounded-sm py-2 hover:bg-[#f5f0eb] transition-colors">
+              + Ürün Ekle
+            </button>
 
             <div className="mt-4 pt-4 border-t border-[#f0ebe6] space-y-3">
               <div className="flex items-center justify-between">

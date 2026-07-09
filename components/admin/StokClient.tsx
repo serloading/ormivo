@@ -41,7 +41,8 @@ export default function StokClient({ products }: { products: StokItem[] }) {
       )}
 
       <div className="bg-white border border-[#e8ddd6] rounded-sm overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[600px]">
           <thead>
             <tr className="border-b border-[#e8ddd6] bg-[#faf8f6]">
               {["Ürün", "Kategori", "Stok", "Durum", ""].map((h) => (
@@ -69,6 +70,7 @@ export default function StokClient({ products }: { products: StokItem[] }) {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       <Modal open={!!editing} onClose={() => setEditing(null)} title={`Stok Güncelle — ${editing?.name}`}>

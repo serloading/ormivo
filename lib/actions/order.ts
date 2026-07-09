@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { createDebtFromB2BOrder } from "@/lib/actions/debt";
 
 async function requireAdmin() {
   const session = await auth();
@@ -28,6 +29,7 @@ export type OrderFormData = {
   status?: string;
   deliveryMethod?: string;
   orderDate?: string; // ISO date string, overrides createdAt
+  paidAmount?: number; // Girilirse borç/alacak kaydı ve ödeme durumu otomatik oluşturulur
 };
 
 export async function getOrders() {
@@ -102,10 +104,27 @@ export async function createOrder(data: OrderFormData) {
     });
   }
 
+  // Borç/alacak: sipariş tutarı 0'dan büyükse otomatik borç kaydı oluştur.
+  // Ödeme girilmediyse (paidAmount yok/0) tamamı borç olarak kalır — bayi
+  // yönetiminde "Ödenmemiş Borç" olarak görünür. Kısmi/tam ödeme girildiyse
+  // ödeme durumu ona göre PARTIAL/PAID olarak ayarlanır.
+  if (data.total > 0) {
+    const paid = Math.min(Math.max(0, data.paidAmount ?? 0), data.total);
+    await createDebtFromB2BOrder({
+      orderId:        order.id,
+      customerId:     data.customerId,
+      orderNo:        order.orderNo,
+      totalAmount:    data.total,
+      initialPayment: paid,
+    });
+  }
+
   revalidatePath("/admin/siparisler");
   revalidatePath("/admin/finans");
   revalidatePath("/admin/urunler");
   revalidatePath("/admin/musteriler");
+  revalidatePath("/admin/borc-alacak");
+  revalidatePath("/admin/bayiler");
   return { success: true, id: order.id, orderNo: order.orderNo };
 }
 

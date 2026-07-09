@@ -346,7 +346,8 @@ export default function MusteriProfilClient({
           {orders.length === 0 ? (
             <p className="text-sm text-[#b8a89e]">Sipariş yok.</p>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[560px]">
               <thead>
                 <tr className="border-b border-[#f0ebe6]">
                   {["Sipariş No", "Kaynak", "Durum", "Ödeme", "Tutar", "Tarih"].map((h) => (
@@ -380,6 +381,7 @@ export default function MusteriProfilClient({
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>

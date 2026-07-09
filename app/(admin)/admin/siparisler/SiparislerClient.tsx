@@ -470,6 +470,7 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, categ
   const [items, setItems] = useState<ItemForm[]>([{ productId: null, name: "", qty: 1, price: 0 }]);
   const [useManualTotal, setUseManualTotal] = useState(false);
   const [manualTotal, setManualTotal] = useState("");
+  const [paidAmount, setPaidAmount] = useState("");
   const [freeShipping, setFreeShipping] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
@@ -540,6 +541,9 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, categ
   const totalQty = items.reduce((s, i) => s + i.qty, 0);
   const shippingFee = (!freeShipping && isDiamond && deliveryMethod === "CARGO") ? Math.ceil(totalQty / 5) * 200 : 0;
   const netTotal = Math.max(0, grossTotal - discountAmt) + shippingFee;
+  const paidAmt = Math.min(Math.max(0, Number(paidAmount) || 0), netTotal);
+  const resultingPaymentLabel = paidAmt <= 0 ? "Ödeme Bekliyor" : paidAmt >= netTotal ? "Ödeme Alındı" : "Kısmi Ödeme";
+  const resultingPaymentCls = paidAmt <= 0 ? "text-yellow-700" : paidAmt >= netTotal ? "text-green-700" : "text-orange-700";
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -558,6 +562,7 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, categ
         status,
         deliveryMethod,
         orderDate,
+        paidAmount: paidAmt,
       });
       onClose();
     });
@@ -767,6 +772,20 @@ function NewOrderModal({ customers: initCustomers, products: initProducts, categ
                 placeholder="0"
                 className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-400" />
             </div>
+          </div>
+
+          {/* Alınan Ödeme */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Alınan Ödeme (₺)</label>
+            <input type="number" min="0" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)}
+              placeholder="0 — girilmezse tamamı borç olarak kalır"
+              className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-400" />
+            {netTotal > 0 && (
+              <p className={`text-[11px] mt-1 font-medium ${resultingPaymentCls}`}>
+                Ödeme durumu: {resultingPaymentLabel}
+                {paidAmt > 0 && paidAmt < netTotal && ` — Kalan: ${(netTotal - paidAmt).toLocaleString("tr-TR")}₺`}
+              </p>
+            )}
           </div>
 
           {(discountAmt > 0 || shippingFee > 0) && (

@@ -6,6 +6,7 @@ import { canonicalPhone } from "@/lib/phone";
 import { normalizeOrderItems } from "@/lib/order-items";
 
 export type DepoSiparisItem = { productId?: string; name: string; qty: number; unitPrice: number };
+type DepoSourceOrder = { orderId: string; source: "web" | "manuel"; orderNo: string; items: DepoSiparisItem[] };
 
 type DepoFormData = {
   title: string;
@@ -328,6 +329,12 @@ export async function addManualOrderToDepo(orderId: string, source: "manuel" | "
       notes: existingNotes ? `${existingNotes}\n${sourceNote}` : sourceNote,
       status: latestPending.status,
     });
+    // Kaynak siparişi geri alınabilsin diye kaydet (henüz iletilmemiş depo siparişinden silinebilmesi için)
+    const existingSourceOrders = Array.isArray(latestPending.sourceOrders) ? (latestPending.sourceOrders as unknown as DepoSourceOrder[]) : [];
+    await prisma.depoSiparis.update({
+      where: { id: latestPending.id },
+      data: { sourceOrders: [...existingSourceOrders, { orderId, source, orderNo, items: orderItems }] as never },
+    });
     // Kaynak sipariş artık bu depo siparişine eklendi — tekrar eklenemesin
     if (source === "web") {
       await prisma.siteOrder.update({ where: { id: orderId }, data: { depoSent: true } });
@@ -398,6 +405,11 @@ export async function createDepoSiparisFromOrder(
     notes: sourceNote,
   });
 
+  await prisma.depoSiparis.update({
+    where: { id: created.id },
+    data: { sourceOrders: [{ orderId, source, orderNo, items: orderItems }] as never },
+  });
+
   // Kaynak sipariş artık depoya eklendi — tekrar eklenemesin
   if (source === "web") {
     await prisma.siteOrder.update({ where: { id: orderId }, data: { depoSent: true } });
@@ -410,6 +422,67 @@ export async function createDepoSiparisFromOrder(
   revalidatePath("/admin/finans");
   revalidatePath("/admin/siparisler");
   return { success: true as const, mode: "created" as const, depoSiparisId: created.id };
+}
+
+// Bir sipariş silindiğinde, o siparişten "depoya ekle" ile eklenmiş ürünleri
+// henüz depoya iletilmemiş (HAZIRLANIYOR) depo siparişlerinden geri çıkarır.
+// Depo siparişi zaten depoya iletildiyse (ILETILDI) dokunulmaz.
+export async function removeOrderFromDepo(orderId: string, source: "web" | "manuel") {
+  const candidates = await prisma.depoSiparis.findMany({ where: { status: "HAZIRLANIYOR" } });
+
+  for (const depo of candidates) {
+    const sourceOrders = Array.isArray(depo.sourceOrders) ? (depo.sourceOrders as unknown as DepoSourceOrder[]) : [];
+    const match = sourceOrders.find((s) => s.orderId === orderId && s.source === source);
+    if (!match) continue;
+
+    const remainingSourceOrders = sourceOrders.filter((s) => !(s.orderId === orderId && s.source === source));
+    const currentItems = Array.isArray(depo.items) ? (depo.items as unknown as DepoSiparisItem[]) : [];
+
+    // Kaynak siparişin katkısını satırlardan düş
+    const newItems: DepoSiparisItem[] = [];
+    for (const item of currentItems) {
+      const removedLine = match.items.find(
+        (r) =>
+          (r.productId && item.productId && r.productId === item.productId) ||
+          (!r.productId && !item.productId && r.name.trim().toLowerCase() === item.name.trim().toLowerCase() && Number(r.unitPrice) === Number(item.unitPrice)),
+      );
+      if (!removedLine) { newItems.push(item); continue; }
+      const remainingQty = Number(item.qty) - Number(removedLine.qty);
+      if (remainingQty > 0) newItems.push({ ...item, qty: remainingQty });
+    }
+
+    const shippingFee = Number(depo.shippingFee) || 0;
+    const paid = Number(depo.paidAmount) || 0;
+
+    // Hiç ürün ve kaynak sipariş kalmadıysa ve ödeme yapılmadıysa depo siparişini tamamen kaldır
+    if (newItems.length === 0 && remainingSourceOrders.length === 0 && paid === 0) {
+      await deleteDepoSiparis(depo.id);
+      continue;
+    }
+
+    const newTotal = calcTotal(newItems, shippingFee);
+    await prisma.depoSiparis.update({
+      where: { id: depo.id },
+      data: {
+        items: newItems as never,
+        total: newTotal,
+        sourceOrders: remainingSourceOrders as never,
+      },
+    });
+    await syncDerivedRecords({
+      depoSiparisId: depo.id,
+      shippingFee,
+      title: depo.title,
+      orderDate: new Date(depo.orderDate).toISOString().split("T")[0],
+      supplierName: depo.supplierName ?? depo.depoName ?? undefined,
+      total: newTotal,
+      paid,
+    });
+  }
+
+  revalidatePath("/admin/depo-siparisler");
+  revalidatePath("/admin/borc-alacak");
+  revalidatePath("/admin/finans");
 }
 
 export async function getDepoSuppliers(): Promise<{ name: string; phone: string }[]> {
